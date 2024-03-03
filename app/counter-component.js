@@ -5,7 +5,7 @@ function Counter() {
 	return html`
 		<button disabled=${false} @click=${() => setCounter(counter - 1)}>-</button>
 		<span>${counter}</span>
-		<button @click=${() => setCounter(counter + 1)}>+</button>
+		<button @click=${console.log}>+</button>
 	`;
 }
 Counter.componentName = 'counter-component';

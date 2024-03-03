@@ -20,16 +20,15 @@ export interface WompElement extends HTMLElement {
 	props: { [key: string]: any };
 }
 
-interface WompElementStatic {
+interface WompElementClass {
 	new (): any;
-	template: HTMLTemplateElement;
-	getOrCreateTemplate(renderHtml: RenderHtml): HTMLTemplateElement;
+	cachedTemplate: CachedTemplate;
+	getOrCreateTemplate(parts: TemplateStringsArray): CachedTemplate;
 }
 
 interface Dependency {
 	type: number;
 	index: number | number[];
-	node: ChildNode | Attr;
 	name?: string;
 }
 
@@ -46,9 +45,16 @@ let currentHookIndex: number = 0;
 const WC_MARKER = '$wc$';
 const isAttrRegex = /\s+([^\s]*?)="?$/g;
 const selfClosingRegex = /(<([a-x]*?-[a-z]*).*?)\/>/g;
+const isInsideTextTag = /<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi;
+const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
 
 const NODE = 0;
 const ATTR = 1;
+
+const treeWalker = document.createTreeWalker(
+	document,
+	129 // NodeFilter.SHOW_{ELEMENT|COMMENT}
+);
 
 /**
  * Generates the static styles of a component.
@@ -82,128 +88,266 @@ const generateSpecifcStyles = (component: WompComponent) => {
 	return generatedCss;
 };
 
-const createHtml = (parts: TemplateStringsArray) => {
-	console.time('Create HTML');
+//* OK
+//! HTML Nested fare il "join" delle dependencies
+const createHtml = (parts: TemplateStringsArray): [string, string[]] => {
 	let html = '';
+	const attributes = [];
 	const length = parts.length - 1;
 	let attrDelimiter = '';
-	let consecutiveAttributes = 0;
+	let textTagName = '';
 	for (let i = 0; i < length; i++) {
 		let part = parts[i];
-		// If the Regex is global, it will start from the index past the end of the last match.
-		isAttrRegex.lastIndex = 0;
-		const isAttr = isAttrRegex.exec(part);
 		// End of values inside an attribute
-		if (attrDelimiter && part.trim()[0] === attrDelimiter) {
-			part = part.replace(attrDelimiter, '');
-			attrDelimiter = '';
-			html += `"${consecutiveAttributes}"`;
-			consecutiveAttributes = 0;
-		}
-		if (isAttr) {
-			const [match, attrName] = isAttr;
-			const beforeLastChar = match[match.length - 2];
-			attrDelimiter = beforeLastChar === '"' || beforeLastChar === "'" ? beforeLastChar : '';
-			const prevPart = part.substring(0, isAttr.index);
-			let toAdd = `${prevPart} ${attrName}${WC_MARKER}=`;
-			if (attrDelimiter) toAdd += `"${WC_MARKER}`;
-			else toAdd += '"0"';
-			html += toAdd;
-		} else if (attrDelimiter) {
-			html += part + `${WC_MARKER}`;
+		if (attrDelimiter && part.includes(attrDelimiter)) attrDelimiter = '';
+		// End of values inside a text node (script, textarea, title, style)
+		if (textTagName && new RegExp(`<\/${textTagName}>`)) textTagName = '';
+		if (attrDelimiter || textTagName) {
+			// We are inside an attribute
+			html += part + WC_MARKER;
 		} else {
-			html += part + `<?${WC_MARKER}>`;
+			// If the Regex is global, it will start from the index past the end of the last match.
+			isAttrRegex.lastIndex = 0;
+			const isAttr = isAttrRegex.exec(part);
+			if (isAttr) {
+				const [match, attrName] = isAttr;
+				const beforeLastChar = match[match.length - 2];
+				attrDelimiter = beforeLastChar === '"' || beforeLastChar === "'" ? beforeLastChar : '';
+				part = part.substring(0, part.length - 1);
+				let toAdd = `${part}${WC_MARKER}=`;
+				if (attrDelimiter) toAdd += `"${WC_MARKER}`;
+				else toAdd += '"0"';
+				html += toAdd;
+				attributes.push(attrName);
+			} else {
+				isInsideTextTag.lastIndex = 0;
+				const insideTextTag = isInsideTextTag.exec(part);
+				if (insideTextTag) {
+					textTagName = insideTextTag[1];
+					html += part + WC_MARKER;
+				} else {
+					// It's a child node
+					html += part + `<?${WC_MARKER}>`;
+				}
+			}
 		}
 	}
 	html += parts[parts.length - 1];
 	html = html.replace(selfClosingRegex, '$1></$2>');
-	console.timeEnd('Create HTML');
-	return html;
+	return [html, attributes];
 };
 
-const traverse = (
-	childNodes: NodeList,
-	values: any[],
-	index: number,
-	dependencies: Dependency[]
+const createDependencies = (
+	template: HTMLTemplateElement,
+	parts: TemplateStringsArray,
+	attributes: string[]
 ) => {
-	const dependencyValue = values[index];
-	for (const childNode of childNodes) {
-		const child = childNode as HTMLElement;
-		const attributes = child.attributes;
-		if (attributes) {
-			const toRemove = [];
-			const toSet = [];
-			for (const attr of attributes) {
-				const attrName = attr.name;
-				if (attrName.endsWith(WC_MARKER)) {
-					const name = attrName.substring(0, attrName.length - WC_MARKER.length);
-					const attrValue = attr.value;
-					const dependency: Dependency = {
-						type: ATTR,
-						name: name,
-						node: child,
-						index: index,
-					};
-					if (attrValue !== '0') {
-					} else {
-						toRemove.push(attrName);
-						if (!child.nodeName.includes('-')) {
-							if (name[0] === '@') {
-								//! Handle events
-							} else if (dependencyValue !== false) {
-								toSet.push({ name: name, value: dependencyValue });
+	const dependencies = [];
+	treeWalker.currentNode = template.content;
+	let node: Element;
+	let dependencyIndex = 0;
+	let nodeIndex = 0;
+	const partsLength = parts.length;
+	while (((node as Node) = treeWalker.nextNode()) !== null && dependencies.length < partsLength) {
+		// Is a "normal" node
+		if (node.nodeType === 1) {
+			if (node.hasAttributes()) {
+				const attributeNames = node.getAttributeNames();
+				for (const attrName of attributeNames) {
+					if (attrName.endsWith(WC_MARKER)) {
+						const realName = attributes[dependencyIndex++];
+						const attrValue = node.getAttribute(attrName);
+						const dependency: Dependency = {
+							type: ATTR,
+							index: nodeIndex,
+							name: realName,
+						};
+						if (attrValue !== '0') {
+							const dynamicParts = attrValue.split(WC_MARKER);
+							for (const _ of dynamicParts) {
+								const dependency: Dependency = {
+									type: ATTR,
+									index: nodeIndex,
+									name: realName,
+								};
+								dependencies.push(dependency);
 							}
+						} else {
+							dependencies.push(dependency);
 						}
+						node.removeAttribute(attrName);
 					}
-					dependencies.push(dependency);
-					index++;
 				}
 			}
-			for (const name of toRemove) {
-				child.removeAttribute(name);
+			// A text node should be created for each dynamic part inside of
+			// nodes that only have text nodes inside (script, style, textarea, title).
+			if (onlyTextChildrenElementsRegex.test(node.tagName)) {
+				const strings = node.textContent!.split(WC_MARKER);
+				const lastIndex = strings.length - 1;
+				if (lastIndex > 0) {
+					node.textContent = '';
+					for (let i = 0; i < lastIndex; i++) {
+						node.append(strings[i], document.createComment(''));
+						// Walk past the marker node we just added
+						treeWalker.nextNode();
+						dependencies.push({ type: NODE, index: ++nodeIndex });
+					}
+					// Note: because this marker is added after the walker's current
+					// node, it will be walked to in the outer loop (and ignored), so
+					// we don't need to adjust nodeIndex here
+					node.append(strings[lastIndex], document.createComment(''));
+				}
 			}
-			for (const attr of toSet) {
-				child.setAttribute(attr.name, attr.value);
+		} else if (node.nodeType === 8) {
+			// Is a comment
+			const data = (node as unknown as Comment).data;
+			if (data === `?${WC_MARKER}`) {
+				dependencies.push({ type: NODE, index: nodeIndex });
+			} else {
+				//! Capisci sta roba
+				// let i = -1;
+				// while ((i = (node as unknown as Comment).data.indexOf(WC_MARKER, i + 1)) !== -1) {
+				// 	// Comment node has a binding marker inside, make an inactive part
+				// 	// The binding won't work, but subsequent bindings will
+				// 	dependencies.push({ type: COMMENT_PART, index: nodeIndex });
+				// 	// Move to the end of the match
+				// 	i += WC_MARKER.length - 1;
+				// }
 			}
-		} else if (child.nodeName === '#comment' && (childNode as Comment).data === `?${WC_MARKER}`) {
-			(childNode as Comment).after(dependencyValue);
-			const dependency: Dependency = {
-				type: NODE,
-				name: '',
-				node: childNode.nextSibling,
-				index: index,
-			};
-			dependencies.push(dependency);
-			index++;
 		}
-		traverse(child.childNodes, values, index, dependencies);
+		nodeIndex++;
+	}
+	return dependencies;
+};
+
+class DynamicNode {
+	public startNode: ChildNode;
+	public endNode: ChildNode | null;
+	public index: number;
+	public isNode = true;
+
+	constructor(startNode: ChildNode, endNode: ChildNode | null, index: number) {
+		this.startNode = startNode;
+		this.endNode = endNode;
+		this.index = index;
+	}
+}
+
+class DynamicAttribute {
+	public node: HTMLElement;
+	public name: string;
+	public index: number;
+	public isNode = false;
+
+	private _callback: (event: Event) => void;
+	private eventInitialized = false;
+
+	constructor(node: HTMLElement, name: string, index: number) {
+		this.node = node;
+		this.name = name;
+		this.index = index;
+	}
+
+	set callback(callback: (event: Event) => void) {
+		if (!this.eventInitialized) {
+			const eventName = this.name.substring(1);
+			this.node.addEventListener(eventName, this.listener.bind(this));
+			this.eventInitialized = true;
+		}
+		this._callback = callback;
+	}
+
+	private listener(event: Event) {
+		if (this._callback) this._callback(event);
+	}
+}
+
+class CachedTemplate {
+	public template: HTMLTemplateElement;
+	public dependencies: Dependency[];
+
+	constructor(template: HTMLTemplateElement, dependencies: Dependency[]) {
+		this.template = template;
+		this.dependencies = dependencies;
+	}
+
+	public clone(): [DocumentFragment, (DynamicNode | DynamicAttribute)[]] {
+		const content = this.template.content;
+		const dependencies = this.dependencies;
+		const fragment = document.importNode(content, true);
+		treeWalker.currentNode = fragment;
+		let node = treeWalker.nextNode();
+		let nodeIndex = 0;
+		let dynamicIndex = 0;
+		let templateDependency = dependencies[0];
+		const dynamics = [];
+		while (templateDependency !== undefined) {
+			if (nodeIndex === templateDependency.index) {
+				let dynamic: DynamicNode | DynamicAttribute;
+				if (templateDependency.type === NODE) {
+					dynamic = new DynamicNode(
+						node as HTMLElement,
+						node.nextSibling,
+						templateDependency.index
+					);
+				} else if (templateDependency.type === ATTR) {
+					dynamic = new DynamicAttribute(
+						node as HTMLElement,
+						templateDependency.name,
+						templateDependency.index
+					);
+				}
+				dynamics.push(dynamic);
+				templateDependency = dependencies[++dynamicIndex];
+			}
+			if (nodeIndex !== templateDependency?.index) {
+				node = treeWalker.nextNode()!;
+				nodeIndex++;
+			}
+		}
+		treeWalker.currentNode = document;
+		return [fragment, dynamics];
+	}
+}
+
+const setValues = (dynamics: (DynamicNode | DynamicAttribute)[], values: any[]) => {
+	for (let i = 0; i < dynamics.length; i++) {
+		const currentDependency = dynamics[i];
+		const currentValue = values[i];
+		if (currentDependency.isNode) {
+			(currentDependency as DynamicNode).startNode.after(currentValue);
+			(currentDependency as DynamicNode).endNode = (currentValue as HTMLElement).nextSibling;
+		} else {
+			const attrName = (currentDependency as DynamicAttribute).name;
+			if (attrName.startsWith('@')) {
+				(currentDependency as DynamicAttribute).callback = currentValue;
+			} else {
+				const node = (currentDependency as DynamicAttribute).node;
+				if (currentValue === false) node.removeAttribute(attrName);
+				else node.setAttribute(attrName, currentValue);
+			}
+		}
 	}
 };
 
-const womp = (Component: WompComponent): WompElementStatic => {
+const womp = (Component: WompComponent): WompElementClass => {
 	// const styles = generateSpecifcStyles(Component);
 	const WompComponent = class extends HTMLElement implements WompElement {
 		state: any[] = [];
 		props: { [key: string]: any };
 		ROOT: this | ShadowRoot;
 
-		static template: HTMLTemplateElement;
+		static cachedTemplate: CachedTemplate;
 
-		static getOrCreateTemplate(renderHtml: RenderHtml) {
-			const { values, parts } = renderHtml;
-			if (!this.template) {
-				const dom = createHtml(parts);
+		static getOrCreateTemplate(parts: TemplateStringsArray) {
+			if (!this.cachedTemplate) {
+				const [dom, attributes] = createHtml(parts);
 				const template = document.createElement('template');
 				template.innerHTML = dom;
-				const dependencies: Dependency[] = [];
-				console.time('Traverse');
-				traverse(template.content.childNodes, values, 0, dependencies);
-				console.timeEnd('Traverse');
-				this.template = template;
-				console.log(dependencies);
+				const dependencies = createDependencies(template, parts, attributes);
+				this.cachedTemplate = new CachedTemplate(template, dependencies);
 			}
-			return this.template;
+			return this.cachedTemplate;
 		}
 
 		constructor() {
@@ -218,22 +362,31 @@ const womp = (Component: WompComponent): WompElementStatic => {
 		 * Initializes the component with the state, props, and styles.
 		 */
 		private initElement() {
-			console.time('Init');
-			const constructor = this.constructor as typeof WompComponent;
+			//console.time('Init');
 			this.ROOT = this;
+			this.ROOT.innerHTML = '';
 			currentRenderingComponent = this;
 			currentHookIndex = 0;
 			const result = Component.call(this, {});
 			let renderHtml: RenderHtml = result as RenderHtml;
 			if (typeof result === 'string' || result instanceof HTMLElement) renderHtml = html`${result}`;
-			const template = constructor.getOrCreateTemplate(renderHtml);
-			const clone = template.cloneNode(true) as HTMLTemplateElement;
-			this.ROOT.replaceChildren(...clone.content.childNodes);
-			// TODO: Clone and set dependencies
-			// TODO: Events
-			console.timeEnd('Init');
+			const { values, parts } = renderHtml;
+			const template = (this.constructor as typeof WompComponent).getOrCreateTemplate(parts);
+			//console.time('Cloning');
+			const [fragment, dynamics] = template.clone();
+			//console.timeEnd('Cloning');
+			//console.time('Setting values');
+			setValues(dynamics, values);
+			//console.timeEnd('Setting values');
+			//console.time('Children');
+			while (fragment.childNodes.length) {
+				this.ROOT.appendChild(fragment.childNodes[0]);
+			}
+			//console.timeEnd('Children');
+			//console.timeEnd('Init');
 		}
 	};
+
 	return WompComponent;
 };
 
