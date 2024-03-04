@@ -18,6 +18,7 @@ export interface WompComponent {
 export interface WompElement extends HTMLElement {
 	state: any[];
 	props: { [key: string]: any };
+	requestRender: () => void;
 }
 
 interface WompElementClass {
@@ -60,10 +61,12 @@ const treeWalker = document.createTreeWalker(
  * Generates the static styles of a component.
  * @returns The generated styles specific to the component
  */
-const generateSpecifcStyles = (component: WompComponent) => {
+const generateSpecifcStyles = (
+	component: WompComponent
+): [string, { [className: string]: string }] => {
 	const componentCss = component.css || '';
-	const invalidSelectors: string[] = [];
 	if (DEV_MODE) {
+		const invalidSelectors: string[] = [];
 		// It's appropriate that at least one class is present in each selector
 		[...componentCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
 			const cssSelector = selector[1].trim();
@@ -81,11 +84,13 @@ const generateSpecifcStyles = (component: WompComponent) => {
 		classNames.add(className);
 	});
 	let generatedCss = componentCss;
+	const classes: { [key: string]: string } = {};
 	classNames.forEach((className) => {
 		const uniqueClassName = `${component.componentName}__${className}`;
 		generatedCss = generatedCss.replaceAll(className, uniqueClassName);
+		classes[className] = uniqueClassName;
 	});
-	return generatedCss;
+	return [generatedCss, classes];
 };
 
 //* OK
@@ -192,7 +197,7 @@ const createDependencies = (
 						treeWalker.nextNode();
 						dependencies.push({ type: NODE, index: ++nodeIndex });
 					}
-					// Note: because this marker is added after the walker's current
+					// Because this marker is added after the walker's current
 					// node, it will be walked to in the outer loop (and ignored), so
 					// we don't need to adjust nodeIndex here
 					node.append(strings[lastIndex], document.createComment(''));
@@ -224,7 +229,7 @@ class DynamicNode {
 	public startNode: ChildNode;
 	public endNode: ChildNode | null;
 	public index: number;
-	public isNode = true;
+	public isNode: true = true; // For faster access
 
 	constructor(startNode: ChildNode, endNode: ChildNode | null, index: number) {
 		this.startNode = startNode;
@@ -237,7 +242,7 @@ class DynamicAttribute {
 	public node: HTMLElement;
 	public name: string;
 	public index: number;
-	public isNode = false;
+	public isNode: false = false; // For faster access
 
 	private _callback: (event: Event) => void;
 	private eventInitialized = false;
@@ -315,14 +320,48 @@ const setValues = (dynamics: (DynamicNode | DynamicAttribute)[], values: any[]) 
 		const currentDependency = dynamics[i];
 		const currentValue = values[i];
 		if (currentDependency.isNode) {
-			(currentDependency as DynamicNode).startNode.after(currentValue);
-			(currentDependency as DynamicNode).endNode = (currentValue as HTMLElement).nextSibling;
-		} else {
-			const attrName = (currentDependency as DynamicAttribute).name;
+			// Updated elements
+			let newNodesList: any[] | NodeList | HTMLCollection = [currentValue];
+			if (currentValue instanceof NodeList || currentValue instanceof HTMLCollection)
+				newNodesList = currentValue;
+			let prevNode = currentDependency.startNode;
+			let currentNode = prevNode.nextSibling;
+			let newNodeIndex = 0;
+			let index = 0;
+			const newNodesLength = newNodesList.length;
+			while (currentNode !== currentDependency.endNode) {
+				const newNode = newNodesList[newNodeIndex];
+				const next = currentNode.nextSibling;
+				const isNode = newNode instanceof Node;
+				// Dont add the node if the value is false or if the newNode is undefined
+				if (newNode === undefined || newNode === false) currentNode.remove();
+				else if ((isNode && !currentNode.isEqualNode(newNode)) || !isNode) {
+					currentNode.replaceWith(newNode);
+					if (!isNode) newNodeIndex++; // So it doesn't change
+				}
+				prevNode = currentNode;
+				currentNode = next;
+				index++;
+			}
+			// Exceed elements must be added
+			while (index < newNodesLength) {
+				if (!currentNode || index === 0) currentNode = prevNode;
+				const newNode = newNodesList[newNodeIndex];
+				const isNode = newNode instanceof Node;
+				if (newNode !== false) {
+					if (!isNode) newNodeIndex++;
+					currentNode.after(newNode);
+				}
+				currentNode = currentNode.nextSibling;
+				index++;
+			}
+		} else if (currentDependency.isNode === false) {
+			const attrName = currentDependency.name;
 			if (attrName.startsWith('@')) {
-				(currentDependency as DynamicAttribute).callback = currentValue;
+				currentDependency.callback = currentValue;
 			} else {
-				const node = (currentDependency as DynamicAttribute).node;
+				//! Attributi "concatenati" verranno persi
+				const node = currentDependency.node;
 				if (currentValue === false) node.removeAttribute(attrName);
 				else node.setAttribute(attrName, currentValue);
 			}
@@ -331,11 +370,18 @@ const setValues = (dynamics: (DynamicNode | DynamicAttribute)[], values: any[]) 
 };
 
 const womp = (Component: WompComponent): WompElementClass => {
-	// const styles = generateSpecifcStyles(Component);
+	const [generatedCSS, styles] = generateSpecifcStyles(Component);
+	const style = document.createElement('style');
+	style.textContent = generatedCSS;
+	document.body.appendChild(style);
+	//! Check where to attach styles: if shadow-dom, inside the element
 	const WompComponent = class extends HTMLElement implements WompElement {
 		state: any[] = [];
-		props: { [key: string]: any };
-		ROOT: this | ShadowRoot;
+		props: { [key: string]: any } = {};
+
+		private ROOT: this | ShadowRoot;
+		private dynamics: (DynamicNode | DynamicAttribute)[];
+		private updating: boolean = false;
 
 		static cachedTemplate: CachedTemplate;
 
@@ -362,28 +408,44 @@ const womp = (Component: WompComponent): WompElementClass => {
 		 * Initializes the component with the state, props, and styles.
 		 */
 		private initElement() {
-			//console.time('Init');
 			this.ROOT = this;
 			this.ROOT.innerHTML = '';
+			this.props = {
+				...this.props,
+				styles: styles,
+			};
 			currentRenderingComponent = this;
 			currentHookIndex = 0;
-			const result = Component.call(this, {});
-			let renderHtml: RenderHtml = result as RenderHtml;
-			if (typeof result === 'string' || result instanceof HTMLElement) renderHtml = html`${result}`;
+			const renderHtml = this.getRenderData();
 			const { values, parts } = renderHtml;
 			const template = (this.constructor as typeof WompComponent).getOrCreateTemplate(parts);
-			//console.time('Cloning');
 			const [fragment, dynamics] = template.clone();
-			//console.timeEnd('Cloning');
-			//console.time('Setting values');
-			setValues(dynamics, values);
-			//console.timeEnd('Setting values');
-			//console.time('Children');
+			this.dynamics = dynamics;
+			setValues(this.dynamics, values);
 			while (fragment.childNodes.length) {
 				this.ROOT.appendChild(fragment.childNodes[0]);
 			}
-			//console.timeEnd('Children');
-			//console.timeEnd('Init');
+		}
+
+		private getRenderData() {
+			const result = Component.call(this, this.props);
+			let renderHtml: RenderHtml = result as RenderHtml;
+			if (typeof result === 'string' || result instanceof HTMLElement) renderHtml = html`${result}`;
+			return renderHtml;
+		}
+
+		public requestRender() {
+			//! Maybe improve re-rendering
+			if (!this.updating) {
+				this.updating = true;
+				Promise.resolve().then(() => {
+					currentHookIndex = 0;
+					currentRenderingComponent = this;
+					const renderHtml = this.getRenderData();
+					setValues(this.dynamics, renderHtml.values);
+					this.updating = false;
+				});
+			}
 		}
 	};
 
@@ -410,6 +472,7 @@ export const useState = <State>(defaultValue: State) => {
 			value: defaultValue,
 			setter: (newValue: State) => {
 				component.state[index].value = newValue;
+				component.requestRender();
 			},
 		};
 	}
