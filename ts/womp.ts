@@ -68,6 +68,8 @@ const treeWalker = document.createTreeWalker(
 	129 // NodeFilter.SHOW_{ELEMENT|COMMENT}
 );
 
+//! Replace delle classi CSS lo puoi fare con una semplice Regex, senza fare un loop.
+//! La funzione "Replace" accetta una funzione per rimpiazzare, dove puoi salvare le classi.
 /**
  * Generates the static styles of a component.
  * @returns The generated styles specific to the component
