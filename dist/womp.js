@@ -1,6 +1,7 @@
 const DEV_MODE = true;
 let currentRenderingComponent = null;
 let currentHookIndex = 0;
+let currentEffectIndex = 0;
 const WC_MARKER = "$wc$";
 const isAttrRegex = /\s+([^\s]*?)="?$/g;
 const selfClosingRegex = /(<([a-x]*?-[a-z]*).*?)\/>/g;
@@ -63,12 +64,12 @@ const createHtml = (parts) => {
       const isAttr = isAttrRegex.exec(part);
       if (isAttr) {
         const [match, attrName] = isAttr;
-        const beforeLastChar = match[match.length - 2];
+        const beforeLastChar = match[match.length - 1];
         attrDelimiter = beforeLastChar === '"' || beforeLastChar === "'" ? beforeLastChar : "";
-        part = part.substring(0, part.length - 1);
+        part = part.substring(0, part.length - attrDelimiter.length - 1);
         let toAdd = `${part}${WC_MARKER}=`;
         if (attrDelimiter)
-          toAdd += `"${WC_MARKER}`;
+          toAdd += `${attrDelimiter}${WC_MARKER}`;
         else
           toAdd += '"0"';
         html2 += toAdd;
@@ -104,22 +105,23 @@ const createDependencies = (template, parts, attributes) => {
           if (attrName.endsWith(WC_MARKER)) {
             const realName = attributes[dependencyIndex++];
             const attrValue = node.getAttribute(attrName);
-            const dependency = {
-              type: ATTR,
-              index: nodeIndex,
-              name: realName
-            };
             if (attrValue !== "0") {
               const dynamicParts = attrValue.split(WC_MARKER);
-              for (const _ of dynamicParts) {
-                const dependency2 = {
+              for (let i = 0; i < dynamicParts.length - 1; i++) {
+                const dependency = {
                   type: ATTR,
                   index: nodeIndex,
+                  attrDynamics: attrValue,
                   name: realName
                 };
-                dependencies.push(dependency2);
+                dependencies.push(dependency);
               }
             } else {
+              const dependency = {
+                type: ATTR,
+                index: nodeIndex,
+                name: realName
+              };
               dependencies.push(dependency);
             }
             node.removeAttribute(attrName);
@@ -161,12 +163,13 @@ class DynamicNode {
   }
 }
 class DynamicAttribute {
-  constructor(node, name, index) {
+  constructor(node, dependency) {
     this.isNode = false;
     this.eventInitialized = false;
     this.node = node;
-    this.name = name;
-    this.index = index;
+    this.name = dependency.name;
+    this.index = dependency.index;
+    this.attrStructure = dependency.attrDynamics;
   }
   set callback(callback) {
     if (!this.eventInitialized) {
@@ -206,11 +209,7 @@ class CachedTemplate {
             templateDependency.index
           );
         } else if (templateDependency.type === ATTR) {
-          dynamic = new DynamicAttribute(
-            node,
-            templateDependency.name,
-            templateDependency.index
-          );
+          dynamic = new DynamicAttribute(node, templateDependency);
         }
         dynamics.push(dynamic);
         templateDependency = dependencies[++dynamicIndex];
@@ -224,10 +223,12 @@ class CachedTemplate {
     return [fragment, dynamics];
   }
 }
-const setValues = (dynamics, values) => {
+const setValues = (dynamics, values, oldValues) => {
   for (let i = 0; i < dynamics.length; i++) {
     const currentDependency = dynamics[i];
     const currentValue = values[i];
+    if (currentValue === oldValues[i] && !currentDependency.attrStructure)
+      continue;
     if (currentDependency.isNode) {
       let newNodesList = [currentValue];
       if (currentValue instanceof NodeList || currentValue instanceof HTMLCollection)
@@ -270,9 +271,19 @@ const setValues = (dynamics, values) => {
       if (attrName.startsWith("@")) {
         currentDependency.callback = currentValue;
       } else {
-        //! Attributi "concatenati" verranno persi
         const node = currentDependency.node;
-        if (currentValue === false)
+        const attrStructure = currentDependency.attrStructure;
+        if (attrStructure) {
+          const parts = attrStructure.split(WC_MARKER);
+          let dynamicValue = currentValue;
+          for (let j = 0; j < parts.length - 1; j++) {
+            parts[j] = `${parts[j]}${dynamicValue}`;
+            i++;
+            dynamicValue = values[i];
+          }
+          i--;
+          node.setAttribute(attrName, parts.join("").trim());
+        } else if (currentValue === false)
           node.removeAttribute(attrName);
         else
           node.setAttribute(attrName, currentValue);
@@ -290,6 +301,7 @@ const womp = (Component) => {
     constructor() {
       super();
       this.state = [];
+      this.effects = [];
       this.props = {};
       this.updating = false;
       this.initElement();
@@ -313,24 +325,26 @@ const womp = (Component) => {
     initElement() {
       this.ROOT = this;
       this.ROOT.innerHTML = "";
+      this.oldValues = [];
       this.props = {
         ...this.props,
         styles
       };
       currentRenderingComponent = this;
       currentHookIndex = 0;
+      currentEffectIndex = 0;
       const renderHtml = this.getRenderData();
       const { values, parts } = renderHtml;
       const template = this.constructor.getOrCreateTemplate(parts);
       const [fragment, dynamics] = template.clone();
       this.dynamics = dynamics;
-      setValues(this.dynamics, values);
+      setValues(this.dynamics, values, this.oldValues);
       while (fragment.childNodes.length) {
         this.ROOT.appendChild(fragment.childNodes[0]);
       }
     }
     getRenderData() {
-      const result = Component.call(this, this.props);
+      const result = Component(this.props);
       let renderHtml = result;
       if (typeof result === "string" || result instanceof HTMLElement)
         renderHtml = html`${result}`;
@@ -342,9 +356,11 @@ const womp = (Component) => {
         this.updating = true;
         Promise.resolve().then(() => {
           currentHookIndex = 0;
+          currentEffectIndex = 0;
           currentRenderingComponent = this;
           const renderHtml = this.getRenderData();
-          setValues(this.dynamics, renderHtml.values);
+          setValues(this.dynamics, renderHtml.values, this.oldValues);
+          this.oldValues = renderHtml.values;
           this.updating = false;
         });
       }
@@ -361,17 +377,48 @@ export const useState = (defaultValue) => {
   const component = currentRenderingComponent;
   if (!component.state.hasOwnProperty(currentHookIndex)) {
     const index = currentHookIndex;
-    component.state[index] = {
-      value: defaultValue,
-      setter: (newValue) => {
-        component.state[index].value = newValue;
-        component.requestRender();
+    component.state[index] = [
+      defaultValue,
+      (newValue) => {
+        let computedValue = newValue;
+        if (typeof newValue === "function") {
+          computedValue = newValue(component.state[index][0]);
+        }
+        if (computedValue !== component.state[index][0]) {
+          component.state[index][0] = computedValue;
+          component.requestRender();
+        }
       }
-    };
+    ];
   }
   const state = component.state[currentHookIndex];
   currentHookIndex++;
-  return [state.value, state.setter];
+  return state;
+};
+export const useEffect = (callback, dependencies) => {
+  const component = currentRenderingComponent;
+  if (!component.effects.hasOwnProperty(currentEffectIndex)) {
+    const index = currentEffectIndex;
+    const cleanupFunction = callback();
+    component.effects[index] = {
+      dependencies,
+      callback,
+      cleanupFunction
+    };
+  } else {
+    const componentEffect = component.effects[currentEffectIndex];
+    for (let i = 0; i < dependencies.length; i++) {
+      const oldDep = componentEffect.dependencies[i];
+      if (oldDep !== dependencies[i]) {
+        if (componentEffect.cleanupFunction)
+          componentEffect.cleanupFunction();
+        componentEffect.cleanupFunction = callback();
+        componentEffect.dependencies = dependencies;
+        break;
+      }
+    }
+  }
+  currentEffectIndex++;
 };
 export function html(templateParts, ...values) {
   return {

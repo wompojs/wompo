@@ -10,13 +10,22 @@ export interface RenderHtml {
 }
 
 export interface WompComponent {
-	(props: WompProps): (props: WompProps) => RenderHtml;
+	(props: WompProps): RenderHtml;
 	componentName: string;
 	css: string;
 }
 
+type State = [any, (newValue: any) => void];
+
+interface Effect {
+	dependencies: any;
+	callback: VoidFunction | (() => VoidFunction);
+	cleanupFunction: VoidFunction | void;
+}
+
 export interface WompElement extends HTMLElement {
-	state: any[];
+	state: State[];
+	effects: Effect[];
 	props: { [key: string]: any };
 	requestRender: () => void;
 }
@@ -29,8 +38,9 @@ interface WompElementClass {
 
 interface Dependency {
 	type: number;
-	index: number | number[];
+	index: number;
 	name?: string;
+	attrDynamics?: string;
 }
 
 /* 
@@ -43,6 +53,7 @@ const DEV_MODE = true;
 
 let currentRenderingComponent: WompElement = null;
 let currentHookIndex: number = 0;
+let currentEffectIndex: number = 0;
 const WC_MARKER = '$wc$';
 const isAttrRegex = /\s+([^\s]*?)="?$/g;
 const selfClosingRegex = /(<([a-x]*?-[a-z]*).*?)\/>/g;
@@ -116,11 +127,11 @@ const createHtml = (parts: TemplateStringsArray): [string, string[]] => {
 			const isAttr = isAttrRegex.exec(part);
 			if (isAttr) {
 				const [match, attrName] = isAttr;
-				const beforeLastChar = match[match.length - 2];
+				const beforeLastChar = match[match.length - 1];
 				attrDelimiter = beforeLastChar === '"' || beforeLastChar === "'" ? beforeLastChar : '';
-				part = part.substring(0, part.length - 1);
+				part = part.substring(0, part.length - attrDelimiter.length - 1);
 				let toAdd = `${part}${WC_MARKER}=`;
-				if (attrDelimiter) toAdd += `"${WC_MARKER}`;
+				if (attrDelimiter) toAdd += `${attrDelimiter}${WC_MARKER}`;
 				else toAdd += '"0"';
 				html += toAdd;
 				attributes.push(attrName);
@@ -162,22 +173,23 @@ const createDependencies = (
 					if (attrName.endsWith(WC_MARKER)) {
 						const realName = attributes[dependencyIndex++];
 						const attrValue = node.getAttribute(attrName);
-						const dependency: Dependency = {
-							type: ATTR,
-							index: nodeIndex,
-							name: realName,
-						};
 						if (attrValue !== '0') {
 							const dynamicParts = attrValue.split(WC_MARKER);
-							for (const _ of dynamicParts) {
+							for (let i = 0; i < dynamicParts.length - 1; i++) {
 								const dependency: Dependency = {
 									type: ATTR,
 									index: nodeIndex,
+									attrDynamics: attrValue,
 									name: realName,
 								};
 								dependencies.push(dependency);
 							}
 						} else {
+							const dependency: Dependency = {
+								type: ATTR,
+								index: nodeIndex,
+								name: realName,
+							};
 							dependencies.push(dependency);
 						}
 						node.removeAttribute(attrName);
@@ -243,14 +255,16 @@ class DynamicAttribute {
 	public name: string;
 	public index: number;
 	public isNode: false = false; // For faster access
+	public attrStructure: string;
 
 	private _callback: (event: Event) => void;
 	private eventInitialized = false;
 
-	constructor(node: HTMLElement, name: string, index: number) {
+	constructor(node: HTMLElement, dependency: Dependency) {
 		this.node = node;
-		this.name = name;
-		this.index = index;
+		this.name = dependency.name;
+		this.index = dependency.index;
+		this.attrStructure = dependency.attrDynamics;
 	}
 
 	set callback(callback: (event: Event) => void) {
@@ -296,11 +310,7 @@ class CachedTemplate {
 						templateDependency.index
 					);
 				} else if (templateDependency.type === ATTR) {
-					dynamic = new DynamicAttribute(
-						node as HTMLElement,
-						templateDependency.name,
-						templateDependency.index
-					);
+					dynamic = new DynamicAttribute(node as HTMLElement, templateDependency);
 				}
 				dynamics.push(dynamic);
 				templateDependency = dependencies[++dynamicIndex];
@@ -315,10 +325,16 @@ class CachedTemplate {
 	}
 }
 
-const setValues = (dynamics: (DynamicNode | DynamicAttribute)[], values: any[]) => {
+const setValues = (
+	dynamics: (DynamicNode | DynamicAttribute)[],
+	values: any[],
+	oldValues: any[]
+) => {
 	for (let i = 0; i < dynamics.length; i++) {
 		const currentDependency = dynamics[i];
 		const currentValue = values[i];
+		if (currentValue === oldValues[i] && !(currentDependency as DynamicAttribute).attrStructure)
+			continue;
 		if (currentDependency.isNode) {
 			// Updated elements
 			let newNodesList: any[] | NodeList | HTMLCollection = [currentValue];
@@ -360,9 +376,19 @@ const setValues = (dynamics: (DynamicNode | DynamicAttribute)[], values: any[]) 
 			if (attrName.startsWith('@')) {
 				currentDependency.callback = currentValue;
 			} else {
-				//! Attributi "concatenati" verranno persi
 				const node = currentDependency.node;
-				if (currentValue === false) node.removeAttribute(attrName);
+				const attrStructure = currentDependency.attrStructure;
+				if (attrStructure) {
+					const parts = attrStructure.split(WC_MARKER);
+					let dynamicValue = currentValue;
+					for (let j = 0; j < parts.length - 1; j++) {
+						parts[j] = `${parts[j]}${dynamicValue}`;
+						i++; // Go to the next dynamic value
+						dynamicValue = values[i];
+					}
+					i--; // Since it'll be already increased in the loop, decrease by one
+					node.setAttribute(attrName, parts.join('').trim());
+				} else if (currentValue === false) node.removeAttribute(attrName);
 				else node.setAttribute(attrName, currentValue);
 			}
 		}
@@ -373,15 +399,16 @@ const womp = (Component: WompComponent): WompElementClass => {
 	const [generatedCSS, styles] = generateSpecifcStyles(Component);
 	const style = document.createElement('style');
 	style.textContent = generatedCSS;
-	document.body.appendChild(style);
-	//! Check where to attach styles: if shadow-dom, inside the element
+	document.body.appendChild(style); //! Check where to attach styles: if shadow-dom, inside the element
 	const WompComponent = class extends HTMLElement implements WompElement {
 		state: any[] = [];
+		effects: any[] = [];
 		props: { [key: string]: any } = {};
 
 		private ROOT: this | ShadowRoot;
 		private dynamics: (DynamicNode | DynamicAttribute)[];
 		private updating: boolean = false;
+		private oldValues: any[];
 
 		static cachedTemplate: CachedTemplate;
 
@@ -410,25 +437,27 @@ const womp = (Component: WompComponent): WompElementClass => {
 		private initElement() {
 			this.ROOT = this;
 			this.ROOT.innerHTML = '';
+			this.oldValues = [];
 			this.props = {
 				...this.props,
 				styles: styles,
 			};
 			currentRenderingComponent = this;
 			currentHookIndex = 0;
+			currentEffectIndex = 0;
 			const renderHtml = this.getRenderData();
 			const { values, parts } = renderHtml;
 			const template = (this.constructor as typeof WompComponent).getOrCreateTemplate(parts);
 			const [fragment, dynamics] = template.clone();
 			this.dynamics = dynamics;
-			setValues(this.dynamics, values);
+			setValues(this.dynamics, values, this.oldValues);
 			while (fragment.childNodes.length) {
 				this.ROOT.appendChild(fragment.childNodes[0]);
 			}
 		}
 
 		private getRenderData() {
-			const result = Component.call(this, this.props);
+			const result = Component(this.props);
 			let renderHtml: RenderHtml = result as RenderHtml;
 			if (typeof result === 'string' || result instanceof HTMLElement) renderHtml = html`${result}`;
 			return renderHtml;
@@ -440,9 +469,11 @@ const womp = (Component: WompComponent): WompElementClass => {
 				this.updating = true;
 				Promise.resolve().then(() => {
 					currentHookIndex = 0;
+					currentEffectIndex = 0;
 					currentRenderingComponent = this;
 					const renderHtml = this.getRenderData();
-					setValues(this.dynamics, renderHtml.values);
+					setValues(this.dynamics, renderHtml.values, this.oldValues);
+					this.oldValues = renderHtml.values;
 					this.updating = false;
 				});
 			}
@@ -468,17 +499,48 @@ export const useState = <State>(defaultValue: State) => {
 	const component = currentRenderingComponent;
 	if (!component.state.hasOwnProperty(currentHookIndex)) {
 		const index = currentHookIndex;
-		component.state[index] = {
-			value: defaultValue,
-			setter: (newValue: State) => {
-				component.state[index].value = newValue;
-				component.requestRender();
+		component.state[index] = [
+			defaultValue,
+			(newValue: State) => {
+				let computedValue = newValue;
+				if (typeof newValue === 'function') {
+					computedValue = newValue(component.state[index][0]);
+				}
+				if (computedValue !== component.state[index][0]) {
+					component.state[index][0] = computedValue;
+					component.requestRender();
+				}
 			},
-		};
+		];
 	}
 	const state = component.state[currentHookIndex];
 	currentHookIndex++;
-	return [state.value, state.setter];
+	return state;
+};
+
+export const useEffect = (callback: VoidFunction | (() => VoidFunction), dependencies: any[]) => {
+	const component = currentRenderingComponent;
+	if (!component.effects.hasOwnProperty(currentEffectIndex)) {
+		const index = currentEffectIndex;
+		const cleanupFunction = callback();
+		component.effects[index] = {
+			dependencies: dependencies,
+			callback: callback,
+			cleanupFunction: cleanupFunction,
+		};
+	} else {
+		const componentEffect = component.effects[currentEffectIndex];
+		for (let i = 0; i < dependencies.length; i++) {
+			const oldDep = componentEffect.dependencies[i];
+			if (oldDep !== dependencies[i]) {
+				if (componentEffect.cleanupFunction) componentEffect.cleanupFunction();
+				componentEffect.cleanupFunction = callback();
+				componentEffect.dependencies = dependencies;
+				break;
+			}
+		}
+	}
+	currentEffectIndex++;
 };
 
 /* 

@@ -9,17 +9,22 @@
 	<body>
 		<script type="module">
 			import Counter from './counter-component.js';
-			console.time('Perf');
+			import OldCounter from './old-counter.js';
+			/* console.time('Perf');
 			let length = 1000;
 			while (length--) {
 				const counter = new Counter();
 				document.body.appendChild(counter);
 			}
-			console.timeEnd('Perf');
-			/* console.time('Perf');
+			console.timeEnd('Perf'); */
+			console.time('Perf');
 			const counter = new Counter();
 			document.body.appendChild(counter);
-			console.timeEnd('Perf'); */
+			console.timeEnd('Perf');
+			console.time('PerfOld');
+			const oldCounter = new OldCounter();
+			document.body.appendChild(oldCounter);
+			console.timeEnd('PerfOld');
 		</script>
 	</body>
 </html>
