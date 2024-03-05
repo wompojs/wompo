@@ -397,6 +397,8 @@ const setValues = (
 	}
 };
 
+//! Se un component vuole esporre dei metodi?? ( es. modal.open() )
+//! Dovrei metterli nella chiave this. Posso usare un hook.
 const womp = (Component: WompComponent): WompElementClass => {
 	const [generatedCSS, styles] = generateSpecifcStyles(Component);
 	const style = document.createElement('style');
