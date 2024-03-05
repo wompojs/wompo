@@ -68,8 +68,6 @@ const treeWalker = document.createTreeWalker(
 	129 // NodeFilter.SHOW_{ELEMENT|COMMENT}
 );
 
-//! Replace delle classi CSS lo puoi fare con una semplice Regex, senza fare un loop.
-//! La funzione "Replace" accetta una funzione per rimpiazzare, dove puoi salvare le classi.
 /**
  * Generates the static styles of a component.
  * @returns The generated styles specific to the component
@@ -91,23 +89,17 @@ const generateSpecifcStyles = (
 			);
 		});
 	}
-	const classNames = new Set<string>();
-	[...componentCss.matchAll(/\.(.*?)[\s|{]/gm)].forEach((match) => {
-		const className = match[1];
-		classNames.add(className);
-	});
-	let generatedCss = componentCss;
 	const classes: { [key: string]: string } = {};
-	classNames.forEach((className) => {
+	const generatedCss = componentCss.replace(/\.(.*?)[\s|{]/gm, (_, className) => {
 		const uniqueClassName = `${component.componentName}__${className}`;
-		generatedCss = generatedCss.replaceAll(className, uniqueClassName);
 		classes[className] = uniqueClassName;
+		return `.${uniqueClassName} `;
 	});
 	return [generatedCss, classes];
 };
 
 //* OK
-//! HTML Nested fare il "join" delle dependencies
+//! HTML Nested fare il "join" delle dependencies (???)
 const createHtml = (parts: TemplateStringsArray): [string, string[]] => {
 	let html = '';
 	const attributes = [];
@@ -211,28 +203,14 @@ const createDependencies = (
 						treeWalker.nextNode();
 						dependencies.push({ type: NODE, index: ++nodeIndex });
 					}
-					// Because this marker is added after the walker's current
-					// node, it will be walked to in the outer loop (and ignored), so
-					// we don't need to adjust nodeIndex here
+					// It's not necessary to adjust nodeIndex here
 					node.append(strings[lastIndex], document.createComment(''));
 				}
 			}
 		} else if (node.nodeType === 8) {
 			// Is a comment
 			const data = (node as unknown as Comment).data;
-			if (data === `?${WC_MARKER}`) {
-				dependencies.push({ type: NODE, index: nodeIndex });
-			} else {
-				//! Capisci sta roba
-				// let i = -1;
-				// while ((i = (node as unknown as Comment).data.indexOf(WC_MARKER, i + 1)) !== -1) {
-				// 	// Comment node has a binding marker inside, make an inactive part
-				// 	// The binding won't work, but subsequent bindings will
-				// 	dependencies.push({ type: COMMENT_PART, index: nodeIndex });
-				// 	// Move to the end of the match
-				// 	i += WC_MARKER.length - 1;
-				// }
-			}
+			if (data === `?${WC_MARKER}`) dependencies.push({ type: NODE, index: nodeIndex });
 		}
 		nodeIndex++;
 	}
@@ -397,13 +375,22 @@ const setValues = (
 	}
 };
 
+/* 
+================================================
+Womp Component
+================================================
+*/
+
 //! Se un component vuole esporre dei metodi?? ( es. modal.open() )
-//! Dovrei metterli nella chiave this. Posso usare un hook.
+//! Dovrei metterli nella chiave this. Opzioni:
+//! 1. puoi fare this.method dentro il componente: viene già chiamato con this impostato
+//! 2. Crea un hook tipo "useExposedState(nome, defaultValue)"
 const womp = (Component: WompComponent): WompElementClass => {
 	const [generatedCSS, styles] = generateSpecifcStyles(Component);
 	const style = document.createElement('style');
 	style.textContent = generatedCSS;
 	document.body.appendChild(style); //! Check where to attach styles: if shadow-dom, inside the element
+
 	const WompComponent = class extends HTMLElement implements WompElement {
 		state: any[] = [];
 		effects: any[] = [];
@@ -440,6 +427,17 @@ const womp = (Component: WompComponent): WompElementClass => {
 		 */
 		private initElement() {
 			this.ROOT = this;
+			const childrenTemplate = document.createElement('template');
+
+			let currentChild = null;
+			while (this.ROOT.childNodes.length) {
+				currentChild = this.ROOT.childNodes[0];
+				childrenTemplate.appendChild(currentChild);
+			}
+
+			this.props.children = document.importNode(childrenTemplate.content, true);
+			//! Finisci
+
 			this.ROOT.innerHTML = '';
 			this.oldValues = [];
 			this.props = {
@@ -461,7 +459,7 @@ const womp = (Component: WompComponent): WompElementClass => {
 		}
 
 		private getRenderData() {
-			const result = Component(this.props);
+			const result = Component.call(this, this.props);
 			let renderHtml: RenderHtml = result as RenderHtml;
 			if (typeof result === 'string' || result instanceof HTMLElement) renderHtml = html`${result}`;
 			return renderHtml;

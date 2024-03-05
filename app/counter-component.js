@@ -1,6 +1,6 @@
 import { html, defineWomp, useState, useEffect } from '../dist/womp.js';
 
-function Counter({ styles: s }) {
+function Counter({ styles: s, children }) {
 	const [counter, setCounter] = useState(0);
 
 	/* useEffect(() => {
@@ -9,6 +9,8 @@ function Counter({ styles: s }) {
 		}, 10);
 		return () => clearInterval(interval);
 	}, []); */
+
+	console.log(children);
 
 	return html`
 		<button
@@ -20,6 +22,7 @@ function Counter({ styles: s }) {
 		</button>
 		<span class="${s.span}">${counter}</span>
 		<button class=${s.button} @click=${() => setCounter(counter + 1)}>+</button>
+		${children}
 	`;
 }
 Counter.componentName = 'counter-component';
@@ -31,6 +34,9 @@ Counter.css = `
 			width: 100px;
 			display: inline-block;
 			text-align: center;
+		}
+		.span a {
+			color: red;
 		}
 		.button {
 			width: 100px;

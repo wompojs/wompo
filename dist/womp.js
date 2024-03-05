@@ -30,21 +30,15 @@ const generateSpecifcStyles = (component) => {
       );
     });
   }
-  const classNames = /* @__PURE__ */ new Set();
-  [...componentCss.matchAll(/\.(.*?)[\s|{]/gm)].forEach((match) => {
-    const className = match[1];
-    classNames.add(className);
-  });
-  let generatedCss = componentCss;
   const classes = {};
-  classNames.forEach((className) => {
+  const generatedCss = componentCss.replace(/\.(.*?)[\s|{]/gm, (_, className) => {
     const uniqueClassName = `${component.componentName}__${className}`;
-    generatedCss = generatedCss.replaceAll(className, uniqueClassName);
     classes[className] = uniqueClassName;
+    return `.${uniqueClassName} `;
   });
   return [generatedCss, classes];
 };
-//! HTML Nested fare il "join" delle dependencies
+//! HTML Nested fare il "join" delle dependencies (???)
 const createHtml = (parts) => {
   let html2 = "";
   const attributes = [];
@@ -143,11 +137,8 @@ const createDependencies = (template, parts, attributes) => {
       }
     } else if (node.nodeType === 8) {
       const data = node.data;
-      if (data === `?${WC_MARKER}`) {
+      if (data === `?${WC_MARKER}`)
         dependencies.push({ type: NODE, index: nodeIndex });
-      } else {
-        //! Capisci sta roba
-      }
     }
     nodeIndex++;
   }
@@ -291,6 +282,10 @@ const setValues = (dynamics, values, oldValues) => {
     }
   }
 };
+//! Se un component vuole esporre dei metodi?? ( es. modal.open() )
+//! Dovrei metterli nella chiave this. Opzioni:
+//! 1. puoi fare this.method dentro il componente: viene già chiamato con this impostato
+//! 2. Crea un hook tipo "useExposedState(nome, defaultValue)"
 const womp = (Component) => {
   const [generatedCSS, styles] = generateSpecifcStyles(Component);
   const style = document.createElement("style");
@@ -324,6 +319,14 @@ const womp = (Component) => {
      */
     initElement() {
       this.ROOT = this;
+      const childrenTemplate = document.createElement("template");
+      let currentChild = null;
+      while (this.ROOT.childNodes.length) {
+        currentChild = this.ROOT.childNodes[0];
+        childrenTemplate.appendChild(currentChild);
+      }
+      this.props.children = document.importNode(childrenTemplate.content, true);
+      //! Finisci
       this.ROOT.innerHTML = "";
       this.oldValues = [];
       this.props = {
@@ -344,7 +347,7 @@ const womp = (Component) => {
       }
     }
     getRenderData() {
-      const result = Component(this.props);
+      const result = Component.call(this, this.props);
       let renderHtml = result;
       if (typeof result === "string" || result instanceof HTMLElement)
         renderHtml = html`${result}`;

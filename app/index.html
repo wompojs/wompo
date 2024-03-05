@@ -9,7 +9,8 @@
 	<body>
 		<script type="module">
 			import Counter from './counter-component.js';
-			import OldCounter from './old-counter.js';
+			// import OldCounter from './old-counter.js';
+
 			/* console.time('Perf');
 			let length = 1000;
 			while (length--) {
@@ -17,15 +18,26 @@
 				document.body.appendChild(counter);
 			}
 			console.timeEnd('Perf'); */
-			console.time('Perf');
+
+			/* console.time('Perf');
 			const counter = new Counter();
 			document.body.appendChild(counter);
-			console.timeEnd('Perf');
-			console.time('PerfOld');
+			console.timeEnd('Perf'); */
+
+			/* console.time('PerfOld');
 			const oldCounter = new OldCounter();
 			document.body.appendChild(oldCounter);
-			console.timeEnd('PerfOld');
+			console.timeEnd('PerfOld'); */
 		</script>
+
+		<counter-component>
+			<div>
+				<p>Wow!</p>
+				<p>
+					<a href="#">Un link!</a>
+				</p>
+			</div>
+		</counter-component>
 	</body>
 </html>
 
