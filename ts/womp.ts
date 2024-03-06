@@ -1,18 +1,12 @@
 export interface WompProps {
-	children?: WompChildren;
+	children?: NodeList;
 	[key: string]: any;
-}
-
-interface WompChildren {
-	__wompChildren: true;
-	static: boolean;
-	nodes: NodeList;
 }
 
 export interface RenderHtml {
 	parts: TemplateStringsArray;
 	values: any[];
-	__womp: true;
+	__wompHtml: true;
 }
 
 export interface WompComponent {
@@ -28,7 +22,6 @@ export interface WompElement extends HTMLElement {
 	state: State[];
 	effects: Effect[];
 	props: { [key: string]: any };
-	staticChildren: HTMLTemplateElement;
 	requestRender: () => void;
 	updateProps: (prop: string, newValue: any) => void;
 
@@ -364,36 +357,84 @@ class CachedTemplate {
 	}
 }
 
-const handleChildren = (children: WompChildren, dependency: DynamicNode) => {
-	console.log('isChildren');
-	if (children.static) {
-		let currentNode = dependency.startNode;
-		while (children.nodes.length) {
-			currentNode.after(children.nodes[0]);
-			currentNode = currentNode.nextSibling;
-		}
+class HtmlProcessedValue {
+	stringifiedTemplate: string;
+	values: any[];
+	template: [DocumentFragment, Dynamics[]];
+
+	constructor(
+		stringifiedTemplate: string,
+		values: any[],
+		template: [DocumentFragment, Dynamics[]]
+	) {
+		this.stringifiedTemplate = stringifiedTemplate;
+		this.values = values;
+		this.template = template;
 	}
+}
+
+const getRenderHtmlString = (render: RenderHtml) => {
+	let value = '';
+	const { parts, values } = render;
+	for (let i = 0; i < parts.length; i++) {
+		value += parts[i];
+		if (values[i]?.componentName) value += values[i].componentName;
+	}
+	return value;
 };
 
 // This function alters the original [dynamics] array: it's not pure.
 const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
+	const newValues = [...values];
 	for (let i = 0; i < dynamics.length; i++) {
 		const currentDependency = dynamics[i];
-		const currentValue = values[i];
-		if (currentValue === oldValues[i] && !(currentDependency as DynamicAttribute).attrStructure)
+		const currentValue = newValues[i];
+		const oldValue = oldValues[i];
+		if (currentValue === oldValue && !(currentDependency as DynamicAttribute).attrStructure)
 			continue;
+		// handle template elements
+		if (currentValue?.__wompHtml) {
+			const oldStringified = oldValue?.stringifiedTemplate;
+			const newTemplate = getRenderHtmlString(currentValue);
+			const sameString = newTemplate === oldStringified;
+			if (oldValue === undefined || !sameString) {
+				const cachedTemplate = createTemplate(currentValue.parts);
+				const template = cachedTemplate.clone();
+				const [fragment, dynamics] = template;
+				newValues[i] = new HtmlProcessedValue(newTemplate, currentValue.values, template);
+				setValues(dynamics, currentValue.values, oldValue?.values ?? oldValue ?? []);
+				const endNode = (currentDependency as DynamicNode).endNode;
+				const startNode = (currentDependency as DynamicNode).startNode;
+				let currentNode = startNode.nextSibling;
+				while (currentNode !== endNode) {
+					currentNode.remove();
+					currentNode = startNode.nextSibling;
+				}
+				currentNode = startNode;
+				while (fragment.childNodes.length) {
+					currentNode.after(fragment.childNodes[0]);
+					currentNode = currentNode.nextSibling;
+				}
+				//! NON FUNZIONA BENE
+			} else {
+				//! DA TESTARE
+				const [_, dynamics] = (oldValue as HtmlProcessedValue).template;
+				const processedValues = setValues(
+					dynamics,
+					currentValue.values,
+					(oldValue as HtmlProcessedValue).values
+				);
+				(oldValue as HtmlProcessedValue).values = processedValues;
+			}
+			continue;
+		}
 		if (currentDependency.isNode) {
 			// Updated elements
-			const newNode = currentValue;
-			if (newNode.__wompChildren) {
-				handleChildren(newNode, currentDependency);
-			}
-			//! Metti dentro il loop sotto
-
-			//! Una cosa alla volta. Prima singoli elementi, poi array
-			/* let newNodesList: any[] = [currentValue];
+			let newNodesList: any[] | NodeList | HTMLCollection = [currentValue];
+			if (currentValue instanceof NodeList || currentValue instanceof HTMLCollection)
+				newNodesList = currentValue;
 			let prevNode = currentDependency.startNode;
-			let currentNode = prevNode?.nextSibling;
+			let currentNode = prevNode.nextSibling;
 			let newNodeIndex = 0;
 			let index = 0;
 			const newNodesLength = newNodesList.length;
@@ -422,7 +463,7 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 				}
 				currentNode = currentNode.nextSibling;
 				index++;
-			} */
+			}
 		} else if (currentDependency.isAttr) {
 			const attrName = currentDependency.name;
 			if (attrName.startsWith('@')) {
@@ -435,7 +476,7 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					for (let j = 0; j < parts.length - 1; j++) {
 						parts[j] = `${parts[j]}${dynamicValue}`;
 						i++; // Go to the next dynamic value
-						dynamicValue = values[i];
+						dynamicValue = newValues[i];
 					}
 					i--; // Since it'll be already increased in the loop, decrease by one
 					currentDependency.updateValue(parts.join('').trim());
@@ -449,20 +490,21 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 			const isCustomComponent = currentValue.__womp;
 			const newNodeName: string = isCustomComponent ? currentValue.componentName : currentValue;
 			if (node.nodeName !== newNodeName.toUpperCase()) {
-				//! DA FINIRE TAG DINAMICI: PROBLEMA CON I CHILDREN
 				const oldAttributes = (node as HTMLElement).getAttributeNames();
 				if (isCustomComponent) {
 					// Is a Womp Element
 					let children = node.childNodes;
-					if (!!(node as WompElement).__womp) {
-						children = (node as WompElement).staticChildren.content.childNodes;
+					if (DEV_MODE) {
+						if ((node as WompElement).__womp) {
+							throw new Error(
+								'Changing the rendering component using a dynamic tag is currently not supported.\n' +
+									'Instead, use conditional rendering.'
+							);
+						}
 					}
+					//! Al posto di any metti WompProps
 					const initialProps: WompProps = {
-						children: {
-							static: false,
-							__wompChildren: true,
-							nodes: children,
-						},
+						children: children,
 					};
 					for (const attrName of oldAttributes) {
 						// attributes on the dom will be set when creating the element
@@ -479,7 +521,7 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 				// Update references of the node to other dynamics elements
 				let index = i;
 				let currentDynamic = dynamics[index] as DynamicAttribute;
-				while (currentDynamic.node === node) {
+				while (currentDynamic?.node === node) {
 					// Alters the original value
 					currentDynamic.node = customElement;
 					currentDynamic = dynamics[++index] as DynamicAttribute;
@@ -488,6 +530,15 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 			}
 		}
 	}
+	return newValues;
+};
+
+const createTemplate = (parts: TemplateStringsArray) => {
+	const [dom, attributes] = createHtml(parts);
+	const template = document.createElement('template');
+	template.innerHTML = dom;
+	const dependencies = createDependencies(template, parts, attributes);
+	return new CachedTemplate(template, dependencies);
 };
 
 /* 
@@ -514,29 +565,26 @@ const womp = (Component: WompComponent): WompElementClass => {
 		effects: any[] = [];
 		props: { [key: string]: any } = {};
 		__womp: true = true;
-		staticChildren: HTMLTemplateElement;
+
+		private initialProps: WompProps = {};
 
 		private ROOT: this | ShadowRoot;
 		private dynamics: Dynamics[];
 		private updating: boolean = false;
 		private oldValues: any[];
+		private isInitializing: boolean;
 
 		static cachedTemplate: CachedTemplate;
 
 		static getOrCreateTemplate(parts: TemplateStringsArray) {
-			if (!this.cachedTemplate) {
-				const [dom, attributes] = createHtml(parts);
-				const template = document.createElement('template');
-				template.innerHTML = dom;
-				const dependencies = createDependencies(template, parts, attributes);
-				this.cachedTemplate = new CachedTemplate(template, dependencies);
-			}
+			if (!this.cachedTemplate) this.cachedTemplate = createTemplate(parts);
 			return this.cachedTemplate;
 		}
 
 		constructor(initialProps: WompProps) {
 			super();
-			this.initElement(initialProps ?? {});
+			this.initialProps = initialProps ?? {};
+			this.initElement();
 		}
 
 		/** @override component is connected to DOM */
@@ -545,12 +593,13 @@ const womp = (Component: WompComponent): WompElementClass => {
 		/**
 		 * Initializes the component with the state, props, and styles.
 		 */
-		private initElement(initialProps: WompProps) {
+		private initElement() {
+			this.isInitializing = true;
 			this.ROOT = this;
 			this.oldValues = [];
 
 			this.props = {
-				...initialProps,
+				...this.initialProps,
 				styles: styles,
 			};
 
@@ -560,36 +609,24 @@ const womp = (Component: WompComponent): WompElementClass => {
 			}
 
 			//! Da finire!
-			if (!initialProps.children) {
-				const children = initialProps.children ? initialProps.children.nodes : this.ROOT.childNodes;
-				// Clone children, only in init phase
-				const childrenTemplate = document.createElement('template');
-				let currentChild = null;
-				while (children.length) {
-					currentChild = children[0];
-					childrenTemplate.content.appendChild(currentChild);
-				}
-				this.props.children = {
-					__wompChildren: true,
-					static: true,
-					nodes: document.importNode(
-						childrenTemplate.content /* this.staticChildren.content */,
-						true
-					).childNodes,
-				};
-			} /*  else {
-				this.staticChildren = initialProps.children;
-			} */
+			if (!this.initialProps.children) {
+				const children = this.ROOT.childNodes;
+				this.props.children = children;
+			}
+			// No else needed, cause if the children are dynamic it means yhey are already
+			// inside a custom component, which manually renders custom components
 
 			const renderHtml = this.callComponent();
 			const { values, parts } = renderHtml;
 			const template = (this.constructor as typeof WompComponent).getOrCreateTemplate(parts);
 			const [fragment, dynamics] = template.clone();
 			this.dynamics = dynamics;
-			setValues(this.dynamics, values, this.oldValues);
+			const elaboratedValues = setValues(this.dynamics, values, this.oldValues);
+			this.oldValues = elaboratedValues;
 			while (fragment.childNodes.length) {
 				this.ROOT.appendChild(fragment.childNodes[0]);
 			}
+			this.isInitializing = false;
 		}
 
 		private callComponent() {
@@ -606,9 +643,7 @@ const womp = (Component: WompComponent): WompElementClass => {
 			if (!this.updating) {
 				this.updating = true;
 				Promise.resolve().then(() => {
-					if (this.staticChildren)
-						// Static children. Copy whole node
-						this.props.children = document.importNode(this.staticChildren.content, true);
+					console.log(this);
 					const renderHtml = this.callComponent();
 					setValues(this.dynamics, renderHtml.values, this.oldValues);
 					this.oldValues = renderHtml.values;
@@ -620,9 +655,8 @@ const womp = (Component: WompComponent): WompElementClass => {
 		public updateProps(prop: string, value: any) {
 			if (this.props[prop] !== value) {
 				this.props[prop] = value;
-				console.log(`Updating ${prop}`);
-				//! Test how many times it requests an update and how many it actually updates
-				this.requestRender();
+				console.warn(`Updating ${prop}`, this.isInitializing);
+				if (!this.isInitializing) this.requestRender();
 			}
 		}
 	};
@@ -728,6 +762,6 @@ export function html(templateParts: TemplateStringsArray, ...values: any[]): Ren
 	return {
 		parts: templateParts,
 		values: cleanValues,
-		__womp: true,
+		__wompHtml: true,
 	};
 }

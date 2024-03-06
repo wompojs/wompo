@@ -12,10 +12,6 @@ function Counter({ styles: s, children, symbol }) {
 		return () => clearInterval(interval);
 	}, []); */
 
-	console.log(children);
-
-	let ComponentToRender = counter % 2 === 0 ? SecondComponent : ThirdComponent;
-
 	return html`
 		<button
 			class="${s.button} ${'static'}"
@@ -26,8 +22,19 @@ function Counter({ styles: s, children, symbol }) {
 		</button>
 		<span class="${s.span}">${counter} ${symbol}</span>
 		<button class=${s.button} @click=${() => setCounter(counter + 1)}>+</button>
-		<${SecondComponent} name="Lore" counter=${counter} />
-		${children}
+		${counter % 3 === 0
+			? html`
+				<${SecondComponent} counter=${counter} name="Lorenzo">
+					<b>BU! ${counter}</b>
+					${children}
+				</${SecondComponent}>
+			`
+			: html`
+				<${ThirdComponent} counter=${counter} name="Lorenzo">
+					<b>BU! ${counter}</b>
+					${children}
+				</${ThirdComponent}>
+			`}
 	`;
 }
 Counter.componentName = 'counter-component';
