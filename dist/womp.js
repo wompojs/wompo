@@ -3,39 +3,42 @@ let currentRenderingComponent = null;
 let currentHookIndex = 0;
 let currentEffectIndex = 0;
 const WC_MARKER = "$wc$";
+const DYNAMIC_TAG_MARKER = "wc-wc";
+const isDynamicTagRegex = /<\/?$/g;
 const isAttrRegex = /\s+([^\s]*?)="?$/g;
 const selfClosingRegex = /(<([a-x]*?-[a-z]*).*?)\/>/g;
 const isInsideTextTag = /<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi;
 const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
 const NODE = 0;
 const ATTR = 1;
+const TAG_NAME = 2;
 const treeWalker = document.createTreeWalker(
   document,
   129
   // NodeFilter.SHOW_{ELEMENT|COMMENT}
 );
 const generateSpecifcStyles = (component) => {
-  const componentCss = component.css || "";
+  const { css, componentName } = component;
   if (DEV_MODE) {
     const invalidSelectors = [];
-    [...componentCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
+    [...css.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
       const cssSelector = selector[1].trim();
       if (!cssSelector.includes("."))
         invalidSelectors.push(cssSelector);
     });
     invalidSelectors.forEach((selector) => {
       console.warn(
-        `The CSS selector "${selector} {...}" in the component "${component.componentName}" is not enough specific: include at least one class.
+        `The CSS selector "${selector} {...}" in the component "${componentName}" is not enough specific: include at least one class.
 `
       );
     });
   }
   const classes = {};
-  const generatedCss = componentCss.replace(/\.(.*?)[\s|{]/gm, (_, className) => {
-    const uniqueClassName = `${component.componentName}__${className}`;
+  const generatedCss = css.replace(/\.(.*?)[\s|{]/gm, (_, className) => {
+    const uniqueClassName = `${componentName}__${className}`;
     classes[className] = uniqueClassName;
     return `.${uniqueClassName} `;
-  });
+  }) + `${componentName} {display:block;}`;
   return [generatedCss, classes];
 };
 //! HTML Nested fare il "join" delle dependencies (???)
@@ -69,6 +72,10 @@ const createHtml = (parts) => {
         html2 += toAdd;
         attributes.push(attrName);
       } else {
+        if (part.match(isDynamicTagRegex)) {
+          html2 += part + DYNAMIC_TAG_MARKER;
+          continue;
+        }
         isInsideTextTag.lastIndex = 0;
         const insideTextTag = isInsideTextTag.exec(part);
         if (insideTextTag) {
@@ -93,6 +100,13 @@ const createDependencies = (template, parts, attributes) => {
   const partsLength = parts.length;
   while ((node = treeWalker.nextNode()) !== null && dependencies.length < partsLength) {
     if (node.nodeType === 1) {
+      if (node.nodeName === DYNAMIC_TAG_MARKER.toUpperCase()) {
+        const dependency = {
+          type: TAG_NAME,
+          index: nodeIndex
+        };
+        dependencies.push(dependency);
+      }
       if (node.hasAttributes()) {
         const attributeNames = node.getAttributeNames();
         for (const attrName of attributeNames) {
@@ -148,6 +162,10 @@ class DynamicNode {
   // For faster access
   constructor(startNode, endNode, index) {
     this.isNode = true;
+    // For faster access
+    this.isAttr = false;
+    // For faster access
+    this.isTag = false;
     this.startNode = startNode;
     this.endNode = endNode;
     this.index = index;
@@ -156,11 +174,25 @@ class DynamicNode {
 class DynamicAttribute {
   constructor(node, dependency) {
     this.isNode = false;
+    // For faster access
+    this.isAttr = true;
+    // For faster access
+    this.isTag = false;
     this.eventInitialized = false;
     this.node = node;
     this.name = dependency.name;
     this.index = dependency.index;
     this.attrStructure = dependency.attrDynamics;
+  }
+  updateValue(newValue) {
+    if (this.node.__womp) {
+      this.node.updateProps(this.name, newValue);
+    }
+    const isPrimitive = newValue !== Object(newValue);
+    if (newValue === false)
+      this.node.removeAttribute(this.name);
+    else if (isPrimitive)
+      this.node.setAttribute(this.name, newValue);
   }
   set callback(callback) {
     if (!this.eventInitialized) {
@@ -173,6 +205,17 @@ class DynamicAttribute {
   listener(event) {
     if (this._callback)
       this._callback(event);
+  }
+}
+class DynamicTag {
+  // For faster access
+  constructor(node) {
+    this.isNode = false;
+    // For faster access
+    this.isAttr = false;
+    // For faster access
+    this.isTag = true;
+    this.node = node;
   }
 }
 class CachedTemplate {
@@ -193,14 +236,17 @@ class CachedTemplate {
     while (templateDependency !== void 0) {
       if (nodeIndex === templateDependency.index) {
         let dynamic;
-        if (templateDependency.type === NODE) {
+        const type = templateDependency.type;
+        if (type === NODE) {
           dynamic = new DynamicNode(
             node,
             node.nextSibling,
             templateDependency.index
           );
-        } else if (templateDependency.type === ATTR) {
+        } else if (type === ATTR) {
           dynamic = new DynamicAttribute(node, templateDependency);
+        } else if (type === TAG_NAME) {
+          dynamic = new DynamicTag(node);
         }
         dynamics.push(dynamic);
         templateDependency = dependencies[++dynamicIndex];
@@ -214,6 +260,16 @@ class CachedTemplate {
     return [fragment, dynamics];
   }
 }
+const handleChildren = (children, dependency) => {
+  console.log("isChildren");
+  if (children.static) {
+    let currentNode = dependency.startNode;
+    while (children.nodes.length) {
+      currentNode.after(children.nodes[0]);
+      currentNode = currentNode.nextSibling;
+    }
+  }
+};
 const setValues = (dynamics, values, oldValues) => {
   for (let i = 0; i < dynamics.length; i++) {
     const currentDependency = dynamics[i];
@@ -221,48 +277,17 @@ const setValues = (dynamics, values, oldValues) => {
     if (currentValue === oldValues[i] && !currentDependency.attrStructure)
       continue;
     if (currentDependency.isNode) {
-      let newNodesList = [currentValue];
-      if (currentValue instanceof NodeList || currentValue instanceof HTMLCollection)
-        newNodesList = currentValue;
-      let prevNode = currentDependency.startNode;
-      let currentNode = prevNode.nextSibling;
-      let newNodeIndex = 0;
-      let index = 0;
-      const newNodesLength = newNodesList.length;
-      while (currentNode !== currentDependency.endNode) {
-        const newNode = newNodesList[newNodeIndex];
-        const next = currentNode.nextSibling;
-        const isNode = newNode instanceof Node;
-        if (newNode === void 0 || newNode === false)
-          currentNode.remove();
-        else if (isNode && !currentNode.isEqualNode(newNode) || !isNode) {
-          currentNode.replaceWith(newNode);
-          if (!isNode)
-            newNodeIndex++;
-        }
-        prevNode = currentNode;
-        currentNode = next;
-        index++;
+      const newNode = currentValue;
+      if (newNode.__wompChildren) {
+        handleChildren(newNode, currentDependency);
       }
-      while (index < newNodesLength) {
-        if (!currentNode || index === 0)
-          currentNode = prevNode;
-        const newNode = newNodesList[newNodeIndex];
-        const isNode = newNode instanceof Node;
-        if (newNode !== false) {
-          if (!isNode)
-            newNodeIndex++;
-          currentNode.after(newNode);
-        }
-        currentNode = currentNode.nextSibling;
-        index++;
-      }
-    } else if (currentDependency.isNode === false) {
+      //! Metti dentro il loop sotto
+      //! Una cosa alla volta. Prima singoli elementi, poi array
+    } else if (currentDependency.isAttr) {
       const attrName = currentDependency.name;
       if (attrName.startsWith("@")) {
         currentDependency.callback = currentValue;
       } else {
-        const node = currentDependency.node;
         const attrStructure = currentDependency.attrStructure;
         if (attrStructure) {
           const parts = attrStructure.split(WC_MARKER);
@@ -273,11 +298,48 @@ const setValues = (dynamics, values, oldValues) => {
             dynamicValue = values[i];
           }
           i--;
-          node.setAttribute(attrName, parts.join("").trim());
-        } else if (currentValue === false)
-          node.removeAttribute(attrName);
-        else
-          node.setAttribute(attrName, currentValue);
+          currentDependency.updateValue(parts.join("").trim());
+        } else {
+          currentDependency.updateValue(currentValue);
+        }
+      }
+    } else if (currentDependency.isTag) {
+      const node = currentDependency.node;
+      let customElement = null;
+      const isCustomComponent = currentValue.__womp;
+      const newNodeName = isCustomComponent ? currentValue.componentName : currentValue;
+      if (node.nodeName !== newNodeName.toUpperCase()) {
+        //! DA FINIRE TAG DINAMICI: PROBLEMA CON I CHILDREN
+        const oldAttributes = node.getAttributeNames();
+        if (isCustomComponent) {
+          let children = node.childNodes;
+          if (!!node.__womp) {
+            children = node.staticChildren.content.childNodes;
+          }
+          const initialProps = {
+            children: {
+              static: false,
+              __wompChildren: true,
+              nodes: children
+            }
+          };
+          for (const attrName of oldAttributes) {
+            initialProps[attrName] = node.getAttribute(attrName);
+          }
+          customElement = new currentValue(initialProps);
+        } else {
+          customElement = document.createElement(newNodeName);
+          for (const attrName of oldAttributes) {
+            customElement.setAttribute(attrName, node.getAttribute(attrName));
+          }
+        }
+        let index = i;
+        let currentDynamic = dynamics[index];
+        while (currentDynamic.node === node) {
+          currentDynamic.node = customElement;
+          currentDynamic = dynamics[++index];
+        }
+        node.replaceWith(customElement);
       }
     }
   }
@@ -293,13 +355,20 @@ const womp = (Component) => {
   document.body.appendChild(style);
   //! Check where to attach styles: if shadow-dom, inside the element
   const WompComponent = class extends HTMLElement {
-    constructor() {
+    constructor(initialProps) {
       super();
       this.state = [];
       this.effects = [];
       this.props = {};
+      this.__womp = true;
       this.updating = false;
-      this.initElement();
+      this.initElement(initialProps ?? {});
+    }
+    static {
+      this.componentName = Component.componentName;
+    }
+    static {
+      this.__womp = true;
     }
     static getOrCreateTemplate(parts) {
       if (!this.cachedTemplate) {
@@ -317,26 +386,36 @@ const womp = (Component) => {
     /**
      * Initializes the component with the state, props, and styles.
      */
-    initElement() {
+    initElement(initialProps) {
       this.ROOT = this;
-      const childrenTemplate = document.createElement("template");
-      let currentChild = null;
-      while (this.ROOT.childNodes.length) {
-        currentChild = this.ROOT.childNodes[0];
-        childrenTemplate.appendChild(currentChild);
-      }
-      this.props.children = document.importNode(childrenTemplate.content, true);
-      //! Finisci
-      this.ROOT.innerHTML = "";
       this.oldValues = [];
       this.props = {
-        ...this.props,
+        ...initialProps,
         styles
       };
-      currentRenderingComponent = this;
-      currentHookIndex = 0;
-      currentEffectIndex = 0;
-      const renderHtml = this.getRenderData();
+      const componentAttributes = this.getAttributeNames();
+      for (const attrName of componentAttributes) {
+        this.props[attrName] = this.getAttribute(attrName);
+      }
+      //! Da finire!
+      if (!initialProps.children) {
+        const children = initialProps.children ? initialProps.children.nodes : this.ROOT.childNodes;
+        const childrenTemplate = document.createElement("template");
+        let currentChild = null;
+        while (children.length) {
+          currentChild = children[0];
+          childrenTemplate.content.appendChild(currentChild);
+        }
+        this.props.children = {
+          __wompChildren: true,
+          static: true,
+          nodes: document.importNode(
+            childrenTemplate.content,
+            true
+          ).childNodes
+        };
+      }
+      const renderHtml = this.callComponent();
       const { values, parts } = renderHtml;
       const template = this.constructor.getOrCreateTemplate(parts);
       const [fragment, dynamics] = template.clone();
@@ -346,7 +425,10 @@ const womp = (Component) => {
         this.ROOT.appendChild(fragment.childNodes[0]);
       }
     }
-    getRenderData() {
+    callComponent() {
+      currentRenderingComponent = this;
+      currentHookIndex = 0;
+      currentEffectIndex = 0;
       const result = Component.call(this, this.props);
       let renderHtml = result;
       if (typeof result === "string" || result instanceof HTMLElement)
@@ -354,24 +436,38 @@ const womp = (Component) => {
       return renderHtml;
     }
     requestRender() {
-      //! Maybe improve re-rendering
       if (!this.updating) {
         this.updating = true;
         Promise.resolve().then(() => {
-          currentHookIndex = 0;
-          currentEffectIndex = 0;
-          currentRenderingComponent = this;
-          const renderHtml = this.getRenderData();
+          if (this.staticChildren)
+            this.props.children = document.importNode(this.staticChildren.content, true);
+          const renderHtml = this.callComponent();
           setValues(this.dynamics, renderHtml.values, this.oldValues);
           this.oldValues = renderHtml.values;
           this.updating = false;
         });
       }
     }
+    updateProps(prop, value) {
+      if (this.props[prop] !== value) {
+        this.props[prop] = value;
+        console.log(`Updating ${prop}`);
+        //! Test how many times it requests an update and how many it actually updates
+        this.requestRender();
+      }
+    }
   };
   return WompComponent;
 };
 export function defineWomp(component) {
+  if (!component.css)
+    component.css = "";
+  if (!component.componentName) {
+    let newName = component.name.replace(/.[A-Z]/g, (letter) => `${letter[0]}-${letter[1].toLowerCase()}`).toLowerCase();
+    if (!newName.includes("-"))
+      newName += "-womp";
+    component.componentName = newName;
+  }
   const Component = womp(component);
   customElements.define(component.componentName, Component);
   return Component;
@@ -424,9 +520,15 @@ export const useEffect = (callback, dependencies) => {
   currentEffectIndex++;
 };
 export function html(templateParts, ...values) {
+  const cleanValues = [];
+  const length = templateParts.length - 1;
+  for (let i = 0; i < length; i++) {
+    if (!templateParts[i].endsWith("</"))
+      cleanValues.push(values[i]);
+  }
   return {
     parts: templateParts,
-    values,
+    values: cleanValues,
     __womp: true
   };
 }

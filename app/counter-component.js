@@ -1,6 +1,8 @@
 import { html, defineWomp, useState, useEffect } from '../dist/womp.js';
+import SecondComponent from './second-component.js';
+import ThirdComponent from './third-component.js';
 
-function Counter({ styles: s, children }) {
+function Counter({ styles: s, children, symbol }) {
 	const [counter, setCounter] = useState(0);
 
 	/* useEffect(() => {
@@ -12,6 +14,8 @@ function Counter({ styles: s, children }) {
 
 	console.log(children);
 
+	let ComponentToRender = counter % 2 === 0 ? SecondComponent : ThirdComponent;
+
 	return html`
 		<button
 			class="${s.button} ${'static'}"
@@ -20,8 +24,9 @@ function Counter({ styles: s, children }) {
 		>
 			-
 		</button>
-		<span class="${s.span}">${counter}</span>
+		<span class="${s.span}">${counter} ${symbol}</span>
 		<button class=${s.button} @click=${() => setCounter(counter + 1)}>+</button>
+		<${SecondComponent} name="Lore" counter=${counter} />
 		${children}
 	`;
 }
