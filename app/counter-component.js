@@ -13,17 +13,12 @@ function Counter({ styles: s, children, symbol }) {
 	}, []); */
 
 	return html`
-		<button class="${s.button}" @click=${() => setCounter(counter - 1)}>-</button>
-		<span class="${s.span}">${counter} ${symbol}</span>
+		<button class=${s.button} @click=${() => setCounter(counter - 1)}>-</button>
+		<span class=${s.span}>${counter}</span>
 		<button class=${s.button} @click=${() => setCounter(counter + 1)}>+</button>
-		${html`<p>Test ${counter}</p>`}
-		<second-component counter=${counter} name="Lorenzo">
-			<b>BU! ${counter}</b>
-			${children}
-		</second-component>
 	`;
 }
-Counter.componentName = 'counter-component';
+
 Counter.css = `
 		* {
       font-size: 50px;

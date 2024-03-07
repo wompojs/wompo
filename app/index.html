@@ -19,16 +19,13 @@
 			}
 			console.timeEnd('Perf'); */
 
-			/* console.time('Perf');
-			const counter = new Counter();
-			counter.innerHTML = `<div>
-				<p>Wow!</p>
-				<p>
-					<a href="#">Un link!</a>
-				</p>
-			</div>`
-			document.body.appendChild(counter);
-			console.timeEnd('Perf'); */
+			let items = 2;
+			for (let i = 0; i < items; i++) {
+				console.time(`Render ${i}`);
+				const counter = new Counter();
+				document.body.appendChild(counter);
+				console.timeEnd(`Render ${i}`);
+			}
 
 			/* console.time('PerfOld');
 			const oldCounter = new OldCounter();
@@ -36,11 +33,11 @@
 			console.timeEnd('PerfOld'); */
 		</script>
 
-		<counter-component symbol="$">
+		<!-- <counter-womp symbol="$">
 			<second-component name="test">
 				<button>?</button>
 			</second-component>
-		</counter-component>
+		</counter-womp> -->
 	</body>
 </html>
 

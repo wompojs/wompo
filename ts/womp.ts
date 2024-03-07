@@ -114,7 +114,6 @@ const generateSpecifcStyles = (
 };
 
 //* OK
-//! HTML Nested fare il "join" delle dependencies (???)
 const createHtml = (parts: TemplateStringsArray): [string, string[]] => {
 	let html = '';
 	const attributes = [];
@@ -326,7 +325,6 @@ class CachedTemplate {
 	public clone(): [DocumentFragment, Dynamics[]] {
 		const content = this.template.content;
 		const dependencies = this.dependencies;
-		// const template = content.cloneNode(true);
 		const fragment = document.importNode(content, true);
 		treeWalker.currentNode = fragment;
 		let node = treeWalker.nextNode();
@@ -454,7 +452,6 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 				else currentNode.textContent = currentValue;
 			} else {
 				if (currentValue.__wompChildren) {
-					console.log('Udpate children');
 					while (index < newNodesLength) {
 						if (!currentNode || index === 0) currentNode = prevNode;
 						const newNode = newNodesList[newNodeIndex];
@@ -607,13 +604,12 @@ const womp = (Component: WompComponent): WompElementClass => {
 				...this.initialProps,
 				styles: styles,
 			};
-
 			const componentAttributes = this.getAttributeNames();
 			for (const attrName of componentAttributes) {
 				this.props[attrName] = this.getAttribute(attrName);
 			}
-
-			//! Da finire!
+			//! Da finire! (CASO IN CUI I CHILDREN VENGONO USATI DA UN SECONDO ELEMENTO)
+			//! Es: ${condition ? html`{childrem}`: html`{childrem}`}
 			//! Dispose di un elemento chiama "restoreChildren". I children
 			//! sono una classe con quel metodo. Quello che farà è ripristinare
 			//! nel template i figli, in modo tale che non vengono persi quando
@@ -631,16 +627,20 @@ const womp = (Component: WompComponent): WompElementClass => {
 				}
 				this.props.children = children;
 			}
-			// No else needed, cause if the children are dynamic it means yhey are already
-			// inside a custom component, which manually renders custom components
+			// No "else" needed, cause if the children are dynamic it means they
+			// are already inside a custom component, which manually updates
+			// dynamic elements.
 
 			const renderHtml = this.callComponent();
 			const { values, parts } = renderHtml;
 			const template = (this.constructor as typeof WompComponent).getOrCreateTemplate(parts);
 			const [fragment, dynamics] = template.clone();
 			this.dynamics = dynamics;
+			console.time('Updating values');
 			const elaboratedValues = setValues(this.dynamics, values, this.oldValues);
 			this.oldValues = elaboratedValues;
+			console.timeEnd('Updating values');
+
 			while (fragment.childNodes.length) {
 				this.ROOT.appendChild(fragment.childNodes[0]);
 			}
@@ -682,6 +682,14 @@ const womp = (Component: WompComponent): WompElementClass => {
 	return WompComponent;
 };
 
+/*
+  ! Accetta un secondo parametro options:
+	{
+		name: 'component-name',
+		shadow: false,
+		debug: 'info',
+	}
+*/
 export function defineWomp(component: WompComponent) {
 	if (!component.css) component.css = '';
 	if (!component.componentName) {

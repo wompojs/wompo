@@ -41,7 +41,6 @@ const generateSpecifcStyles = (component) => {
   }) + `${componentName} {display:block;}`;
   return [generatedCss, classes];
 };
-//! HTML Nested fare il "join" delle dependencies (???)
 const createHtml = (parts) => {
   let html2 = "";
   const attributes = [];
@@ -341,7 +340,6 @@ const setValues = (dynamics, values, oldValues) => {
           currentNode.textContent = currentValue;
       } else {
         if (currentValue.__wompChildren) {
-          console.log("Udpate children");
           while (index < newNodesLength) {
             if (!currentNode || index === 0)
               currentNode = prevNode;
@@ -477,7 +475,8 @@ const womp = (Component) => {
       for (const attrName of componentAttributes) {
         this.props[attrName] = this.getAttribute(attrName);
       }
-      //! Da finire!
+      //! Da finire! (CASO IN CUI I CHILDREN VENGONO USATI DA UN SECONDO ELEMENTO)
+      //! Es: ${condition ? html`{childrem}`: html`{childrem}`}
       //! Dispose di un elemento chiama "restoreChildren". I children
       //! sono una classe con quel metodo. Quello che farà è ripristinare
       //! nel template i figli, in modo tale che non vengono persi quando
@@ -500,8 +499,10 @@ const womp = (Component) => {
       const template = this.constructor.getOrCreateTemplate(parts);
       const [fragment, dynamics] = template.clone();
       this.dynamics = dynamics;
+      console.time("Updating values");
       const elaboratedValues = setValues(this.dynamics, values, this.oldValues);
       this.oldValues = elaboratedValues;
+      console.timeEnd("Updating values");
       while (fragment.childNodes.length) {
         this.ROOT.appendChild(fragment.childNodes[0]);
       }
