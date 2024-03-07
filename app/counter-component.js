@@ -13,28 +13,14 @@ function Counter({ styles: s, children, symbol }) {
 	}, []); */
 
 	return html`
-		<button
-			class="${s.button} ${'static'}"
-			disabled=${false}
-			@click=${() => setCounter(counter - 1)}
-		>
-			-
-		</button>
+		<button class="${s.button}" @click=${() => setCounter(counter - 1)}>-</button>
 		<span class="${s.span}">${counter} ${symbol}</span>
 		<button class=${s.button} @click=${() => setCounter(counter + 1)}>+</button>
-		${counter % 3 === 0
-			? html`
-				<${SecondComponent} counter=${counter} name="Lorenzo">
-					<b>BU! ${counter}</b>
-					${children}
-				</${SecondComponent}>
-			`
-			: html`
-				<${ThirdComponent} counter=${counter} name="Lorenzo">
-					<b>BU! ${counter}</b>
-					${children}
-				</${ThirdComponent}>
-			`}
+		${html`<p>Test ${counter}</p>`}
+		<second-component counter=${counter} name="Lorenzo">
+			<b>BU! ${counter}</b>
+			${children}
+		</second-component>
 	`;
 }
 Counter.componentName = 'counter-component';

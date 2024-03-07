@@ -1,6 +1,10 @@
 export interface WompProps {
-	children?: NodeList;
+	children?: WompChildren;
 	[key: string]: any;
+}
+
+interface WompChildren extends Array<Node> {
+	__wompChildren?: true;
 }
 
 export interface RenderHtml {
@@ -322,6 +326,7 @@ class CachedTemplate {
 	public clone(): [DocumentFragment, Dynamics[]] {
 		const content = this.template.content;
 		const dependencies = this.dependencies;
+		// const template = content.cloneNode(true);
 		const fragment = document.importNode(content, true);
 		treeWalker.currentNode = fragment;
 		let node = treeWalker.nextNode();
@@ -425,44 +430,42 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					(oldValue as HtmlProcessedValue).values
 				);
 				(oldValue as HtmlProcessedValue).values = processedValues;
+				newValues[i] = oldValue;
 			}
 			continue;
 		}
 		if (currentDependency.isNode) {
 			// Updated elements
-			let newNodesList: any[] | NodeList | HTMLCollection = [currentValue];
-			if (currentValue instanceof NodeList || currentValue instanceof HTMLCollection)
-				newNodesList = currentValue;
+			let newNodesList: any[];
+			if (Array.isArray(currentValue)) newNodesList = currentValue;
+			else newNodesList = [currentValue];
 			let prevNode = currentDependency.startNode;
 			let currentNode = prevNode.nextSibling;
 			let newNodeIndex = 0;
 			let index = 0;
+			// It's not necessary to check every single node: if a dependency updates,
+			// it'll be automatically updated. It's only necessary to update the
+			// textContent of primitive values.
+			//! Testa però con elementi DOM creati "a mano".
 			const newNodesLength = newNodesList.length;
-			while (currentNode !== currentDependency.endNode) {
-				const newNode = newNodesList[newNodeIndex];
-				const next = currentNode.nextSibling;
-				const isNode = newNode instanceof Node;
-				// Dont add the node if the value is false or if the newNode is undefined
-				if (newNode === undefined || newNode === false) currentNode.remove();
-				else if ((isNode && !currentNode.isEqualNode(newNode)) || !isNode) {
-					currentNode.replaceWith(newNode);
-					if (!isNode) newNodeIndex++; // So it doesn't change
+			const isPrimitive = currentValue !== Object(currentValue);
+			if (isPrimitive) {
+				if (currentNode === currentDependency.endNode) prevNode.after(currentValue);
+				else currentNode.textContent = currentValue;
+			} else {
+				if (currentValue.__wompChildren) {
+					console.log('Udpate children');
+					while (index < newNodesLength) {
+						if (!currentNode || index === 0) currentNode = prevNode;
+						const newNode = newNodesList[newNodeIndex];
+						newNodeIndex++;
+						currentNode.after(newNode);
+						currentNode = currentNode.nextSibling;
+						index++;
+					}
+				} else {
+					//! Handle arrays. Object are only stringified
 				}
-				prevNode = currentNode;
-				currentNode = next;
-				index++;
-			}
-			// Exceed elements must be added
-			while (index < newNodesLength) {
-				if (!currentNode || index === 0) currentNode = prevNode;
-				const newNode = newNodesList[newNodeIndex];
-				const isNode = newNode instanceof Node;
-				if (newNode !== false) {
-					if (!isNode) newNodeIndex++;
-					currentNode.after(newNode);
-				}
-				currentNode = currentNode.nextSibling;
-				index++;
 			}
 		} else if (currentDependency.isAttr) {
 			const attrName = currentDependency.name;
@@ -493,7 +496,6 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 				const oldAttributes = (node as HTMLElement).getAttributeNames();
 				if (isCustomComponent) {
 					// Is a Womp Element
-					let children = node.childNodes;
 					if (DEV_MODE) {
 						if ((node as WompElement).__womp) {
 							throw new Error(
@@ -502,15 +504,16 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 							);
 						}
 					}
-					//! Al posto di any metti WompProps
-					const initialProps: WompProps = {
-						children: children,
-					};
+					const initialProps: WompProps = {};
 					for (const attrName of oldAttributes) {
 						// attributes on the dom will be set when creating the element
 						initialProps[attrName] = (node as HTMLElement).getAttribute(attrName);
 					}
 					customElement = new currentValue(initialProps) as WompElement;
+					const childNodes = node.childNodes;
+					while (childNodes.length) {
+						customElement.appendChild(childNodes[0]);
+					}
 				} else {
 					// Is normal element
 					customElement = document.createElement(newNodeName);
@@ -573,6 +576,7 @@ const womp = (Component: WompComponent): WompElementClass => {
 		private updating: boolean = false;
 		private oldValues: any[];
 		private isInitializing: boolean;
+		private connected: boolean = false;
 
 		static cachedTemplate: CachedTemplate;
 
@@ -584,11 +588,12 @@ const womp = (Component: WompComponent): WompElementClass => {
 		constructor(initialProps: WompProps) {
 			super();
 			this.initialProps = initialProps ?? {};
-			this.initElement();
 		}
 
 		/** @override component is connected to DOM */
-		connectedCallback() {}
+		connectedCallback() {
+			if (!this.connected) this.initElement();
+		}
 
 		/**
 		 * Initializes the component with the state, props, and styles.
@@ -609,8 +614,21 @@ const womp = (Component: WompComponent): WompElementClass => {
 			}
 
 			//! Da finire!
-			if (!this.initialProps.children) {
-				const children = this.ROOT.childNodes;
+			//! Dispose di un elemento chiama "restoreChildren". I children
+			//! sono una classe con quel metodo. Quello che farà è ripristinare
+			//! nel template i figli, in modo tale che non vengono persi quando
+			//! l'elemento viene eliminato. Il template è disponibile dentro la
+			//! la classe, così come l'elemento a cui fa riferimento (this), in
+			//! modo tale da poter re-impostare le props.
+			const childNodes = this.ROOT.childNodes;
+			if (!this.initialProps.children && childNodes.length) {
+				const children: WompChildren = [];
+				children.__wompChildren = true;
+				const template = document.createElement('template');
+				while (childNodes.length) {
+					children.push(childNodes[0]);
+					template.appendChild(childNodes[0]);
+				}
 				this.props.children = children;
 			}
 			// No else needed, cause if the children are dynamic it means yhey are already
@@ -627,6 +645,7 @@ const womp = (Component: WompComponent): WompElementClass => {
 				this.ROOT.appendChild(fragment.childNodes[0]);
 			}
 			this.isInitializing = false;
+			this.connected = true;
 		}
 
 		private callComponent() {
@@ -643,10 +662,9 @@ const womp = (Component: WompComponent): WompElementClass => {
 			if (!this.updating) {
 				this.updating = true;
 				Promise.resolve().then(() => {
-					console.log(this);
 					const renderHtml = this.callComponent();
-					setValues(this.dynamics, renderHtml.values, this.oldValues);
-					this.oldValues = renderHtml.values;
+					const oldValues = setValues(this.dynamics, renderHtml.values, this.oldValues);
+					this.oldValues = oldValues;
 					this.updating = false;
 				});
 			}
@@ -655,7 +673,7 @@ const womp = (Component: WompComponent): WompElementClass => {
 		public updateProps(prop: string, value: any) {
 			if (this.props[prop] !== value) {
 				this.props[prop] = value;
-				console.warn(`Updating ${prop}`, this.isInitializing);
+				// console.warn(`Updating ${prop}`, this.isInitializing);
 				if (!this.isInitializing) this.requestRender();
 			}
 		}

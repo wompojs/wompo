@@ -317,45 +317,43 @@ const setValues = (dynamics, values, oldValues) => {
           oldValue.values
         );
         oldValue.values = processedValues;
+        newValues[i] = oldValue;
       }
       continue;
     }
     if (currentDependency.isNode) {
-      let newNodesList = [currentValue];
-      if (currentValue instanceof NodeList || currentValue instanceof HTMLCollection)
+      let newNodesList;
+      if (Array.isArray(currentValue))
         newNodesList = currentValue;
+      else
+        newNodesList = [currentValue];
       let prevNode = currentDependency.startNode;
       let currentNode = prevNode.nextSibling;
       let newNodeIndex = 0;
       let index = 0;
+      //! Testa però con elementi DOM creati "a mano".
       const newNodesLength = newNodesList.length;
-      while (currentNode !== currentDependency.endNode) {
-        const newNode = newNodesList[newNodeIndex];
-        const next = currentNode.nextSibling;
-        const isNode = newNode instanceof Node;
-        if (newNode === void 0 || newNode === false)
-          currentNode.remove();
-        else if (isNode && !currentNode.isEqualNode(newNode) || !isNode) {
-          currentNode.replaceWith(newNode);
-          if (!isNode)
+      const isPrimitive = currentValue !== Object(currentValue);
+      if (isPrimitive) {
+        if (currentNode === currentDependency.endNode)
+          prevNode.after(currentValue);
+        else
+          currentNode.textContent = currentValue;
+      } else {
+        if (currentValue.__wompChildren) {
+          console.log("Udpate children");
+          while (index < newNodesLength) {
+            if (!currentNode || index === 0)
+              currentNode = prevNode;
+            const newNode = newNodesList[newNodeIndex];
             newNodeIndex++;
+            currentNode.after(newNode);
+            currentNode = currentNode.nextSibling;
+            index++;
+          }
+        } else {
+          //! Handle arrays. Object are only stringified
         }
-        prevNode = currentNode;
-        currentNode = next;
-        index++;
-      }
-      while (index < newNodesLength) {
-        if (!currentNode || index === 0)
-          currentNode = prevNode;
-        const newNode = newNodesList[newNodeIndex];
-        const isNode = newNode instanceof Node;
-        if (newNode !== false) {
-          if (!isNode)
-            newNodeIndex++;
-          currentNode.after(newNode);
-        }
-        currentNode = currentNode.nextSibling;
-        index++;
       }
     } else if (currentDependency.isAttr) {
       const attrName = currentDependency.name;
@@ -385,7 +383,6 @@ const setValues = (dynamics, values, oldValues) => {
       if (node.nodeName !== newNodeName.toUpperCase()) {
         const oldAttributes = node.getAttributeNames();
         if (isCustomComponent) {
-          let children = node.childNodes;
           if (DEV_MODE) {
             if (node.__womp) {
               throw new Error(
@@ -393,14 +390,15 @@ const setValues = (dynamics, values, oldValues) => {
               );
             }
           }
-          //! Al posto di any metti WompProps
-          const initialProps = {
-            children
-          };
+          const initialProps = {};
           for (const attrName of oldAttributes) {
             initialProps[attrName] = node.getAttribute(attrName);
           }
           customElement = new currentValue(initialProps);
+          const childNodes = node.childNodes;
+          while (childNodes.length) {
+            customElement.appendChild(childNodes[0]);
+          }
         } else {
           customElement = document.createElement(newNodeName);
           for (const attrName of oldAttributes) {
@@ -445,8 +443,8 @@ const womp = (Component) => {
       this.__womp = true;
       this.initialProps = {};
       this.updating = false;
+      this.connected = false;
       this.initialProps = initialProps ?? {};
-      this.initElement();
     }
     static {
       this.componentName = Component.componentName;
@@ -461,6 +459,8 @@ const womp = (Component) => {
     }
     /** @override component is connected to DOM */
     connectedCallback() {
+      if (!this.connected)
+        this.initElement();
     }
     /**
      * Initializes the component with the state, props, and styles.
@@ -478,8 +478,21 @@ const womp = (Component) => {
         this.props[attrName] = this.getAttribute(attrName);
       }
       //! Da finire!
-      if (!this.initialProps.children) {
-        const children = this.ROOT.childNodes;
+      //! Dispose di un elemento chiama "restoreChildren". I children
+      //! sono una classe con quel metodo. Quello che farà è ripristinare
+      //! nel template i figli, in modo tale che non vengono persi quando
+      //! l'elemento viene eliminato. Il template è disponibile dentro la
+      //! la classe, così come l'elemento a cui fa riferimento (this), in
+      //! modo tale da poter re-impostare le props.
+      const childNodes = this.ROOT.childNodes;
+      if (!this.initialProps.children && childNodes.length) {
+        const children = [];
+        children.__wompChildren = true;
+        const template2 = document.createElement("template");
+        while (childNodes.length) {
+          children.push(childNodes[0]);
+          template2.appendChild(childNodes[0]);
+        }
         this.props.children = children;
       }
       const renderHtml = this.callComponent();
@@ -493,6 +506,7 @@ const womp = (Component) => {
         this.ROOT.appendChild(fragment.childNodes[0]);
       }
       this.isInitializing = false;
+      this.connected = true;
     }
     callComponent() {
       currentRenderingComponent = this;
@@ -508,10 +522,9 @@ const womp = (Component) => {
       if (!this.updating) {
         this.updating = true;
         Promise.resolve().then(() => {
-          console.log(this);
           const renderHtml = this.callComponent();
-          setValues(this.dynamics, renderHtml.values, this.oldValues);
-          this.oldValues = renderHtml.values;
+          const oldValues = setValues(this.dynamics, renderHtml.values, this.oldValues);
+          this.oldValues = oldValues;
           this.updating = false;
         });
       }
@@ -519,7 +532,6 @@ const womp = (Component) => {
     updateProps(prop, value) {
       if (this.props[prop] !== value) {
         this.props[prop] = value;
-        console.warn(`Updating ${prop}`, this.isInitializing);
         if (!this.isInitializing)
           this.requestRender();
       }

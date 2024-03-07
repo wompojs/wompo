@@ -1,9 +1,9 @@
 import { html, defineWomp } from '../dist/womp.js';
 
-function ThirdComponent({ styles: s, children, counter }) {
+function ThirdComponent({ styles: s, children, counter, name }) {
 	return html`
 		<div>
-			<p>Terzo componente! ${counter}</p>
+			<p>Terzo componente ${name}! ${counter}</p>
 			${children}
 		</div>
 	`;
