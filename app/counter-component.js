@@ -1,10 +1,12 @@
-import { html, defineWomp, useState /* useEffect */ } from '../dist/womp.js';
+import { html, defineWomp, useState, useEffect } from '../dist/womp.js';
 /* import SecondComponent from './second-component.js';
 import ThirdComponent from './third-component.js'; */
 
 function Counter({ styles: s, children }) {
 	const [counter, setCounter] = useState(0);
-	this.increaseCounter = () => setCounter(counter + 1);
+	this.increaseCounter = () => {
+		setCounter(counter + 1);
+	};
 
 	/* useEffect(() => {
 		setInterval(() => {

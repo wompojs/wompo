@@ -19,12 +19,12 @@
 			}
 			console.timeEnd('Perf'); */
 
-			let items = 2;
+			let items = 1;
 			for (let i = 0; i < items; i++) {
-				console.time(`Render ${i+1}`);
+				console.time(`Render ${i + 1}`);
 				const counter = new Counter();
 				document.body.appendChild(counter);
-				console.timeEnd(`Render ${i+1}`);
+				console.timeEnd(`Render ${i + 1}`);
 			}
 
 			/* console.time('PerfOld');

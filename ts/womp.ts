@@ -248,16 +248,28 @@ const createDependencies = (
 class DynamicNode {
 	public startNode: ChildNode;
 	public endNode: ChildNode | null;
-	public index: number;
 
 	public isNode: true = true; // For faster access
 	public isAttr: false = false; // For faster access
 	public isTag: false = false; // For faster access
 
-	constructor(startNode: ChildNode, endNode: ChildNode | null, index: number) {
+	constructor(startNode: ChildNode, endNode: ChildNode | null) {
 		this.startNode = startNode;
 		this.endNode = endNode;
-		this.index = index;
+	}
+
+	public clearValue() {
+		let currentNode = this.startNode.nextSibling;
+		while (currentNode !== this.endNode) {
+			currentNode.remove();
+			currentNode = this.startNode.nextSibling;
+		}
+	}
+
+	public dispose() {
+		this.clearValue();
+		this.startNode.remove();
+		this.endNode.remove();
 	}
 }
 
@@ -351,11 +363,7 @@ class CachedTemplate {
 				let dynamic: Dynamics;
 				const type = templateDependency.type;
 				if (type === NODE) {
-					dynamic = new DynamicNode(
-						node as HTMLElement,
-						node.nextSibling,
-						templateDependency.index
-					);
+					dynamic = new DynamicNode(node as HTMLElement, node.nextSibling);
 				} else if (type === ATTR) {
 					dynamic = new DynamicAttribute(node as HTMLElement, templateDependency);
 				} else if (type === TAG_NAME) {
@@ -402,6 +410,54 @@ class WompChildren {
 	}
 }
 
+class WompArrayDependency {
+	dynamics: DynamicNode[];
+
+	public isArrayDependency: true = true; // For faster access
+
+	private oldValues: any[];
+	private parentDependency: DynamicNode;
+
+	constructor(values: any[], dependency: DynamicNode) {
+		this.dynamics = [];
+		this.parentDependency = dependency;
+		this.addDependenciesFrom(dependency.startNode as HTMLElement, values.length);
+		this.oldValues = setValues(this.dynamics, values, []);
+	}
+
+	private addDependenciesFrom(startNode: HTMLElement, toAdd: number) {
+		let currentNode = startNode;
+		let toAddNumber = toAdd;
+		while (toAddNumber) {
+			const startComment = document.createComment(`?START`);
+			const endComment = document.createComment(`?END`);
+			currentNode.after(startComment);
+			startComment.after(endComment);
+			const dependency = new DynamicNode(startComment, endComment);
+			currentNode = endComment.nextSibling as HTMLElement;
+			this.dynamics.push(dependency);
+			toAddNumber--;
+		}
+	}
+
+	public checkUpdates(newValues: any[]) {
+		let diff = newValues.length - this.oldValues.length;
+		if (diff > 0) {
+			let startNode = this.dynamics[this.dynamics.length - 1]?.endNode;
+			if (!startNode) startNode = this.parentDependency.startNode;
+			this.addDependenciesFrom(startNode as HTMLElement, diff);
+		} else if (diff < 0) {
+			while (diff) {
+				const toClean = this.dynamics.pop();
+				toClean.dispose();
+				diff++;
+			}
+		}
+		this.oldValues = setValues(this.dynamics, newValues, this.oldValues);
+		return this;
+	}
+}
+
 const getRenderHtmlString = (render: RenderHtml) => {
 	let value = '';
 	const { parts, values } = render;
@@ -432,6 +488,8 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 			// Skip update: values are the same
 			continue;
 		if (currentDependency.isNode) {
+			//! If the current value is === false, empty values <> start and end node.
+			//! Use the currentDependency.clearValue() method
 			if (currentValue?.__wompHtml) {
 				// handle template elements
 				const oldStringified = oldValue?.stringifiedTemplate;
@@ -490,11 +548,16 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 						index++;
 					}
 				} else {
-					let newNodesList: any[];
-					if (Array.isArray(currentValue)) newNodesList = currentValue;
-					else newNodesList = [currentValue];
-					const newNodesLength = newNodesList.length;
-					//! Handle arrays. Object are only stringified
+					if (Array.isArray(currentValue)) {
+						if (!(oldValue as WompArrayDependency)?.isArrayDependency)
+							newValues[i] = new WompArrayDependency(currentValue, currentDependency);
+						else newValues[i] = (oldValue as WompArrayDependency).checkUpdates(currentValue);
+					} else if (DEV_MODE) {
+						console.warn(
+							'Rendering objects is not supported. Doing a stringified version of it can rise errors.\n' +
+								'This node will be ignored.'
+						);
+					}
 				}
 			}
 		} else if (currentDependency.isAttr) {
@@ -677,6 +740,10 @@ const womp = (Component: WompComponent, options: WompComponentOptions): WompElem
 			if (options.shadow || this.getRootNode() !== document) {
 				const clonedStyles = style.cloneNode(true);
 				this.ROOT.appendChild(clonedStyles);
+				//! Multiple components of the same time will attach the same
+				//? style over and over. Check if the style is already present
+				//? in the root by select the style element with a class using
+				//? this.getRootNode() as a selector.
 			}
 
 			const renderHtml = this.callComponent();
@@ -840,3 +907,12 @@ export function html(templateParts: TemplateStringsArray, ...values: any[]): Ren
 		__wompHtml: true,
 	};
 }
+
+//! Testa casi un pò più complessi
+//! Sostituisci il fatto di usare "this" con un hook tipo expose({counter, incCounter})
+//! Crea i vari hooks
+//! Crea la gestione stato globale stile Zustand
+//! Ordina il codice
+//! Aggiungi commenti alle funzioni/classi
+//! Crea file .d.ts
+//! Crea documentazione

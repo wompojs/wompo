@@ -162,7 +162,7 @@ const createDependencies = (template, parts, attributes) => {
 };
 class DynamicNode {
   // For faster access
-  constructor(startNode, endNode, index) {
+  constructor(startNode, endNode) {
     this.isNode = true;
     // For faster access
     this.isAttr = false;
@@ -170,7 +170,18 @@ class DynamicNode {
     this.isTag = false;
     this.startNode = startNode;
     this.endNode = endNode;
-    this.index = index;
+  }
+  clearValue() {
+    let currentNode = this.startNode.nextSibling;
+    while (currentNode !== this.endNode) {
+      currentNode.remove();
+      currentNode = this.startNode.nextSibling;
+    }
+  }
+  dispose() {
+    this.clearValue();
+    this.startNode.remove();
+    this.endNode.remove();
   }
 }
 class DynamicAttribute {
@@ -252,11 +263,7 @@ class CachedTemplate {
         let dynamic;
         const type = templateDependency.type;
         if (type === NODE) {
-          dynamic = new DynamicNode(
-            node,
-            node.nextSibling,
-            templateDependency.index
-          );
+          dynamic = new DynamicNode(node, node.nextSibling);
         } else if (type === ATTR) {
           dynamic = new DynamicAttribute(node, templateDependency);
         } else if (type === TAG_NAME) {
@@ -288,6 +295,46 @@ class WompChildren {
     this.owner = owner;
   }
 }
+class WompArrayDependency {
+  constructor(values, dependency) {
+    this.isArrayDependency = true;
+    this.dynamics = [];
+    this.parentDependency = dependency;
+    this.addDependenciesFrom(dependency.startNode, values.length);
+    this.oldValues = setValues(this.dynamics, values, []);
+  }
+  addDependenciesFrom(startNode, toAdd) {
+    let currentNode = startNode;
+    let toAddNumber = toAdd;
+    while (toAddNumber) {
+      const startComment = document.createComment(`?START`);
+      const endComment = document.createComment(`?END`);
+      currentNode.after(startComment);
+      startComment.after(endComment);
+      const dependency = new DynamicNode(startComment, endComment);
+      currentNode = endComment.nextSibling;
+      this.dynamics.push(dependency);
+      toAddNumber--;
+    }
+  }
+  checkUpdates(newValues) {
+    let diff = newValues.length - this.oldValues.length;
+    if (diff > 0) {
+      let startNode = this.dynamics[this.dynamics.length - 1]?.endNode;
+      if (!startNode)
+        startNode = this.parentDependency.startNode;
+      this.addDependenciesFrom(startNode, diff);
+    } else if (diff < 0) {
+      while (diff) {
+        const toClean = this.dynamics.pop();
+        toClean.dispose();
+        diff++;
+      }
+    }
+    this.oldValues = setValues(this.dynamics, newValues, this.oldValues);
+    return this;
+  }
+}
 const getRenderHtmlString = (render) => {
   let value = "";
   const { parts, values } = render;
@@ -314,6 +361,8 @@ const setValues = (dynamics, values, oldValues) => {
     if (!shouldUpdate(currentValue, oldValue, currentDependency))
       continue;
     if (currentDependency.isNode) {
+      //! If the current value is === false, empty values <> start and end node.
+      //! Use the currentDependency.clearValue() method
       if (currentValue?.__wompHtml) {
         const oldStringified = oldValue?.stringifiedTemplate;
         const newTemplate = getRenderHtmlString(currentValue);
@@ -371,13 +420,16 @@ const setValues = (dynamics, values, oldValues) => {
             index++;
           }
         } else {
-          let newNodesList;
-          if (Array.isArray(currentValue))
-            newNodesList = currentValue;
-          else
-            newNodesList = [currentValue];
-          const newNodesLength = newNodesList.length;
-          //! Handle arrays. Object are only stringified
+          if (Array.isArray(currentValue)) {
+            if (!oldValue?.isArrayDependency)
+              newValues[i] = new WompArrayDependency(currentValue, currentDependency);
+            else
+              newValues[i] = oldValue.checkUpdates(currentValue);
+          } else if (DEV_MODE) {
+            console.warn(
+              "Rendering objects is not supported. Doing a stringified version of it can rise errors.\nThis node will be ignored."
+            );
+          }
         }
       }
     } else if (currentDependency.isAttr) {
@@ -531,6 +583,7 @@ const womp = (Component, options) => {
       if (options.shadow || this.getRootNode() !== document) {
         const clonedStyles = style.cloneNode(true);
         this.ROOT.appendChild(clonedStyles);
+        //! Multiple components of the same time will attach the same
       }
       const renderHtml = this.callComponent();
       const { values, parts } = renderHtml;
@@ -660,4 +713,12 @@ export function html(templateParts, ...values) {
     __wompHtml: true
   };
 }
+//! Testa casi un pò più complessi
+//! Sostituisci il fatto di usare "this" con un hook tipo expose({counter, incCounter})
+//! Crea i vari hooks
+//! Crea la gestione stato globale stile Zustand
+//! Ordina il codice
+//! Aggiungi commenti alle funzioni/classi
+//! Crea file .d.ts
+//! Crea documentazione
 //# sourceMappingURL=womp.js.map
