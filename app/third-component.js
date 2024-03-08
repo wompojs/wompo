@@ -9,4 +9,6 @@ function ThirdComponent({ styles: s, children, counter, name }) {
 	`;
 }
 
-export default defineWomp(ThirdComponent);
+export default defineWomp(ThirdComponent, {
+	shadow: true,
+});

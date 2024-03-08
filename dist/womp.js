@@ -17,11 +17,14 @@ const treeWalker = document.createTreeWalker(
   129
   // NodeFilter.SHOW_{ELEMENT|COMMENT}
 );
-const generateSpecifcStyles = (component) => {
-  const { css, componentName } = component;
+const generateSpecifcStyles = (component, options) => {
+  const { css } = component;
+  const componentName = options.name;
+  const completeCss = `${componentName} {display:block;}
+${css}`;
   if (DEV_MODE) {
     const invalidSelectors = [];
-    [...css.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
+    [...completeCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
       const cssSelector = selector[1].trim();
       if (!cssSelector.includes("."))
         invalidSelectors.push(cssSelector);
@@ -34,11 +37,11 @@ const generateSpecifcStyles = (component) => {
     });
   }
   const classes = {};
-  const generatedCss = css.replace(/\.(.*?)[\s|{]/gm, (_, className) => {
+  const generatedCss = completeCss.replace(/\.(.*?)[\s|{]/gm, (_, className) => {
     const uniqueClassName = `${componentName}__${className}`;
     classes[className] = uniqueClassName;
     return `.${uniqueClassName} `;
-  }) + `${componentName} {display:block;}`;
+  });
   return [generatedCss, classes];
 };
 const createHtml = (parts) => {
@@ -192,6 +195,18 @@ class DynamicAttribute {
       this.node.removeAttribute(this.name);
     else if (isPrimitive)
       this.node.setAttribute(this.name, newValue);
+    else if (this.name === "style") {
+      let styleString = "";
+      const styles = Object.keys(newValue);
+      for (const key of styles) {
+        let styleValue = newValue[key];
+        let styleKey = key.replace(/[A-Z]/g, (letter) => "-" + letter.toLowerCase());
+        if (typeof styleValue === "number")
+          styleValue = `${styleValue}px`;
+        styleString += `${styleKey}:${styleValue};`;
+      }
+      this.node.setAttribute(this.name, styleString);
+    }
   }
   set callback(callback) {
     if (!this.eventInitialized) {
@@ -266,6 +281,13 @@ class HtmlProcessedValue {
     this.template = template;
   }
 }
+class WompChildren {
+  constructor(nodes, owner) {
+    this.__wompChildren = true;
+    this.nodes = nodes;
+    this.owner = owner;
+  }
+}
 const getRenderHtmlString = (render) => {
   let value = "";
   const { parts, values } = render;
@@ -276,80 +298,85 @@ const getRenderHtmlString = (render) => {
   }
   return value;
 };
+const shouldUpdate = (currentValue, oldValue, dependency) => {
+  const valuesDiffers = currentValue !== oldValue;
+  const isComposedAttribute = !!dependency.attrStructure;
+  const isWompChildren = currentValue?.__wompChildren;
+  const childrenNeedUpdate = isWompChildren && dependency.startNode.nextSibling !== currentValue.nodes[0];
+  return valuesDiffers || isComposedAttribute || childrenNeedUpdate;
+};
 const setValues = (dynamics, values, oldValues) => {
   const newValues = [...values];
   for (let i = 0; i < dynamics.length; i++) {
     const currentDependency = dynamics[i];
     const currentValue = newValues[i];
     const oldValue = oldValues[i];
-    if (currentValue === oldValue && !currentDependency.attrStructure)
+    if (!shouldUpdate(currentValue, oldValue, currentDependency))
       continue;
-    if (currentValue?.__wompHtml) {
-      const oldStringified = oldValue?.stringifiedTemplate;
-      const newTemplate = getRenderHtmlString(currentValue);
-      const sameString = newTemplate === oldStringified;
-      if (oldValue === void 0 || !sameString) {
-        const cachedTemplate = createTemplate(currentValue.parts);
-        const template = cachedTemplate.clone();
-        const [fragment, dynamics2] = template;
-        newValues[i] = new HtmlProcessedValue(newTemplate, currentValue.values, template);
-        setValues(dynamics2, currentValue.values, oldValue?.values ?? oldValue ?? []);
-        const endNode = currentDependency.endNode;
-        const startNode = currentDependency.startNode;
-        let currentNode = startNode.nextSibling;
-        while (currentNode !== endNode) {
-          currentNode.remove();
-          currentNode = startNode.nextSibling;
-        }
-        currentNode = startNode;
-        while (fragment.childNodes.length) {
-          currentNode.after(fragment.childNodes[0]);
-          currentNode = currentNode.nextSibling;
-        }
-        //! NON FUNZIONA BENE
-      } else {
-        //! DA TESTARE
-        const [_, dynamics2] = oldValue.template;
-        const processedValues = setValues(
-          dynamics2,
-          currentValue.values,
-          oldValue.values
-        );
-        oldValue.values = processedValues;
-        newValues[i] = oldValue;
-      }
-      continue;
-    }
     if (currentDependency.isNode) {
-      let newNodesList;
-      if (Array.isArray(currentValue))
-        newNodesList = currentValue;
-      else
-        newNodesList = [currentValue];
-      let prevNode = currentDependency.startNode;
-      let currentNode = prevNode.nextSibling;
-      let newNodeIndex = 0;
-      let index = 0;
-      //! Testa però con elementi DOM creati "a mano".
-      const newNodesLength = newNodesList.length;
+      if (currentValue?.__wompHtml) {
+        const oldStringified = oldValue?.stringifiedTemplate;
+        const newTemplate = getRenderHtmlString(currentValue);
+        const sameString = newTemplate === oldStringified;
+        if (oldValue === void 0 || !sameString) {
+          const cachedTemplate = createTemplate(currentValue.parts);
+          const template = cachedTemplate.clone();
+          const [fragment, dynamics2] = template;
+          newValues[i] = new HtmlProcessedValue(newTemplate, currentValue.values, template);
+          setValues(dynamics2, currentValue.values, oldValue?.values ?? oldValue ?? []);
+          const endNode = currentDependency.endNode;
+          const startNode2 = currentDependency.startNode;
+          let currentNode = startNode2.nextSibling;
+          while (currentNode !== endNode) {
+            currentNode.remove();
+            currentNode = startNode2.nextSibling;
+          }
+          currentNode = startNode2;
+          while (fragment.childNodes.length) {
+            currentNode.after(fragment.childNodes[0]);
+            currentNode = currentNode.nextSibling;
+          }
+        } else {
+          const [_, dynamics2] = oldValue.template;
+          const processedValues = setValues(
+            dynamics2,
+            currentValue.values,
+            oldValue.values
+          );
+          oldValue.values = processedValues;
+          newValues[i] = oldValue;
+        }
+        continue;
+      }
       const isPrimitive = currentValue !== Object(currentValue);
+      const startNode = currentDependency.startNode;
       if (isPrimitive) {
-        if (currentNode === currentDependency.endNode)
-          prevNode.after(currentValue);
+        if (startNode.nextSibling === currentDependency.endNode)
+          startNode.after(currentValue);
         else
-          currentNode.textContent = currentValue;
+          startNode.nextSibling.textContent = currentValue;
       } else {
+        let currentNode = startNode.nextSibling;
+        let newNodeIndex = 0;
+        let index = 0;
         if (currentValue.__wompChildren) {
-          while (index < newNodesLength) {
+          const childrenNodes = currentValue.nodes;
+          while (index < childrenNodes.length) {
             if (!currentNode || index === 0)
-              currentNode = prevNode;
-            const newNode = newNodesList[newNodeIndex];
+              currentNode = startNode;
+            const newNode = childrenNodes[newNodeIndex];
             newNodeIndex++;
             currentNode.after(newNode);
             currentNode = currentNode.nextSibling;
             index++;
           }
         } else {
+          let newNodesList;
+          if (Array.isArray(currentValue))
+            newNodesList = currentValue;
+          else
+            newNodesList = [currentValue];
+          const newNodesLength = newNodesList.length;
           //! Handle arrays. Object are only stringified
         }
       }
@@ -392,7 +419,8 @@ const setValues = (dynamics, values, oldValues) => {
           for (const attrName of oldAttributes) {
             initialProps[attrName] = node.getAttribute(attrName);
           }
-          customElement = new currentValue(initialProps);
+          customElement = new currentValue();
+          customElement.initialProps = initialProps;
           const childNodes = node.childNodes;
           while (childNodes.length) {
             customElement.appendChild(childNodes[0]);
@@ -408,6 +436,8 @@ const setValues = (dynamics, values, oldValues) => {
         while (currentDynamic?.node === node) {
           currentDynamic.node = customElement;
           currentDynamic = dynamics[++index];
+          if (currentDynamic.name)
+            customElement.initialProps[currentDynamic.name] = values[index];
         }
         node.replaceWith(customElement);
       }
@@ -422,18 +452,15 @@ const createTemplate = (parts) => {
   const dependencies = createDependencies(template, parts, attributes);
   return new CachedTemplate(template, dependencies);
 };
-//! Se un component vuole esporre dei metodi?? ( es. modal.open() )
-//! Dovrei metterli nella chiave this. Opzioni:
-//! 1. puoi fare this.method dentro il componente: viene già chiamato con this impostato
-//! 2. Crea un hook tipo "useExposedState(nome, defaultValue)"
-const womp = (Component) => {
-  const [generatedCSS, styles] = generateSpecifcStyles(Component);
+const womp = (Component, options) => {
+  const [generatedCSS, styles] = generateSpecifcStyles(Component, options);
   const style = document.createElement("style");
   style.textContent = generatedCSS;
-  document.body.appendChild(style);
-  //! Check where to attach styles: if shadow-dom, inside the element
+  if (!options.shadow) {
+    document.body.appendChild(style);
+  }
   const WompComponent = class extends HTMLElement {
-    constructor(initialProps) {
+    constructor() {
       super();
       this.state = [];
       this.effects = [];
@@ -441,11 +468,13 @@ const womp = (Component) => {
       this.__womp = true;
       this.initialProps = {};
       this.updating = false;
+      this.oldValues = [];
+      this.isInitializing = true;
       this.connected = false;
-      this.initialProps = initialProps ?? {};
+      this.isInTheDOM = false;
     }
     static {
-      this.componentName = Component.componentName;
+      this.componentName = options.name;
     }
     static {
       this.__womp = true;
@@ -457,52 +486,59 @@ const womp = (Component) => {
     }
     /** @override component is connected to DOM */
     connectedCallback() {
+      this.isInTheDOM = true;
       if (!this.connected)
         this.initElement();
+    }
+    /** @override component is connected to DOM */
+    disconnectedCallback() {
+      if (this.connected) {
+        this.isInTheDOM = false;
+        Promise.resolve().then(() => {
+          if (!this.isInTheDOM) {
+            if (DEV_MODE)
+              console.warn("Disconnected", this);
+          }
+        });
+      }
     }
     /**
      * Initializes the component with the state, props, and styles.
      */
     initElement() {
-      this.isInitializing = true;
       this.ROOT = this;
-      this.oldValues = [];
+      //! Handle prop "ref"
       this.props = {
         ...this.initialProps,
         styles
       };
       const componentAttributes = this.getAttributeNames();
       for (const attrName of componentAttributes) {
-        this.props[attrName] = this.getAttribute(attrName);
+        if (!this.props.hasOwnProperty(attrName))
+          this.props[attrName] = this.getAttribute(attrName);
       }
-      //! Da finire! (CASO IN CUI I CHILDREN VENGONO USATI DA UN SECONDO ELEMENTO)
-      //! Es: ${condition ? html`{childrem}`: html`{childrem}`}
-      //! Dispose di un elemento chiama "restoreChildren". I children
-      //! sono una classe con quel metodo. Quello che farà è ripristinare
-      //! nel template i figli, in modo tale che non vengono persi quando
-      //! l'elemento viene eliminato. Il template è disponibile dentro la
-      //! la classe, così come l'elemento a cui fa riferimento (this), in
-      //! modo tale da poter re-impostare le props.
       const childNodes = this.ROOT.childNodes;
-      if (!this.initialProps.children && childNodes.length) {
-        const children = [];
-        children.__wompChildren = true;
-        const template2 = document.createElement("template");
-        while (childNodes.length) {
-          children.push(childNodes[0]);
-          template2.appendChild(childNodes[0]);
-        }
-        this.props.children = children;
+      const childrenArray = [];
+      const supportTemplate = document.createElement("template");
+      while (childNodes.length) {
+        childrenArray.push(childNodes[0]);
+        supportTemplate.appendChild(childNodes[0]);
+      }
+      const children = new WompChildren(childrenArray, this);
+      this.props.children = children;
+      if (options.shadow)
+        this.ROOT = this.attachShadow({ mode: "open" });
+      if (options.shadow || this.getRootNode() !== document) {
+        const clonedStyles = style.cloneNode(true);
+        this.ROOT.appendChild(clonedStyles);
       }
       const renderHtml = this.callComponent();
       const { values, parts } = renderHtml;
       const template = this.constructor.getOrCreateTemplate(parts);
       const [fragment, dynamics] = template.clone();
       this.dynamics = dynamics;
-      console.time("Updating values");
       const elaboratedValues = setValues(this.dynamics, values, this.oldValues);
       this.oldValues = elaboratedValues;
-      console.timeEnd("Updating values");
       while (fragment.childNodes.length) {
         this.ROOT.appendChild(fragment.childNodes[0]);
       }
@@ -533,24 +569,35 @@ const womp = (Component) => {
     updateProps(prop, value) {
       if (this.props[prop] !== value) {
         this.props[prop] = value;
-        if (!this.isInitializing)
+        if (!this.isInitializing) {
+          console.warn(`Updating ${prop}`, this.isInitializing);
           this.requestRender();
+        }
       }
     }
   };
   return WompComponent;
 };
-export function defineWomp(component) {
+//! Aggiungi un parametro "debug" solo per il DEV mode (o un attributo per il singolo componente??)
+export function defineWomp(component, options = {}) {
   if (!component.css)
     component.css = "";
-  if (!component.componentName) {
+  const defaultOptions = {
+    shadow: false,
+    name: ""
+  };
+  const componentOptions = {
+    ...defaultOptions,
+    ...options
+  };
+  if (!componentOptions.name) {
     let newName = component.name.replace(/.[A-Z]/g, (letter) => `${letter[0]}-${letter[1].toLowerCase()}`).toLowerCase();
     if (!newName.includes("-"))
       newName += "-womp";
-    component.componentName = newName;
+    componentOptions.name = newName;
   }
-  const Component = womp(component);
-  customElements.define(component.componentName, Component);
+  const Component = womp(component, componentOptions);
+  customElements.define(componentOptions.name, Component);
   return Component;
 }
 export const useState = (defaultValue) => {

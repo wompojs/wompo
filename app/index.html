@@ -21,10 +21,10 @@
 
 			let items = 2;
 			for (let i = 0; i < items; i++) {
-				console.time(`Render ${i}`);
+				console.time(`Render ${i+1}`);
 				const counter = new Counter();
 				document.body.appendChild(counter);
-				console.timeEnd(`Render ${i}`);
+				console.timeEnd(`Render ${i+1}`);
 			}
 
 			/* console.time('PerfOld');
@@ -32,12 +32,6 @@
 			document.body.appendChild(oldCounter);
 			console.timeEnd('PerfOld'); */
 		</script>
-
-		<!-- <counter-womp symbol="$">
-			<second-component name="test">
-				<button>?</button>
-			</second-component>
-		</counter-womp> -->
 	</body>
 </html>
 
