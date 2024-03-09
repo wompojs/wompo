@@ -20,11 +20,8 @@ export interface WompComponent {
 	__womp: true;
 }
 
-type State = [any, (newValue: any) => void];
-
 export interface WompElement extends HTMLElement {
-	state: State[];
-	effects: Effect[];
+	hooks: Hook[];
 	props: WompProps;
 	initialProps: WompProps;
 	requestRender: () => void;
@@ -33,11 +30,38 @@ export interface WompElement extends HTMLElement {
 	__womp: true;
 }
 
-interface Effect {
+type Hook = StateHook | EffectHook | RefHook | CallbackHook | IdHook | MemoHook | ReducerHook<any>;
+
+type StateHook = [any, (newValue: any) => void];
+
+interface EffectHook {
 	dependencies: any;
 	callback: VoidFunction | (() => VoidFunction);
 	cleanupFunction: VoidFunction | void;
 }
+
+interface RefHook {
+	current: any;
+	__wcRef: true;
+}
+
+interface CallbackHook {
+	(...args: any[]): any;
+	__wcCallback: true;
+}
+
+type IdHook = string;
+
+interface MemoHook {
+	dependencies: any[];
+	value: any;
+}
+
+interface ReducerAction {
+	type: string;
+	[key: string]: any;
+}
+type ReducerHook<State> = [State, (state: any, action: ReducerAction) => void];
 
 interface WompElementClass {
 	new (props: WompProps): HTMLElement;
@@ -64,7 +88,7 @@ const DEV_MODE = true;
 
 let currentRenderingComponent: WompElement = null;
 let currentHookIndex: number = 0;
-let currentEffectIndex: number = 0;
+
 const WC_MARKER = '$wc$';
 const DYNAMIC_TAG_MARKER = 'wc-wc';
 const isDynamicTagRegex = /<\/?$/g;
@@ -91,8 +115,9 @@ const generateSpecifcStyles = (
 	options: WompComponentOptions
 ): [string, { [className: string]: string }] => {
 	const { css } = component;
-	const componentName = options.name;
-	const completeCss = `${componentName} {display:block;}\n${css}`;
+	const { shadow, name } = options;
+	const componentName = name;
+	const completeCss = `${shadow ? ':host' : componentName} {display:block;}\n${css}`;
 	if (DEV_MODE) {
 		const invalidSelectors: string[] = [];
 		// It's appropriate that at least one class is present in each selector
@@ -294,6 +319,10 @@ class DynamicAttribute {
 	}
 
 	public updateValue(newValue: any) {
+		if (this.name === 'ref' && newValue.__wcRef) {
+			newValue.current = this.node;
+			return;
+		}
 		if ((this.node as WompElement).__womp) {
 			(this.node as WompElement).updateProps(this.name, newValue);
 		}
@@ -434,7 +463,7 @@ class WompArrayDependency {
 			currentNode.after(startComment);
 			startComment.after(endComment);
 			const dependency = new DynamicNode(startComment, endComment);
-			currentNode = endComment.nextSibling as HTMLElement;
+			currentNode = endComment as unknown as HTMLElement;
 			this.dynamics.push(dependency);
 			toAddNumber--;
 		}
@@ -488,8 +517,11 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 			// Skip update: values are the same
 			continue;
 		if (currentDependency.isNode) {
-			//! If the current value is === false, empty values <> start and end node.
-			//! Use the currentDependency.clearValue() method
+			// Falsy values are cleared from the DOM
+			if (currentValue === false) {
+				currentDependency.clearValue();
+				continue;
+			}
 			if (currentValue?.__wompHtml) {
 				// handle template elements
 				const oldStringified = oldValue?.stringifiedTemplate;
@@ -529,10 +561,17 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 			// it'll be automatically updated. It's only necessary to update the
 			// textContent of primitive values.
 			const isPrimitive = currentValue !== Object(currentValue);
+			const oldIsPrimitive = oldValue !== Object(oldValue) && oldValue !== undefined;
 			const startNode = currentDependency.startNode;
 			if (isPrimitive) {
-				if (startNode.nextSibling === currentDependency.endNode) startNode.after(currentValue);
-				else startNode.nextSibling.textContent = currentValue;
+				if (oldIsPrimitive) {
+					// At this point there's already a content in the node
+					if (startNode.nextSibling) startNode.nextSibling.textContent = currentValue;
+					else startNode.after(currentValue);
+				} else {
+					currentDependency.clearValue();
+					startNode.after(currentValue);
+				}
 			} else {
 				let currentNode = startNode.nextSibling;
 				let newNodeIndex = 0;
@@ -591,10 +630,11 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					// Is a Womp Element
 					if (DEV_MODE) {
 						if ((node as WompElement).__womp) {
-							throw new Error(
-								'Changing the rendering component using a dynamic tag is currently not supported.\n' +
-									'Instead, use conditional rendering.'
+							console.error(
+								'Dynamic tags are currently not supported, unsless used to render for the first time a custom component.\n' +
+									'Instead, you can use conditional rendering (e.g. condition ? html`<${First} />` : html`<${Second} />`).'
 							);
+							continue;
 						}
 					}
 					const initialProps: WompProps = {};
@@ -622,7 +662,7 @@ const setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					currentDynamic.node = customElement;
 					currentDynamic = dynamics[++index] as DynamicAttribute;
 					// Set initial props of the correct type, so a number doesn't become a string
-					if (currentDynamic.name)
+					if (currentDynamic?.name && currentDynamic?.name !== 'ref')
 						(customElement as WompElement).initialProps[currentDynamic.name] = values[index];
 				}
 				node.replaceWith(customElement);
@@ -649,6 +689,8 @@ Womp Component
 const womp = (Component: WompComponent, options: WompComponentOptions): WompElementClass => {
 	const [generatedCSS, styles] = generateSpecifcStyles(Component, options);
 	const style = document.createElement('style');
+	const styleClassName = `${options.name}__styles`;
+	style.classList.add(styleClassName);
 	style.textContent = generatedCSS;
 	if (!options.shadow) {
 		document.body.appendChild(style);
@@ -657,9 +699,8 @@ const womp = (Component: WompComponent, options: WompComponentOptions): WompElem
 		static componentName = options.name;
 		static __womp = true;
 
-		state: any[] = [];
-		effects: any[] = [];
-		props: { [key: string]: any } = {};
+		hooks: Hook[] = [];
+		props: WompProps = {};
 		__womp: true = true;
 
 		public initialProps: WompProps = {};
@@ -710,7 +751,6 @@ const womp = (Component: WompComponent, options: WompComponentOptions): WompElem
 		 */
 		private initElement() {
 			this.ROOT = this; // Shadow DOM is eventually attached later
-			//! Handle prop "ref"
 			this.props = {
 				...this.initialProps,
 				styles: styles,
@@ -737,13 +777,16 @@ const womp = (Component: WompComponent, options: WompComponentOptions): WompElem
 
 			// Create shadow DOM
 			if (options.shadow) this.ROOT = this.attachShadow({ mode: 'open' });
-			if (options.shadow || this.getRootNode() !== document) {
+
+			// Attach styles only if we are inside a shadow root and the same style is
+			// not already present.
+			const root = this.getRootNode();
+			if (
+				(options.shadow || root !== document) &&
+				!(root as ShadowRoot).querySelector(`.${styleClassName}`)
+			) {
 				const clonedStyles = style.cloneNode(true);
 				this.ROOT.appendChild(clonedStyles);
-				//! Multiple components of the same time will attach the same
-				//? style over and over. Check if the style is already present
-				//? in the root by select the style element with a class using
-				//? this.getRootNode() as a selector.
 			}
 
 			const renderHtml = this.callComponent();
@@ -764,7 +807,6 @@ const womp = (Component: WompComponent, options: WompComponentOptions): WompElem
 		private callComponent() {
 			currentRenderingComponent = this;
 			currentHookIndex = 0;
-			currentEffectIndex = 0;
 			const result = Component.call(this, this.props);
 			let renderHtml: RenderHtml = result as RenderHtml;
 			if (typeof result === 'string' || result instanceof HTMLElement) renderHtml = html`${result}`;
@@ -776,7 +818,9 @@ const womp = (Component: WompComponent, options: WompComponentOptions): WompElem
 				this.updating = true;
 				Promise.resolve().then(() => {
 					const renderHtml = this.callComponent();
+					console.time('Update');
 					const oldValues = setValues(this.dynamics, renderHtml.values, this.oldValues);
+					console.timeEnd('Update');
 					this.oldValues = oldValues;
 					this.updating = false;
 				});
@@ -797,7 +841,6 @@ const womp = (Component: WompComponent, options: WompComponentOptions): WompElem
 	return WompComponent;
 };
 
-//! Aggiungi un parametro "debug" solo per il DEV mode (o un attributo per il singolo componente??)
 export function defineWomp(component: WompComponent, options: WompComponentOptions = {}) {
 	if (!component.css) component.css = '';
 	const defaultOptions = {
@@ -828,50 +871,196 @@ HOOKS
 
 export const useState = <State>(defaultValue: State) => {
 	const component = currentRenderingComponent;
-	if (!component.state.hasOwnProperty(currentHookIndex)) {
+	if (!component.hooks.hasOwnProperty(currentHookIndex)) {
 		const index = currentHookIndex;
-		component.state[index] = [
+		component.hooks[index] = [
 			defaultValue,
 			(newValue: State) => {
 				let computedValue = newValue;
+				const stateHook = component.hooks[index] as StateHook;
 				if (typeof newValue === 'function') {
-					computedValue = newValue(component.state[index][0]);
+					computedValue = newValue(stateHook[0]);
 				}
-				if (computedValue !== component.state[index][0]) {
-					component.state[index][0] = computedValue;
+				if (computedValue !== stateHook[0]) {
+					stateHook[0] = computedValue;
 					component.requestRender();
 				}
 			},
 		];
 	}
-	const state = component.state[currentHookIndex];
+	const state = component.hooks[currentHookIndex];
 	currentHookIndex++;
 	return state;
 };
 
 export const useEffect = (callback: VoidFunction | (() => VoidFunction), dependencies: any[]) => {
 	const component = currentRenderingComponent;
-	if (!component.effects.hasOwnProperty(currentEffectIndex)) {
-		const index = currentEffectIndex;
-		const cleanupFunction = callback();
-		component.effects[index] = {
+	if (!component.hooks.hasOwnProperty(currentHookIndex)) {
+		const effectHook = {
 			dependencies: dependencies,
 			callback: callback,
-			cleanupFunction: cleanupFunction,
-		};
+			cleanupFunction: null,
+		} as EffectHook;
+		component.hooks[currentHookIndex] = effectHook;
+		Promise.resolve().then(() => {
+			effectHook.cleanupFunction = callback();
+		});
 	} else {
-		const componentEffect = component.effects[currentEffectIndex];
+		const componentEffect = component.hooks[currentHookIndex] as EffectHook;
 		for (let i = 0; i < dependencies.length; i++) {
 			const oldDep = componentEffect.dependencies[i];
 			if (oldDep !== dependencies[i]) {
-				if (componentEffect.cleanupFunction) componentEffect.cleanupFunction();
+				if (typeof componentEffect.cleanupFunction === 'function')
+					componentEffect.cleanupFunction();
+				Promise.resolve().then(() => {
+					componentEffect.cleanupFunction = callback();
+					componentEffect.dependencies = dependencies;
+				});
+				break;
+			}
+		}
+	}
+	currentHookIndex++;
+};
+
+export const useLayoutEffect = (
+	callback: VoidFunction | (() => VoidFunction),
+	dependencies: any[]
+) => {
+	const component = currentRenderingComponent;
+	if (!component.hooks.hasOwnProperty(currentHookIndex)) {
+		const effectHook = {
+			dependencies: dependencies,
+			callback: callback,
+			cleanupFunction: null,
+		} as EffectHook;
+		component.hooks[currentHookIndex] = effectHook;
+		effectHook.cleanupFunction = callback();
+	} else {
+		const componentEffect = component.hooks[currentHookIndex] as EffectHook;
+		for (let i = 0; i < dependencies.length; i++) {
+			const oldDep = componentEffect.dependencies[i];
+			if (oldDep !== dependencies[i]) {
+				if (typeof componentEffect.cleanupFunction === 'function')
+					componentEffect.cleanupFunction();
 				componentEffect.cleanupFunction = callback();
 				componentEffect.dependencies = dependencies;
 				break;
 			}
 		}
 	}
-	currentEffectIndex++;
+	currentHookIndex++;
+};
+
+export const useRef = <T>(initialValue: T | null = null) => {
+	const component = currentRenderingComponent;
+	if (!component.hooks.hasOwnProperty(currentHookIndex)) {
+		component.hooks[currentHookIndex] = {
+			current: initialValue,
+			__wcRef: true,
+		} as RefHook;
+	}
+	const ref = component.hooks[currentHookIndex];
+	currentHookIndex++;
+	return ref;
+};
+
+// State update must use callbacks
+export const useCallback = (callbackFn: CallbackHook) => {
+	const component = currentRenderingComponent;
+	if (!component.hooks.hasOwnProperty(currentHookIndex)) {
+		callbackFn.__wcCallback = true;
+		component.hooks[currentHookIndex] = callbackFn;
+	}
+	const callback = component.hooks[currentHookIndex];
+	currentHookIndex++;
+	return callback as CallbackHook;
+};
+
+const useIdMemo = () => {
+	let counter = 0;
+	return () => {
+		const component = currentRenderingComponent;
+		if (!component.hooks.hasOwnProperty(currentHookIndex)) {
+			component.hooks[currentHookIndex] = `:r${counter}:` as IdHook;
+			counter++;
+		}
+		const callback = component.hooks[currentHookIndex];
+		currentHookIndex++;
+		return callback as IdHook;
+	};
+};
+export const useId = useIdMemo();
+
+export const useMemo = (callbackFn: () => any, dependencies: any[]) => {
+	const component = currentRenderingComponent;
+	if (!component.hooks.hasOwnProperty(currentHookIndex)) {
+		component.hooks[currentHookIndex] = {
+			value: callbackFn(),
+			dependencies: dependencies,
+		} as MemoHook;
+	} else {
+		const oldMemo = component.hooks[currentHookIndex] as MemoHook;
+		for (let i = 0; i < dependencies.length; i++) {
+			const oldDep = oldMemo.dependencies[i];
+			if (oldDep !== dependencies[i]) {
+				oldMemo.dependencies = dependencies;
+				oldMemo.value = callbackFn();
+				break;
+			}
+		}
+	}
+	const memoizedResult = component.hooks[currentHookIndex] as MemoHook;
+	currentHookIndex++;
+	return memoizedResult.value;
+};
+
+export const useReducer = <State>(
+	reducer: (state: State, action: ReducerAction) => Partial<State>,
+	initialState: State
+) => {
+	const component = currentRenderingComponent;
+	const index = currentHookIndex;
+	if (!component.hooks.hasOwnProperty(index)) {
+		const dispatch = (action: ReducerAction) => {
+			const currentState = (component.hooks[index] as ReducerHook<State>)[0];
+			const partialState = reducer(currentState, action);
+			const keys = Object.keys(partialState);
+			for (const key of keys) {
+				if ((partialState as any)[key] !== (currentState as any)[key]) {
+					component.requestRender();
+					break;
+				}
+			}
+			const newState = {
+				...currentState,
+				...partialState,
+			} as State;
+			(component.hooks[currentHookIndex] as ReducerHook<State>)[0] = newState;
+		};
+		const reducerHook: ReducerHook<State> = [initialState, dispatch];
+		component.hooks[currentHookIndex] = reducerHook;
+	}
+	const stateAndReducer = component.hooks[currentHookIndex];
+	currentHookIndex++;
+	return stateAndReducer;
+};
+
+export const useHook = () => {
+	const currentRendering = currentRenderingComponent;
+	const currentHook = currentHookIndex;
+	currentHookIndex++;
+	//! FINISH, usata per creare un hook personalizzato
+	//! Magari fai un wrap di tutti gli hook in questa funzione, non so.
+	return {};
+};
+
+export const useExposed = (toExpose: { [key: string]: any }) => {
+	const component = currentRenderingComponent;
+	const keys = Object.keys(toExpose);
+	for (const key of keys) {
+		(component as any)[key] = toExpose[key];
+	}
 };
 
 /* 
@@ -908,11 +1097,18 @@ export function html(templateParts: TemplateStringsArray, ...values: any[]): Ren
 	};
 }
 
-//! Testa casi un pò più complessi
-//! Sostituisci il fatto di usare "this" con un hook tipo expose({counter, incCounter})
+//! Opzioni per NON generare il CSS specifico
+//! Customizzare opzioni default per TUTTI i componenti
+//! Permetti solo in DEV_MODE di mettere un attributo wc-debug="debug|info|warn"
 //! Crea i vari hooks
 //! Crea la gestione stato globale stile Zustand
 //! Ordina il codice
+//! Prefisso nei metodi privati: __$
 //! Aggiungi commenti alle funzioni/classi
 //! Crea file .d.ts
 //! Crea documentazione
+
+//! NO useDeferredValue
+//! NO useImperativeHandle
+//! NO useInsertionEffect
+//! NO useOptimistic

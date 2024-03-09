@@ -1,24 +1,64 @@
-import { html, defineWomp, useState, useEffect } from '../dist/womp.js';
-/* import SecondComponent from './second-component.js';
-import ThirdComponent from './third-component.js'; */
+import {
+	html,
+	defineWomp,
+	useState,
+	useEffect,
+	useRef,
+	useCallback,
+	useId,
+	useLayoutEffect,
+	useMemo,
+	useReducer,
+} from '../dist/womp.js';
+import SecondComponent from './second-component.js';
+
+function reducer(state, action) {
+	if (action.type === 'incremented_age') {
+		return {
+			age: state.age + 1,
+		};
+	}
+	throw Error('Unknown action.');
+}
 
 function Counter({ styles: s, children }) {
 	const [counter, setCounter] = useState(0);
-	this.increaseCounter = () => {
-		setCounter(counter + 1);
-	};
+	const [state, dispatch] = useReducer(reducer, { age: 20 });
 
-	/* useEffect(() => {
-		setInterval(() => {
-			setCounter((oldValue) => oldValue + 1);
-		}, 10);
-		return () => clearInterval(interval);
-	}, []); */
+	const filtered = useMemo(() => {
+		return [1, 2, 3, 4, 5].filter((n) => n <= counter);
+	}, [counter]);
+
+	console.log(filtered);
+
+	const secondRef = useRef();
+
+	const inc = useCallback(() => {
+		dispatch({ type: 'incremented_age' });
+		// setCounter((oldCounter) => oldCounter + 1);
+		secondRef.current.inc();
+	});
+	const dec = useCallback(() => {
+		setCounter((oldCounter) => oldCounter - 1);
+		secondRef.current.inc();
+	});
+
+	const idInc = useId();
+	const idDec = useId();
+
+	useLayoutEffect(() => {
+		console.log('useLayoutEffect');
+	}, []);
+
+	useEffect(() => {
+		console.log('useEffect');
+	}, []);
 
 	return html`
-		<button class=${s.button} @click=${() => setCounter(counter - 1)}>-</button>
-		<span class=${s.span}>${counter}</span>
-		<button class=${s.button} @click=${this.increaseCounter}>+</button>
+		<button id=${idDec} class=${s.button} @click=${dec}>-</button>
+		<span class=${s.span}>${state.age}</span>
+		<button id=${idInc} class=${s.button} @click=${inc}>+</button>
+		<${SecondComponent} ref=${secondRef} counter=${counter} />
 	`;
 }
 
@@ -47,4 +87,6 @@ Counter.css = `
 		}
 `;
 
-export default defineWomp(Counter);
+export default defineWomp(Counter, {
+	shadow: true,
+});
