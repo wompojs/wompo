@@ -8,7 +8,12 @@
 	</head>
 	<body>
 		<script type="module">
+			import { wompDefaultOptions } from '../dist/womp.js';
+			wompDefaultOptions.shadow = true;
+		</script>
+		<script type="module">
 			import Counter from './counter-component.js';
+
 			// import OldCounter from './old-counter.js';
 
 			/* console.time('Perf');
@@ -19,19 +24,13 @@
 			}
 			console.timeEnd('Perf'); */
 
-			let items = 1;
-			for (let i = 0; i < items; i++) {
-				console.time(`Render ${i + 1}`);
-				const counter = new Counter();
-				document.body.appendChild(counter);
-				console.timeEnd(`Render ${i + 1}`);
-			}
-
 			/* console.time('PerfOld');
 			const oldCounter = new OldCounter();
 			document.body.appendChild(oldCounter);
 			console.timeEnd('PerfOld'); */
 		</script>
+
+		<counter-womp wc-perf></counter-womp>
 	</body>
 </html>
 

@@ -1,7 +1,12 @@
 import { html, defineWomp, useState, useExposed } from '../dist/womp.js';
+import { useTheme, useTodos, useUserReducer } from './counter-component.js';
 
 function SecondComponent({ styles: s, children, counter, name }) {
 	const [innerCounter, setInnerCounter] = useState(0);
+	const [theme] = useTheme();
+	const [user] = useUserReducer();
+	const [todos] = useTodos();
+
 	const inc = () => {
 		setInnerCounter(innerCounter + 1);
 	};
@@ -12,9 +17,14 @@ function SecondComponent({ styles: s, children, counter, name }) {
 		<ul>
 			<li>
 				<button @click=${this.inc}>Inc</button>
-				Secondo componente ${innerCounter}!
+				Secondo componente ${theme} ${innerCounter}!
 			</li>
-			<li>Name: ${name}, Counter: ${counter}</li>
+			<li>Name: ${user.name} ${user.lastname}, Counter: ${counter}</li>
+			${todos.state === 'loading'
+				? html`<li>Loading...</li>`
+				: todos.state === 'hasError'
+				? html`<li>Error</li>`
+				: todos.data.map((todo) => html`<li>${todo.title}</li>`)}
 			<li>${children}</li>
 		</ul>
 	`;
