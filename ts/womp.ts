@@ -668,8 +668,9 @@ const __generateSpecifcStyles = (
 	if (DEV_MODE) {
 		if (!shadow && !cssGeneration)
 			console.warn(
-				`The component ${name} is not an isolated component (shadow=false) and has the cssGeneration option set to false.\n` +
-					`This can lead to unexpected behaviors, becasue this component can alter other components' styles.`
+				`The component ${name} is not an isolated component (shadow=false) and has the ` +
+					`cssGeneration option set to false.\nThis can lead to unexpected behaviors, because ` +
+					`this component can alter other components' styles.`
 			);
 	}
 	if (cssGeneration) {
@@ -683,7 +684,8 @@ const __generateSpecifcStyles = (
 			});
 			invalidSelectors.forEach((selector) => {
 				console.warn(
-					`The CSS selector "${selector} {...}" in the component "${componentName}" is not enough specific: include at least one class.\n`
+					`The CSS selector "${selector} {...}" in the component "${componentName}" is not enough` +
+						` specific: include at least one class.`
 				);
 			});
 		}
@@ -1020,8 +1022,9 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					if (DEV_MODE) {
 						if ((node as WompElement)._$womp) {
 							console.error(
-								'Dynamic tags are currently not supported, unsless used to render for the first time a custom component.\n' +
-									'Instead, you can use conditional rendering (e.g. condition ? html`<${First} />` : html`<${Second} />`).'
+								'Dynamic tags are currently not supported, unsless used to render for the first ' +
+									'time a custom component.\nInstead, you can use conditional rendering.\n' +
+									'(e.g. condition ? html`<${First} />` : html`<${Second} />`).'
 							);
 							continue;
 						}
@@ -1067,6 +1070,13 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 WOMP COMPONENT DEFINITION
 ================================================
 */
+/**
+ * This function will convert the functional component into an extension class of the HTMLElement,
+ * so that it can be used to create the custom web-component.
+ * @param Component The Component function
+ * @param options The options of the component.
+ * @returns A new dynamic class that will be used to create the custom web-component
+ */
 const _$womp = (Component: WompComponent, options: WompComponentOptions): WompElementClass => {
 	const [generatedCSS, styles] = __generateSpecifcStyles(Component, options);
 	const style = document.createElement('style');
@@ -1076,42 +1086,85 @@ const _$womp = (Component: WompComponent, options: WompComponentOptions): WompEl
 	if (!options.shadow) {
 		document.body.appendChild(style);
 	}
+	/**
+	 * The dynamic class created to make it possible to create a custom web-component
+	 */
 	const WompComponent = class extends HTMLElement implements WompElement {
-		static componentName = options.name;
-		static _$womp = true;
+		static _$womp = true; // For faster access
 
+		/** The component name, used in the DOM */
+		static componentName = options.name;
+		/**
+		 * The cached template created in the first item's render, and then reused across all
+		 * components.
+		 */
 		static _$cachedTemplate: CachedTemplate;
 
+		/**
+		 * Get the already present cached template, or create a new one if the component is rendering
+		 * for the first time.
+		 * @param parts The template parts from the html function.
+		 * @returns The cached template.
+		 */
 		static _$getOrCreateTemplate(parts: TemplateStringsArray) {
 			if (!this._$cachedTemplate) this._$cachedTemplate = __createTemplate(parts);
 			return this._$cachedTemplate;
 		}
 
+		public _$womp: true = true; // For faster access
+
+		/**
+		 * The props of the component. They are public so that they can be easily accessed from the
+		 * console and make it easier to debug a component.
+		 */
 		public props: WompProps = {};
+		/**
+		 * The list of hooks in a component. They are public, so that hooks can be added, but should not
+		 * be accessed easily.
+		 */
 		public _$hooks: Hook[] = [];
+		/**
+		 * This variable will be set to true if a component has the wc-perf attribute. It'll print in
+		 * the console rendering times for the component (init and update). It's only available in
+		 * development mode.
+		 */
 		public _$measurePerf: boolean = false;
-		public _$womp: true = true;
+
+		/**
+		 * The initial props of a component. They are set when using a dynamic tag to render a custom
+		 * Womp element.
+		 */
 		public _$initialProps: WompProps = {};
 
+		/** The Root of the node. It'll be the node itself, or it's ShadowRoot if shadow is set to true */
 		private __ROOT: this | ShadowRoot;
+		/** The array containing metadata of the component, used to render the component */
 		private __dynamics: Dynamics[];
+		/** It'll be true if the component has already processing an update. */
 		private __updating: boolean = false;
+		/** The array containing the dynamic values of the last render. */
 		private __oldValues: any[] = [];
+		/** It'll be true if the component is currently initializing. */
 		private __isInitializing: boolean = true;
+		/** It's true if the component is connected to the DOM. */
 		private __connected: boolean = false;
+		/**
+		 * Used to know if a component has been completely removed from the DOM or only temporarely to
+		 * move it from a node to another.
+		 */
 		private __isInDOM: boolean = false;
 
 		constructor() {
 			super();
 		}
 
-		/** @override component is connected to DOM */
+		/** @override component has been connected to the DOM */
 		connectedCallback() {
 			this.__isInDOM = true;
 			if (!this.__connected) this.initElement();
 		}
 
-		/** @override component is connected to DOM */
+		/** @override component has been disconnected from the DOM */
 		disconnectedCallback() {
 			// When a component is just "moved" to another element but not
 			// removed from the DOM, it still calls the disconnected and
@@ -1128,6 +1181,11 @@ const _$womp = (Component: WompComponent, options: WompComponentOptions): WompEl
 			}
 		}
 
+		/**
+		 * This public callback will be used when a component is removed permanently from the DOM.
+		 * It allows other code to hook into the component and unmount listeners or similar when the
+		 * component is disconnected from the DOM.
+		 */
 		public onDisconnected() {}
 
 		/**
@@ -1198,6 +1256,11 @@ const _$womp = (Component: WompComponent, options: WompComponentOptions): WompEl
 			if (DEV_MODE && this._$measurePerf) console.timeEnd('First render ' + options.name);
 		}
 
+		/**
+		 * Calls the functional component by first setting correct values to the
+		 * [currentRenderingComponent] and [currentHookIndex] variables.
+		 * @returns The result of the call.
+		 */
 		private callComponent() {
 			currentRenderingComponent = this;
 			currentHookIndex = 0;
@@ -1207,6 +1270,17 @@ const _$womp = (Component: WompComponent, options: WompComponentOptions): WompEl
 			return renderHtml;
 		}
 
+		/**
+		 * It requests a render to the component. If the component has already received a render
+		 * request, the request will be rejected. This is to avoid multiple re-renders when it's not
+		 * necessary. The following function will cause a single re-render:
+		 * ```javascript
+		 * const incBy2 = () => {
+		 *   setState((oldState) => oldState + 1)
+		 *   setState((oldState) => oldState + 1)
+		 * }
+		 * ```
+		 */
 		public requestRender() {
 			if (!this.__updating) {
 				this.__updating = true;
@@ -1221,6 +1295,11 @@ const _$womp = (Component: WompComponent, options: WompComponentOptions): WompEl
 			}
 		}
 
+		/**
+		 * It'll set a new value to a specific prop of the component, and a re-render will be requested.
+		 * @param prop The prop name.
+		 * @param value The new value to set.
+		 */
 		public updateProps(prop: string, value: any) {
 			if (this.props[prop] !== value) {
 				this.props[prop] = value;
@@ -1241,6 +1320,14 @@ HOOKS
 ================================================
 */
 
+/**
+ * This generic hook will allow the creation of custom hooks by exposing the current rendering
+ * component and the current hook index. They will be returned in an array of 2 element:
+ * [currentComponent, currentIndex].
+ * The currentHookIndex will be then automatically incremented, so that the developer will not have
+ * to worry about it, avoiding potential bugs.
+ * @returns The current rendering component and current index.
+ */
 export const useHook = (): [WompElement, number] => {
 	const currentComponent = currentRenderingComponent;
 	const currentIndex = currentHookIndex;
@@ -1249,6 +1336,36 @@ export const useHook = (): [WompElement, number] => {
 	return res;
 };
 
+/**
+ * This hook will allow a component to request a re-render when the property changes. It accepts one
+ * parameter, which is the initial value, and it'll return an array containing 2 values: the current
+ * value and a function to update it. The value will not be directly modifiable: it's necessary to
+ * call the set function with the new value. The set function can be:
+ *
+ * 1. The new value
+ * 2. A function that has the old state as a parameter, and returns the new value.
+ *
+ * The second case should be used in the following conditions:
+ *
+ * - Consecutive updates are performed consecutively
+ * - The update is performed inside a callback function that is not re-created during render.
+ *
+ * If the state value is an object, to update it you must pass the whole object back: this hook will
+ * not do a merge of the partial value and the old value. If you prefer this to happen, you should
+ * apply the `useReducer` approach instead.
+ *
+ * @example
+ * ```javascript
+ * function Counter(){
+ *   const [counter, setCounter] = useState(0);
+ *   const inc = () => setCounter(counter+1);
+ *   return html`<button \@click=${inc}>${counter}</button>`;
+ * }
+ * ```
+ *
+ * @param defaultValue The starter value.
+ * @returns The current StateHook value.
+ */
 export const useState = <State>(defaultValue: State) => {
 	const [component, hookIndex] = useHook();
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
@@ -1272,6 +1389,30 @@ export const useState = <State>(defaultValue: State) => {
 	return state;
 };
 
+/**
+ * The useEffect hook allows to execute a callback (passed in the first argument) on first render
+ * and whenever one of the dependencies changes (second argument). This is useful to execute async
+ * calls, set intervals, and other types of initialization in the component.
+ * The list of dependencies can be an empty array: in this case, the callback function will only be
+ * executed once, that is after the first render.
+ * The callback gets executed asynchronously, meaning that it'll be executed once the component will
+ * finish its rendering phase.
+ *
+ * @example
+ * ```javascript
+ * function Timer(){
+ *   const [time, setTime] = useState(0);
+ *   useEffect(() => {
+ *     setInterval(() => {
+ *       setTime((oldTime) => oldTime + 1);
+ *     }, 10)
+ *   }, [])
+ *   return html`Time: ${(time/100).toFixed(2)}s`
+ * }
+ * ```
+ * @param callback The callback to execute when a dependency changes.
+ * @param dependencies The list of dependencies to listen to changes.
+ */
 export const useEffect = (callback: VoidFunction | (() => VoidFunction), dependencies: any[]) => {
 	const [component, hookIndex] = useHook();
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
@@ -1301,6 +1442,14 @@ export const useEffect = (callback: VoidFunction | (() => VoidFunction), depende
 	}
 };
 
+/**
+ * The useLayoutEffect hook is the same as the main useEffect hook. The only difference stands in
+ * the execution order: the useEffect hook gets executed asynchronously, so the component will first
+ * render, and then it'll call the callback. The useLayoutEffect hook gets executed synchronously,
+ * so `before` the component renders.
+ * @param callback The callback to execute
+ * @param dependencies The list of dependencies to listen to changes.
+ */
 export const useLayoutEffect = (
 	callback: VoidFunction | (() => VoidFunction),
 	dependencies: any[]
@@ -1329,6 +1478,30 @@ export const useLayoutEffect = (
 	}
 };
 
+/**
+ * The useRef hook is very similar to the `useState` hook. The only difference is that the useRef
+ * hook will NOT re-render the component, and the value will be accessed through the `.current`
+ * property. This is useful if you want to keep a stable value of a variable across all the renders,
+ * (without re-initializing the variable and loose it's previous state), but without causing a
+ * re-render when the value changes.
+ * If the value is passed to a "ref" attribute in any node, the .current value will be set to the
+ * node having that attribute.
+ *
+ * @example
+ * ```javascript
+ * function Component(){
+ *   const divRef = useRef();
+ *   console.log(divRef.current); // null
+ *   useEffect(() => {
+ *     console.log(divRef.current); // HTMLDivElement
+ *   }, []);
+ *   return html`<div ref=${divRef}>I have a reference!</div>`;
+ * }
+ * ```
+ *
+ * @param initialValue The initial value.
+ * @returns The current value of the reference.
+ */
 export const useRef = <T>(initialValue: T | null = null) => {
 	const [component, hookIndex] = useHook();
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
@@ -1341,7 +1514,37 @@ export const useRef = <T>(initialValue: T | null = null) => {
 	return ref;
 };
 
-// State update must use callbacks
+/**
+ * The useCallback hook is a useful hook that stores the given function and returns the same
+ * function in the next renders.
+ * Why is it useful? Because in javascript 2 function declarations are considered not equal:
+ *
+ * ```javascript
+ * () => {} === () => {} // false
+ *
+ * const a = () => {}
+ * a === a // true
+ * ```
+ *
+ * So, for example, a useful case in which to use it, is when a callback function is passed through
+ * the props of another component: if you don't use the `useCallback` hook, the child component will
+ * re-render every time the parent component changes, because the two functions will be considered
+ * different.
+ * This consideration doesn't apply to events, because events are stored in a simple variable and
+ * will not cause an add/removal of event listeners, so it's not computationally expensive: it's
+ * more expensive to store the callback and get it every time.
+ *
+ * @example
+ * ```javascript
+ * function Component(){
+ *   const callback = useCallback(() => console.log('Hey!'));
+ *   return html`<${NestedComponent} hey=${callback} />`
+ * }
+ * ```
+ *
+ * @param callbackFn The callback function to save.
+ * @returns The stored callback function.
+ */
 export const useCallback = (callbackFn: CallbackHook) => {
 	const [component, hookIndex] = useHook();
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
@@ -1363,8 +1566,54 @@ const useIdMemo = () => {
 		return callback as IdHook;
 	};
 };
+/**
+ * The useId hook returns a unique id for the component. It's simply a counter that gets updated
+ * every time a component instantiates this hook. The id structure will be the following: ":r0:".
+ *
+ * Since the purpose of component is their reusability, a component should not have an element with
+ * a static Id. That's when this function comes into play. The id can be used also for accessibility
+ * purposes.
+ *
+ * @example
+ * ```javascript
+ * function Input(){
+ *   const id = useId();
+ *   return html`
+ *     <input id=${id} type="checkbox" />
+ *     <label for=${id}>Input</label>
+ *   `
+ * }
+ * ```
+ *
+ * @returns The useId hook.
+ */
 export const useId = useIdMemo();
 
+/**
+ * The useMemo hook is useful when you want to store a computed value which would be expensive to
+ * re-compute for every single render. For example, filtering or sorting, an array. It accepts one
+ * callback function and will return the result of it. The second parameter contains the
+ * dependencies that will cause the re-execution of the callback function when one of them changes.
+ *
+ * @example
+ * ```javascript
+ *
+ * const users = [...] // thousands of users.
+ *
+ * function Users(){
+ *   const adults = useMemo(() => {
+ *     return users.filter(user => user.age >= 18);
+ *   }, [users])
+ *   return html`<ul>
+ *     ${adults.map(user => html`<li>${user.name}</li>`)}
+ *   </ul>`
+ * }
+ * ```
+ *
+ * @param callbackFn The callback function to execute.
+ * @param dependencies The depencies to listen to changes.
+ * @returns The last computed result.
+ */
 export const useMemo = (callbackFn: () => any, dependencies: any[]) => {
 	const [component, hookIndex] = useHook();
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
@@ -1387,6 +1636,47 @@ export const useMemo = (callbackFn: () => any, dependencies: any[]) => {
 	return memoizedResult.value;
 };
 
+/**
+ * The useReducer hook is an alternative approach for `useState`, using the redux-like state
+ * management.
+ * With this hook, you give as a parameter the initial state and the reducer function. This function
+ * must accept 2 parameters: the old state, and the action, which is an object having at least the
+ * "type" key (which is a string corresponding to the action to execute). The reducer must return
+ * the new (partial) state.
+ * The useReducer function will then return the current state and the **dispatch** function. This
+ * function, unlike the simple set function generated by the `useState` hook, will accept a single
+ * parameter which is the action to pass to the reducer function.
+ *
+ * @example
+ * ```javascript
+ * const reducer = (oldState, action) => {
+ *   switch (action.type) {
+ *     case 'ADD_SHEEP':
+ *       return { sheeps: oldState.sheeps + 1 };
+ *     case 'ADD_COW':
+ *       return { cows: oldState.cows + 1 };
+ *     default:
+ *       throw new Error('Action not supported');
+ *   }
+ * }
+ *
+ * const initialState = { sheeps: 10, cows: 5 };
+ *
+ * function SheepsAndCows(){
+ *   const [state, dispatch] = useReducer(initialState, reducer);
+ *   const addSheep = () => dispatch({ type: 'ADD_SHEEP' })
+ *   const addCow = () => dispatch({ type: 'ADD_COW' })
+ *   return html`
+ *     <button \@click=${addSheep}>Sheeps: ${state.sheeps}</button>
+ *     <button \@click=${addCow}>Cows: ${state.cows}</button>
+ *   `
+ * }
+ * ```
+ *
+ * @param reducer The reducer function.
+ * @param initialState The initial state.
+ * @returns An array with [state, dispath].
+ */
 export const useReducer = <State>(
 	reducer: (state: State, action: ReducerAction) => Partial<State>,
 	initialState: State
@@ -1417,6 +1707,47 @@ export const useReducer = <State>(
 	return stateAndReducer;
 };
 
+/**
+ * The useExposed hook allows the component to expose variables and/or methods in the DOM. Sometimes
+ * you want to be able to select an element in the DOM and then use one of it's methods to do some
+ * kind of operations. Some components are better to have an "isolated" state, meaning that it's
+ * rendering state should be internal, and not depending to its props. A nice example it's a modal:
+ * you'd rather want to have an `open()` method that having an `open` property, that causes a
+ * re-render of the parent and the modal component.
+ *
+ * This is a different approach compared to React, but using exposed methods in custom elements can
+ * have great benefits speaking about performances in comparison of using props to manage the state.
+ *
+ * This hook accepts an object having as keys the name of the property to expose and the
+ * corresponding values.
+ * The `useExposed` hook is a great combination with the `useRef` hook.
+ *
+ * @example
+ * ```javascript
+ * function Modal(){
+ *   const [open, setOpen] = useState(false);
+ *   const openModal = () => setOpen(true);
+ *   const closeModal = () => setOpen(false);
+ *   useExposed({
+ *     open: openModal,
+ *     close: closeModal,
+ *   });
+ *   return html`...`;
+ * }
+ *
+ * function ParentComponent(){
+ *   const modalRef = useRef();
+ *   /// Will only re-render the modal component, and not this component.
+ *   const openModal = () => modalRef.current.open();
+ *   return html`
+ *     <button \@click=${openModal}>Open Modal</button>
+ *     <${Modal} ref=${modalRef} />
+ *   `
+ * }
+ * ```
+ *
+ * @param toExpose The keys to expose.
+ */
 export const useExposed = (toExpose: { [key: string]: any }) => {
 	const component = currentRenderingComponent;
 	const keys = Object.keys(toExpose);
@@ -1438,6 +1769,55 @@ GLOBAL STORE MANAGEMENT
 ================================================
 */
 
+/**
+ * The useGlobalState hook works kinda like the `useState` hook, with the only difference that
+ * allows to set a global state used across multiple components, that will cause the re-render of
+ * each component using it when the value changes. The useGlobalState hook should not be used inside
+ * a component, because it's an external hook that dosn't depend on the current rendering component.
+ * This function, unlike the useState hook, will not return immediately the state and the setter,
+ * but will return **another hook** that can then be used in all the components that requires it.
+ * This allows to create distinct states with appropriate names.
+ *
+ * The returned hook accepts one parameter (which is NOT the default value, because it's alread set
+ * when instantiating the hook). This parameter is a boolean value indicating rather or not the
+ * component should listen to changes in the state. This is because sometimes a component may only
+ * need the setter function, so it doesn't need a re-render when the state value changes.
+ * The default value is `true` (the component will re-render when the state changes).
+ *
+ * The `useGlobalState` hook accepts a second parameter, which are the options. The current options
+ * are the following:
+ * - `storage` (default: `null`). When valorized, the Stringified version of the global state
+ *   will be saved in the localStorage. It must be a string corresponding to the key of the value
+ *   saved in the storage.
+ * - `reducer`: (Default: `null`). When valorized, the global state will not return a simple "setState"
+ *   function, but a dispatch function that will then execute the reducer. This option can be used
+ *   if you'd like to implement a redux-like behavior.
+ * - `async`: (Default: `null`). If the initial state depends on some data in the DB, you can set this
+ *   initializer function that will return a promise with the fetched data. When this parameter is
+ *   set, the state data will be like the following:
+ *
+ * ```typescript
+ * {
+ *   status: 'loading' | 'hasData' | 'hasError';
+ *   data?: any;
+ *   error?: any;
+ * }
+ * ```
+ *
+ * @example
+ * ```javascript
+ * const useCounter = useGlobalState(0)
+ *
+ * function Component(){
+ *   const [counter, setCounter] = useCounter();
+ *   return html``
+ * }
+ * ```
+ *
+ * @param defaultValue The default value of the store.
+ * @param options The options of the global state.
+ * @returns The generated hook to use in multiple components.
+ */
 export const useGlobalState = <S>(defaultValue: S, options: GlobalStateOptions<S> = {}) => {
 	const allOptions: GlobalStateOptions<S> = {
 		storage: null,
@@ -1541,7 +1921,7 @@ export const useGlobalState = <S>(defaultValue: S, options: GlobalStateOptions<S
 		setter: setter,
 	} as GlobalStateHook<S>;
 	return (
-		isOnlySetter = false
+		shouldReRender = true
 	): [S, (oldState: S, action?: { type: string; [key: string]: any }) => S] => {
 		const [component, hookIndex] = useHook();
 		if (!component._$hooks.hasOwnProperty(hookIndex)) {
@@ -1550,7 +1930,7 @@ export const useGlobalState = <S>(defaultValue: S, options: GlobalStateOptions<S
 				subscribers.delete(component);
 				oldDisconnectedCallback();
 			};
-			if (!isOnlySetter) subscribers.add(component);
+			if (shouldReRender) subscribers.add(component);
 			component._$hooks[hookIndex] = globalState;
 		}
 		return [globalState.value, setter];
@@ -1564,18 +1944,18 @@ HTML
 */
 
 /**
- * Elaborate the string representation of the rendering content of the component.
- *
- * This function must be called without the use of the parentheses, like in the following example:
+ * This template function is used to then generate the DOM structure for a component.
+ * Should be used as a return value for every component, and for every string value that contains
+ * an HTML structure. Simple strings will be taken as they are, and will not be converted into HTML
+ * nodes.
  *
  * @example
  * ```javascript
- * render(){
- *   return html`<div>Hello World!</div>`;
- * }
+ * const greeting = 'Hello, world!';
+ * const template = html`<div>${greeting}</div>`
  * ```
- * @param template The list of string to concatenate with the values
- * @param values The list of values to concatenate with the templates
+ * @param template The list of static strings of the template
+ * @param values The list of dynamic values of the template
  */
 export function html(templateParts: TemplateStringsArray, ...values: any[]): RenderHtml {
 	const cleanValues = [];
@@ -1596,6 +1976,13 @@ export function html(templateParts: TemplateStringsArray, ...values: any[]): Ren
 DEFAULT OPTIONS
 ================================================
 */
+/**
+ * The default options used when creating a Web Component. If you customize these options, you
+ * should do it at the TOP of your html file, before every other component renders.
+ * The current options are:
+ * - `shadow`: false (boolean)
+ * - `cssGeneration`: true (boolean)
+ */
 export const wompDefaultOptions: WompComponentOptions = {
 	shadow: false,
 	name: '',
@@ -1607,6 +1994,48 @@ export const wompDefaultOptions: WompComponentOptions = {
 DEFINE WOMP COMPONENT
 ================================================
 */
+/**
+ * The defineWomp function will be the trigger point to generate your custom web component.
+ * It accepts 2 parameter: your functional component and the options to customize it.
+ * The current available options are the followings:
+ * - `name` (string)
+ * - `shadow` (boolean).
+ * - `cssGeneration` (boolean)
+ *
+ * The default values will depend on the [wompDefaultOptions] variable.
+ *
+ * The functional component can have the css property, wich is a string corresponding to its styles.
+ *
+ * The `name` of the component will be the one specified in the options, or, if not specified, will
+ * be the hyphen-cased name of the functional component. If the generated name will not have at
+ * least one hyphen, a "-womp" string will be appended in the end.
+ * Example: function CounterComponent(){} -> counter-component
+ * Example2: function Counter(){} -> counter-womp
+ *
+ * The `shadow` option, if true, will build the content of the component in a Shadow DOM.
+ *
+ * The `cssGeneration` option will transform the css of the component by replacing the classes with
+ * unique names, that will then be passed in the `styles` props of the component.
+ *
+ * **The result of this function is what should be exported (not the functional component).**
+ *
+ * @example
+ * ```javascript
+ * function Greetings(){
+ *   return html`<p>Hello World!</p>`
+ * }
+ * Greetings.css = `p { color: blue; }`
+ *
+ * export default defineWomp(Greetings, {
+ *   name: 'greetings-component',
+ *   shadow: true,
+ * })
+ * ```
+ *
+ * @param component The functional component.
+ * @param options The options of the component.
+ * @returns The generated class for the component.
+ */
 export function defineWomp(component: WompComponent, options: WompComponentOptions = {}) {
 	if (!component.css) component.css = '';
 	const componentOptions = {
@@ -1624,7 +2053,3 @@ export function defineWomp(component: WompComponent, options: WompComponentOptio
 	customElements.define(componentOptions.name, Component);
 	return Component;
 }
-
-//! Aggiungi commenti alle funzioni/classi
-//! Crea file .d.ts
-//! Crea documentazione
