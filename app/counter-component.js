@@ -9,10 +9,12 @@ import {
 	useLayoutEffect,
 	useMemo,
 	useReducer,
-	useGlobalState,
+	createContext,
+	/* useGlobalState, */
 } from '../dist/womp.js';
 import SecondComponent from './second-component.js';
 
+/*
 const userReducer = (prev, action) => {
 	if (action.type === 'name') return { name: 'Vaso' };
 	if (action.type === 'lastname') return { lastname: 'Kalamara' };
@@ -30,7 +32,9 @@ export const useTodos = useGlobalState([], {
 export const useUserReducer = useGlobalState(
 	{ name: 'Lorenzo', lastname: 'Lannino' },
 	{ reducer: userReducer }
-);
+); */
+
+export const ThemeProvider = createContext('light');
 
 function reducer(state, action) {
 	if (action.type === 'incremented_age') {
@@ -44,33 +48,34 @@ function reducer(state, action) {
 function Counter({ styles: s, children }) {
 	const [counter, setCounter] = useState(0);
 	const [state, dispatch] = useReducer(reducer, { age: 20 });
-	const [theme, setTheme] = useTheme();
+	const [theme, setTheme] = useState('dark');
+	/* const [theme, setTheme] = useTheme();
 	const [user, dispatchUser] = useUserReducer(true);
-	const [todos, setTodos] = useTodos(true);
+	const [todos, setTodos] = useTodos(true); */
 
-	const filtered = useMemo(() => {
+	/* const filtered = useMemo(() => {
 		return [1, 2, 3, 4, 5].filter((n) => n <= counter);
 	}, [counter]);
-	console.log(filtered);
+	console.log(filtered); */
 
 	const secondRef = useRef();
 
 	const inc = () => {
 		dispatch({ type: 'incremented_age' });
 		setCounter((oldCounter) => oldCounter + 1);
-		if (secondRef.current) secondRef.current.inc();
+		// if (secondRef.current) secondRef.current.inc();
 		setTheme((oldTheme) => {
 			if (oldTheme === 'light') return 'dark';
 			return 'light';
 		});
-		dispatchUser({ type: 'name' });
-		setTodos((oldTodos) => {
+		// dispatchUser({ type: 'name' });
+		/* setTodos((oldTodos) => {
 			oldTodos.push({ title: `Todo ${counter}` });
 			return oldTodos;
-		});
+		}); */
 	};
 	const dec = useCallback(() => {
-		dispatchUser({ type: 'lastname' });
+		// dispatchUser({ type: 'lastname' });
 		setCounter((oldCounter) => oldCounter - 1);
 		if (secondRef.current) secondRef.current.inc();
 	});
@@ -78,20 +83,22 @@ function Counter({ styles: s, children }) {
 	const idInc = useId();
 	const idDec = useId();
 
-	useLayoutEffect(() => {
+	/* useLayoutEffect(() => {
 		console.log('useLayoutEffect');
 	}, []);
 
 	useEffect(() => {
 		console.log('useEffect');
-	}, []);
+	}, []); */
 
 	return html`
 		<button id=${idDec} class=${s.button} @click=${dec}>-</button>
 		<span class=${s.span}>${state.age} - ${counter}</span>
 		<button id=${idInc} class=${s.button} @click=${inc}>+</button>
 		<p>${theme}</p>
-		<${SecondComponent} ref=${secondRef} wc-perf />
+		<${ThemeProvider.Provider} value=${theme}>
+			<${SecondComponent} ref=${secondRef} wc-perf />
+		</${ThemeProvider.Provider}>
 	`;
 }
 
