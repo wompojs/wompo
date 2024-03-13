@@ -25,7 +25,7 @@ function reducer(state, action) {
 	throw Error('Unknown action.');
 }
 
-function Counter({ styles: s, children }) {
+export default function Counter({ styles: s, children }) {
 	const [counter, setCounter] = useState(0);
 	const [state, dispatch] = useReducer(reducer, { age: 20 });
 	const [theme, setTheme] = useState('dark');
@@ -107,6 +107,6 @@ Counter.css = `
 		}
 `;
 
-export default defineWomp(Counter, {
+defineWomp(Counter, {
 	shadow: true,
 });

@@ -5,9 +5,18 @@ const jsx = (Element, attributes) => {
 		_$wompHtml: true,
 	};
 	if (Element === 'wc-fragment') {
-		return attributes.children;
+		if (attributes.children.parts) {
+			template.parts.push(...attributes.children.parts);
+			template.values.push(...attributes.children.values);
+		} else if (Array.isArray(attributes.children)) {
+			for (const part of attributes.children) {
+				template.parts.push(...part.parts);
+				template.values.push(...part.values);
+				template.values.push(false);
+			}
+			template.values.pop();
+		}
 	} else {
-		//! Hanlde womp elements
 		let tagName = Element;
 		if (Element._$womp) tagName = Element.componentName;
 		let staticHtml = `<${tagName}`;
@@ -31,38 +40,41 @@ const jsx = (Element, attributes) => {
 		template.parts.push(staticHtml);
 		const children = attributes.children;
 		if (children && children.parts) {
-			template.values.push(false); // NO value
-			template.parts = [...template.parts, ...children.parts];
-			template.values = [...template.values, ...children.values];
-			template.values.push(false); // NO value
+			if (attributes.children.parts) {
+				template.values.push(false); // NO value
+				template.parts.push(...attributes.children.parts);
+				template.values.push(attributes.children.values);
+				template.values.push(false); // NO value
+			} else if (Array.isArray(attributes.children)) {
+				for (const part of attributes.children) {
+					template.values.push(false); // NO value
+					template.parts.push(...part.parts);
+					template.values.push(...part.values);
+					template.values.push(false); // NO value
+				}
+			}
 		} else {
 			template.values.push(children);
 		}
 		staticHtml = `</${tagName}>`;
 		template.parts.push(staticHtml);
 	}
-	console.log(template);
 	return template;
 };
 
 const Fragment = 'wc-fragment';
 
+const jsxs = jsx;
+
 function Test() {
-	const state = 'state';
-	const setState = () => null;
-	return /* @__PURE__ */ jsx(Fragment, {
-		children: /* @__PURE__ */ jsx('div', {
-			id: 'Ciccio',
-			class: state,
-			onClick: () => setState('hidden'),
-			children: jsx(
-				{
-					_$womp: true,
-					componentName: 'counter-component',
-				},
-				{ children: 'Test' }
-			),
-		}),
+	const counter = 'state';
+	const setCounter = () => null;
+	return /* @__PURE__ */ jsxs(Fragment, {
+		children: [
+			/* @__PURE__ */ jsx('button', { onClick: () => setCounter(counter - 1), children: '-' }),
+			/* @__PURE__ */ jsx('span', { children: counter }),
+			/* @__PURE__ */ jsx('button', { onClick: () => setCounter(counter + 1), children: '+' }),
+		],
 	});
 }
 Test();

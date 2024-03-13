@@ -1,11 +1,12 @@
 {
+	"include": ["jsx-runtime.d.ts", "womp.d.ts"],
 	"compilerOptions": {
 		"outDir": "./dist/",
 		"noImplicitAny": true,
 		"module": "es6",
 		"target": "ES2021",
 		"jsx": "react-jsx",
-		"jsxImportSource": "womp",
-		"moduleResolution": "node",
+		"jsxImportSource": "../",
+		"moduleResolution": "node"
 	}
 }

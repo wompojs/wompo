@@ -1,6 +1,6 @@
 import { html, defineWomp, useState } from '../dist/womp.js';
 
-function Counter({ styles: s }) {
+export default function Counter({ styles: s }) {
 	const [counter, setCounter] = useState(0);
 
 	const inc = () => {
@@ -41,4 +41,4 @@ Counter.css = `
 		}
 `;
 
-export default defineWomp(Counter);
+defineWomp(Counter);

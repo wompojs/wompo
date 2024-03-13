@@ -1,4 +1,4 @@
-declare namespace JSX {
+export namespace JSX {
 	interface IntrinsicElements {
 		[elemName: string]: any;
 	}

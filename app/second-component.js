@@ -1,7 +1,7 @@
 import { html, defineWomp, useState, useExposed, useContext } from '../dist/womp.js';
 import { ThemeProvider /* useTheme, useTodos, useUserReducer */ } from './counter-component.js';
 
-function SecondComponent({ styles: s, children, counter, name }) {
+export default function SecondComponent({ styles: s, children, counter, name }) {
 	const [innerCounter, setInnerCounter] = useState(0);
 	const theme = useContext(ThemeProvider);
 	// console.log(theme);
@@ -38,4 +38,4 @@ SecondComponent.css = `
 	}
 `;
 
-export default defineWomp(SecondComponent);
+defineWomp(SecondComponent);

@@ -1,6 +1,6 @@
 import { html, defineWomp } from '../dist/womp.js';
 
-function ThirdComponent({ styles: s, children, counter, name }) {
+export default function ThirdComponent({ styles: s, children, counter, name }) {
 	return html`
 		<div>
 			<p>Terzo componente ${name}! ${counter}</p>
@@ -9,6 +9,6 @@ function ThirdComponent({ styles: s, children, counter, name }) {
 	`;
 }
 
-export default defineWomp(ThirdComponent, {
+defineWomp(ThirdComponent, {
 	shadow: true,
 });

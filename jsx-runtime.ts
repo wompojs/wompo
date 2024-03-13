@@ -1,4 +1,4 @@
-import { jsx as wJsx } from './womp';
+import { jsx as wJsx } from './ts/womp';
 
 export const jsx = wJsx;
 

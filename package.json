@@ -1,15 +1,42 @@
 {
 	"name": "womp",
+	"description": "",
 	"version": "1.0.0",
-	"main": "index.js",
+	"type": "module",
+	"module": "./dist/womp.js",
+	"main": "./dist/womp.js",
+	"types": "./womp.d.ts",
 	"author": "LL",
 	"license": "ISC",
-	"description": "",
 	"scripts": {
 		"dev": "esbuild ts/womp.ts --sourcemap --watch --outdir=dist --allow-overwrite",
 		"build": "esbuild ts/womp.ts --minify --outdir=dist --allow-overwrite",
-		"jsx": "esbuild test/counter.tsx --outdir=test --allow-overwrite --watch",
+		"jsx": "esbuild jsx-runtime.ts --outdir=. --minify --allow-overwrite",
 		"perf": "tach --config tachometer.json"
+	},
+	"exports": {
+		".": {
+			"types": "./womp.d.ts",
+			"default": "./dist/womp.js"
+		},
+		"./jsx-runtime": {
+			"types": "./jsx-runtime.d.ts",
+			"default": "./jsx-runtime.js"
+		},
+		"./jsx-dev-runtime": {
+			"types": "./jsx-runtime.d.ts",
+			"default": "./jsx-runtime.js"
+		}
+	},
+	"typesVersions": {
+		"*": {
+			"jsx-runtime": [
+				"jsx-runtime.d.ts"
+			],
+			"jsx-dev-runtime": [
+				"jsx-runtime.d.ts"
+			]
+		}
 	},
 	"devDependencies": {
 		"esbuild": "0.20.1",
