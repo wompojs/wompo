@@ -4,7 +4,7 @@ import { ThemeProvider /* useTheme, useTodos, useUserReducer */ } from './counte
 function SecondComponent({ styles: s, children, counter, name }) {
 	const [innerCounter, setInnerCounter] = useState(0);
 	const theme = useContext(ThemeProvider);
-	console.log(theme);
+	// console.log(theme);
 	/* const [theme] = useTheme();
 	const [user] = useUserReducer();
 	const [todos] = useTodos(); */
