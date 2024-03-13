@@ -8,7 +8,7 @@ TYPES
 /**
  * The html`` template function result type.
  */
-interface RenderHtml {
+export interface RenderHtml {
 	parts: TemplateStringsArray;
 	values: any[];
 	_$wompHtml: true;
@@ -1232,7 +1232,7 @@ const _$womp = <Props, E>(
 				this.__ROOT.appendChild(clonedStyles);
 			}
 
-			const renderHtml = this.callComponent();
+			const renderHtml = this.__callComponent();
 			const { values, parts } = renderHtml;
 			const template = (this.constructor as typeof WompComponent)._$getOrCreateTemplate(parts);
 			const [fragment, dynamics] = template.clone();
@@ -1253,7 +1253,7 @@ const _$womp = <Props, E>(
 		 * [currentRenderingComponent] and [currentHookIndex] variables.
 		 * @returns The result of the call.
 		 */
-		private callComponent() {
+		private __callComponent() {
 			currentRenderingComponent = this;
 			currentHookIndex = 0;
 			const result = Component.call(this, this.props);
@@ -1278,7 +1278,7 @@ const _$womp = <Props, E>(
 				this.__updating = true;
 				Promise.resolve().then(() => {
 					if (DEV_MODE && this._$measurePerf) console.time('Re-render ' + options.name);
-					const renderHtml = this.callComponent();
+					const renderHtml = this.__callComponent();
 					const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
 					this.__oldValues = oldValues;
 					this.__updating = false;
@@ -1377,7 +1377,7 @@ export const useState = <State>(defaultValue: State) => {
 			},
 		];
 	}
-	const state = component._$hooks[hookIndex];
+	const state = component._$hooks[hookIndex] as StateHook;
 	return state;
 };
 
@@ -1999,3 +1999,56 @@ export function defineWomp<Props extends WompProps, E = {}>(
 	customElements.define(componentOptions.name, Component);
 	return Component;
 }
+
+/* 
+================================================
+JSX
+================================================
+*/
+export const jsx = (Element: any, attributes: { [key: string]: any }) => {
+	const template = {
+		parts: [],
+		values: [],
+		_$wompHtml: true,
+	} as { parts: string[]; values: any[]; _$wompHtml: true };
+	if (Element === 'wc-fragment') {
+		return attributes.children as RenderHtml;
+	} else {
+		//! Hanlde womp elements
+		let tagName = Element;
+		if (Element._$womp) tagName = Element.componentName;
+		let staticHtml = `<${tagName}`;
+		const attrNames = Object.keys(attributes);
+		for (const attrName of attrNames) {
+			if (attrName === 'children') {
+				break;
+			}
+			const isEvent = attrName.match(/on([A-Z].*)/);
+			if (isEvent) {
+				staticHtml += ` @${isEvent[1].toLowerCase()}=`;
+			} else {
+				staticHtml += ` ${attrName}=`;
+			}
+			template.parts.push(staticHtml);
+			template.values.push(attributes[attrName]);
+			staticHtml = '';
+			// Children is alway the last key
+		}
+		staticHtml += '>';
+		template.parts.push(staticHtml);
+		const children = attributes.children;
+		if (children && children.parts) {
+			template.values.push(false); // NO value
+			template.parts = [...template.parts, ...children.parts];
+			template.values = [...template.values, ...children.values];
+			template.values.push(false); // NO value
+		} else {
+			template.values.push(children);
+		}
+		staticHtml = `</${tagName}>`;
+		template.parts.push(staticHtml);
+	}
+	return template as unknown as RenderHtml;
+};
+
+export const Fragment = 'wc-fragment';

@@ -8,6 +8,7 @@
 	"scripts": {
 		"dev": "esbuild ts/womp.ts --sourcemap --watch --outdir=dist --allow-overwrite",
 		"build": "esbuild ts/womp.ts --minify --outdir=dist --allow-overwrite",
+		"jsx": "esbuild test/counter.tsx --outdir=test --allow-overwrite --watch",
 		"perf": "tach --config tachometer.json"
 	},
 	"devDependencies": {

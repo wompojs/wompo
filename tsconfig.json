@@ -4,9 +4,8 @@
 		"noImplicitAny": true,
 		"module": "es6",
 		"target": "ES2021",
-		"jsx": "react",
-		"allowJs": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "womp",
 		"moduleResolution": "node",
-		"skipLibCheck": true
 	}
 }
