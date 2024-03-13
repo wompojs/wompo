@@ -250,6 +250,12 @@ export interface WompComponent<Props extends WompProps = WompProps> {
 	 * The specific styles of the component.
 	 */
 	css?: string;
+	/** The component name, elaborated in the defineWomp function */
+	componentName?: string;
+	/** Identifies the component */
+	_$wompF?: true;
+	/** The generated class of the component */
+	class?: WompElementClass<Props>;
 }
 
 /**

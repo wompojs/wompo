@@ -1,4 +1,4 @@
-const DEV_MODE = false;
+const DEV_MODE = true;
 
 /* 
 ================================================
@@ -2020,7 +2020,7 @@ export const jsx = (Element: any, attributes: { [key: string]: any }) => {
 		}
 	} else {
 		let tagName = Element;
-		if (Element._$womp) tagName = Element.componentName;
+		if (Element._$wompF) tagName = Element.componentName;
 		let staticHtml = `<${tagName}`;
 		const attrNames = Object.keys(attributes);
 		for (const attrName of attrNames) {
