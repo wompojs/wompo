@@ -274,15 +274,14 @@ const __generateSpecifcStyles = (component, options) => {
   const classes = {};
   let generatedCss = css;
   if (DEV_MODE) {
-    if (!shadow && !cssGeneration)
+    if (!shadow && !cssGeneration && !name.startsWith("womp-context-provider"))
       console.warn(
         `The component ${name} is not an isolated component (shadow=false) and has the cssGeneration option set to false.
 This can lead to unexpected behaviors, because this component can alter other components' styles.`
       );
   }
   if (cssGeneration) {
-    const completeCss = `${shadow ? ":host" : componentName} {display:block;}
-${css}`;
+    const completeCss = `${shadow ? ":host" : componentName} {display:block;} ${css}`;
     if (DEV_MODE) {
       const invalidSelectors = [];
       [...completeCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
@@ -969,7 +968,10 @@ const createContextMemo = () => {
     contextIdentifier++;
     const ContextProvider = defineWomp(
       ({ children }) => {
-        Context.subscribers.forEach((el) => el.requestRender());
+        const initialSubscribers = /* @__PURE__ */ new Set();
+        const subscribers = useRef(initialSubscribers);
+        useExposed({ subscribers });
+        subscribers.current.forEach((el) => el.requestRender());
         return html`${children}`;
       },
       { name, cssGeneration: false }
@@ -988,7 +990,6 @@ export const useContext = (Context) => {
   const [component, hookIndex] = useHook();
   component._$usesContext = true;
   if (!component._$hooks.hasOwnProperty(hookIndex) || component._$hasBeenMoved) {
-    Context.subscribers.add(component);
     let parent = component;
     const toFind = Context.name.toUpperCase();
     while (parent && parent.nodeName !== toFind && parent !== document.body) {
@@ -997,9 +998,29 @@ export const useContext = (Context) => {
       else
         parent = parent.parentNode;
     }
+    const oldParent = component._$hooks[hookIndex]?.node;
+    if (parent && parent !== document.body) {
+      parent.subscribers.current.add(component);
+      const oldDisconnect = component.onDisconnected;
+      component.onDisconnected = () => {
+        parent.subscribers.current.delete(component);
+        oldDisconnect();
+      };
+    } else if (oldParent) {
+      if (DEV_MODE) {
+        console.warn(
+          `The element ${component.tagName} doens't have access to the Context ${Context.name} because is no longer a child of it.`
+        );
+      }
+      oldParent.subscribers.current.delete(component);
+    } else if (DEV_MODE && component.isConnected) {
+      console.warn(
+        `The element ${component.tagName} doens't have access to the Context ${Context.name}. The default value will be returned instead.`
+      );
+    }
     component._$hooks[hookIndex] = {
       node: parent,
-      value: parent ? parent.props.value : Context.default
+      value: parent && parent !== document.body ? parent.props.value : Context.default
     };
   }
   const contextNode = component._$hooks[hookIndex].node;

@@ -216,7 +216,7 @@ export const useGlobalState = <S>(defaultValue: S, options: GlobalStateOptions<S
 				oldDisconnectedCallback();
 			};
 			if (shouldReRender) subscribers.add(component);
-			component._$hooks[hookIndex] = globalState;
+			component._$hooks[hookIndex] = globalState as any;
 		}
 		return [globalState.value, setter];
 	};

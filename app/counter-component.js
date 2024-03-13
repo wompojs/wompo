@@ -14,26 +14,6 @@ import {
 } from '../dist/womp.js';
 import SecondComponent from './second-component.js';
 
-/*
-const userReducer = (prev, action) => {
-	if (action.type === 'name') return { name: 'Vaso' };
-	if (action.type === 'lastname') return { lastname: 'Kalamara' };
-	throw new Error('unknown action type');
-};
-
-export const useTheme = useGlobalState('light', { storage: 'theme' });
-export const useTodos = useGlobalState([], {
-	async: async () => {
-		const res = await fetch('https://jsonplaceholder.typicode.com/todos');
-		const data = res.json();
-		return data;
-	},
-});
-export const useUserReducer = useGlobalState(
-	{ name: 'Lorenzo', lastname: 'Lannino' },
-	{ reducer: userReducer }
-); */
-
 export const ThemeProvider = createContext('light');
 
 function reducer(state, action) {

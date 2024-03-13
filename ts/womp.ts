@@ -18,7 +18,12 @@ interface RenderHtml {
  * The props of any component.
  */
 export interface WompProps {
+	/** The children of the component instance */
 	children?: WompChildren;
+	/** The styles generated from the CSS provided */
+	styles?: { [key: string]: string };
+	/** In DEV_MODE, will write on the console performance informations. */
+	['wc-perf']?: boolean;
 	[key: string]: any;
 }
 
@@ -54,9 +59,9 @@ export interface WompComponentOptions {
  * The type of the function to create a Womp Component.
  * It can have a custom `css` property, corresponding to the specific styles of the component.
  */
-export interface WompComponent {
+export interface WompComponent<Props extends WompProps = WompProps> {
 	/** The props of the component */
-	(props: WompProps): RenderHtml;
+	(props: Props): RenderHtml;
 	/**
 	 * The specific styles of the component.
 	 */
@@ -77,107 +82,123 @@ export interface WompComponent {
  * - `onDisconnected()`
  * - `updateProps(prop, newValue)`
  */
-export interface WompElement extends HTMLElement {
-	/**
-	 * The props of the component, that are then passed in the function.
-	 */
-	props: WompProps;
+/**
+ * The type of a Womp component Instance.
+ * The public accessible properties are:
+ * - `hooks`: Hook[]
+ * - `props`: WompProps
+ * - `initialProps`: WompProps
+ * - `measurePerf`: boolean
+ * - `_$womp`: true
+ *
+ * The public accessible methods are:
+ * - `requestRender()`
+ * - `onDisconnected()`
+ * - `updateProps(prop, newValue)`
+ */
 
-	/**
-	 * The hooks of the component. They are accessed by the position in the array.
-	 */
-	_$hooks: Hook[];
+export type WompElement<Props extends WompProps = WompProps, E = {}> = HTMLElement &
+	E & {
+		/**
+		 * The props of the component, that are then passed in the function.
+		 */
+		props: Props;
 
-	/**
-	 * The initial props of a component. This property is only used internally when
-	 * using a dyanmic tag.
-	 */
-	_$initialProps: WompProps;
+		/**
+		 * The hooks of the component. They are accessed by the position in the array.
+		 */
+		_$hooks: Hook[];
 
-	/**
-	 * True if the component wants to log the rendering time in the console. Only
-	 * available in DEV_MODE.
-	 * This property is set to true only when a component has the attribute or
-	 * initial prop [wc-perf].
-	 */
-	_$measurePerf: boolean;
+		/**
+		 * The initial props of a component. This property is only used internally when
+		 * using a dyanmic tag.
+		 */
+		_$initialProps: WompProps;
 
-	/**
-	 * True if the component uses a context.
-	 */
-	_$usesContext: boolean;
+		/**
+		 * True if the component wants to log the rendering time in the console. Only
+		 * available in DEV_MODE.
+		 * This property is set to true only when a component has the attribute or
+		 * initial prop [wc-perf].
+		 */
+		_$measurePerf: boolean;
 
-	/**
-	 * True if the component has recently been moved. Used to know if a component should search again
-	 * for parent contexts.
-	 */
-	_$hasBeenMoved: boolean;
+		/**
+		 * True if the component uses a context.
+		 */
+		_$usesContext: boolean;
 
-	/**
-	 * Requests a render to the component.
-	 * @returns void
-	 */
-	requestRender: () => void;
+		/**
+		 * True if the component has recently been moved. Used to know if a component should search again
+		 * for parent contexts.
+		 */
+		_$hasBeenMoved: boolean;
 
-	/**
-	 * A callback that gets executed whenever the component id disconnected
-	 * **definitely** from the DOM. This callback is not called when the
-	 * component is just moved from one node to another.
-	 * @returns void
-	 */
-	onDisconnected: () => void;
+		/**
+		 * Requests a render to the component.
+		 * @returns void
+		 */
+		requestRender: () => void;
 
-	/**
-	 * Update a [prop] of the component with the [newValue]. It automatically
-	 * re-render the component if the old value and the new value differs.
-	 * @param prop The prop name to update
-	 * @param newValue The new value to put in the prop
-	 * @returns void
-	 */
-	updateProps: (prop: string, newValue: any) => void;
+		/**
+		 * A callback that gets executed whenever the component id disconnected
+		 * **definitely** from the DOM. This callback is not called when the
+		 * component is just moved from one node to another.
+		 * @returns void
+		 */
+		onDisconnected: () => void;
 
-	/**
-	 * An identifier to rapidly know if a node is a womp component.
-	 */
-	_$womp: true;
-}
+		/**
+		 * Update a [prop] of the component with the [newValue]. It automatically
+		 * re-render the component if the old value and the new value differs.
+		 * @param prop The prop name to update
+		 * @param newValue The new value to put in the prop
+		 * @returns void
+		 */
+		updateProps: (prop: string, newValue: any) => void;
+
+		/**
+		 * An identifier to rapidly know if a node is a womp component.
+		 */
+		_$womp: true;
+	};
 
 /** The possible hooks that a component can have. */
 type Hook =
 	| StateHook
 	| EffectHook
-	| RefHook
+	| RefHook<any>
 	| CallbackHook
 	| IdHook
 	| MemoHook
 	| ReducerHook<any>
-	| any;
+	| ContextHook<any>;
 
-/** The hook generate by the useState function */
+/** The hook generated by the useState function */
 type StateHook = [any, (newValue: any) => void];
 
-/** The hook generate by the useEffect and useLayoutEffect functions */
+/** The hook generated by the useEffect and useLayoutEffect functions */
 interface EffectHook {
 	dependencies: any;
 	callback: VoidFunction | (() => VoidFunction);
 	cleanupFunction: VoidFunction | void;
 }
 
-/** The hook generate by the useRef function */
-interface RefHook {
-	current: any;
+/** The hook generated by the useRef function */
+interface RefHook<V> {
+	current: V;
 	__wcRef: true;
 }
 
-/** The hook generate by the useCallback function */
+/** The hook generated by the useCallback function */
 interface CallbackHook {
 	(...args: any[]): any;
 }
 
-/** The hook generate by the useId function */
+/** The hook generated by the useId function */
 type IdHook = string;
 
-/** The hook generate by the useMemo function */
+/** The hook generated by the useMemo function */
 interface MemoHook {
 	dependencies: any[];
 	value: any;
@@ -187,15 +208,32 @@ interface ReducerAction {
 	type: string;
 	[key: string]: any;
 }
-/** The hook generate by the useState function */
+/** The hook generated by the useState function */
 type ReducerHook<State> = [State, (state: any, action: ReducerAction) => void];
+
+/** The props type of a ContextProvider */
+interface ContextProviderProps extends WompProps {
+	value: any;
+}
+/** The exposed values of a ContextProvider */
+interface ContextProviderExposed {
+	subscribers: RefHook<Set<WompElement>>;
+}
+/** The type of a ContextProvier instance */
+type ContextInstance = WompElement<ContextProviderProps, ContextProviderExposed>;
+
+/** The hook generated by the useContext hook */
+interface ContextHook<V = any> {
+	node: ContextInstance;
+	value: V;
+}
 
 /**
  * The type of the class generated by the womp() function.
  */
-interface WompElementClass {
+interface WompElementClass<Props extends WompProps, E = {}> {
 	/** The constructor */
-	new (): HTMLElement;
+	new (): WompElement<Props, E>;
 	/** The cached template data. This is generated only the first time a component renders. */
 	_$cachedTemplate: CachedTemplate;
 	/** This function will get or create a new CachedTemplate instance. */
@@ -631,7 +669,7 @@ const __generateSpecifcStyles = (
 	const classes: { [key: string]: string } = {};
 	let generatedCss = css;
 	if (DEV_MODE) {
-		if (!shadow && !cssGeneration)
+		if (!shadow && !cssGeneration && !name.startsWith('womp-context-provider'))
 			console.warn(
 				`The component ${name} is not an isolated component (shadow=false) and has the ` +
 					`cssGeneration option set to false.\nThis can lead to unexpected behaviors, because ` +
@@ -639,7 +677,7 @@ const __generateSpecifcStyles = (
 			);
 	}
 	if (cssGeneration) {
-		const completeCss = `${shadow ? ':host' : componentName} {display:block;}\n${css}`;
+		const completeCss = `${shadow ? ':host' : componentName} {display:block;} ${css}`;
 		if (DEV_MODE) {
 			const invalidSelectors: string[] = [];
 			// It's appropriate that at least one class is present in each selector
@@ -994,7 +1032,7 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 							continue;
 						}
 					}
-					const initialProps: WompProps = {};
+					const initialProps: any = {};
 					for (const attrName of oldAttributes) {
 						// attributes on the dom will be set when creating the element
 						const attrValue = (node as HTMLElement).getAttribute(attrName);
@@ -1021,7 +1059,8 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					currentDynamic = dynamics[++index] as DynamicAttribute;
 					// Set initial props of the correct type, so a number doesn't become a string
 					if (currentDynamic?.name && currentDynamic?.name !== 'ref')
-						(customElement as WompElement)._$initialProps[currentDynamic.name] = values[index];
+						((customElement as WompElement)._$initialProps as any)[currentDynamic.name] =
+							values[index];
 				}
 				node.replaceWith(customElement);
 			}
@@ -1042,7 +1081,10 @@ WOMP COMPONENT DEFINITION
  * @param options The options of the component.
  * @returns A new dynamic class that will be used to create the custom web-component
  */
-const _$womp = (Component: WompComponent, options: WompComponentOptions): WompElementClass => {
+const _$womp = <Props, E>(
+	Component: WompComponent,
+	options: WompComponentOptions
+): WompElementClass<Props, E> => {
 	const [generatedCSS, styles] = __generateSpecifcStyles(Component, options);
 	const style = document.createElement('style');
 	const styleClassName = `${options.name}__styles`;
@@ -1081,7 +1123,7 @@ const _$womp = (Component: WompComponent, options: WompComponentOptions): WompEl
 		public props: WompProps = {};
 		public _$hooks: Hook[] = [];
 		public _$measurePerf: boolean = false;
-		public _$initialProps: WompProps = {};
+		public _$initialProps: WompProps = {} as any;
 		public _$usesContext: boolean = false;
 		public _$hasBeenMoved: boolean = false;
 
@@ -1148,7 +1190,7 @@ const _$womp = (Component: WompComponent, options: WompComponentOptions): WompEl
 			this.props = {
 				...this._$initialProps,
 				styles: styles,
-			};
+			} as any;
 			const componentAttributes = this.getAttributeNames();
 			for (const attrName of componentAttributes) {
 				if (!this.props.hasOwnProperty(attrName)) {
@@ -1261,8 +1303,7 @@ const _$womp = (Component: WompComponent, options: WompComponentOptions): WompEl
 			}
 		}
 	};
-
-	return WompComponent;
+	return WompComponent as unknown as WompElementClass<Props, E>;
 };
 
 /* 
@@ -1459,9 +1500,9 @@ export const useRef = <T>(initialValue: T | null = null) => {
 		component._$hooks[hookIndex] = {
 			current: initialValue,
 			__wcRef: true,
-		} as RefHook;
+		} as RefHook<T>;
 	}
-	const ref = component._$hooks[hookIndex];
+	const ref = component._$hooks[hookIndex] as RefHook<T>;
 	return ref;
 };
 
@@ -1699,9 +1740,9 @@ export const useReducer = <State>(
  *
  * @param toExpose The keys to expose.
  */
-export const useExposed = (toExpose: { [key: string]: any }) => {
+export const useExposed = <E = {}>(toExpose: E) => {
 	const component = currentRenderingComponent;
-	const keys = Object.keys(toExpose);
+	const keys = Object.keys(toExpose) as (keyof E)[];
 	for (const key of keys) {
 		(component as any)[key] = toExpose[key];
 	}
@@ -1718,11 +1759,14 @@ export const useExposed = (toExpose: { [key: string]: any }) => {
 CONTEXT
 ================================================
 */
-interface Context<S> {
-	Provider: WompElementClass;
+
+/**
+ * The Context interface
+ */
+interface Context<S = any> {
+	Provider: WompElementClass<ContextProviderProps, ContextProviderExposed>;
 	default: S;
 	name: string;
-	subscribers: Set<WompElement>;
 }
 
 const createContextMemo = () => {
@@ -1730,9 +1774,12 @@ const createContextMemo = () => {
 	return <S>(initialValue: S): Context<S> => {
 		const name = `womp-context-provider-${contextIdentifier}`;
 		contextIdentifier++;
-		const ContextProvider = defineWomp(
+		const ContextProvider = defineWomp<ContextProviderProps, ContextProviderExposed>(
 			({ children }) => {
-				Context.subscribers.forEach((el) => el.requestRender());
+				const initialSubscribers = new Set<WompElement>();
+				const subscribers = useRef(initialSubscribers);
+				useExposed({ subscribers: subscribers });
+				subscribers.current.forEach((el) => el.requestRender());
 				return html`${children}`;
 			},
 			{ name: name, cssGeneration: false }
@@ -1746,26 +1793,91 @@ const createContextMemo = () => {
 		return Context;
 	};
 };
+
+/**
+ * The createContext function returns a Context instance that can be used to pass down a property
+ * to all its children. This can be quite useful to avoid passing down props infinitely.
+ * The function accepts a single parameter, that is the default value that will be used if a
+ * component requires a context that does't have a parent providing the requested value.
+ *
+ * To initialize the component you'll have to put in the DOM the Context.Provider instance, which
+ * accepts a single prop: value. This value will then be passed down to the components that use the
+ * `useContext` hook.
+ *
+ * @example
+ * ```javascript
+ * const ThemeContext = createContext('light');
+ *
+ * function App(){
+ *   const [theme, setTheme] = useState('light');
+ *   const toggle = () => {
+ *     if(theme === 'light') setTheme('dark');
+ *     if(theme === 'dark') setTheme('light');
+ *   }
+ *   return html`
+ *     <button \@click=${toggle}>Toggle Theme</button>
+ *     <${ThemeContext.Provider} value=${theme}>
+ *       <${CompWithTheme} />
+ *     </${ThemeContext.Provider}>
+ *   `;
+ * }
+ *
+ * function CompWithTheme(){
+ *   const theme = useContext(ThemeContext);
+ *   return html`<p>Current Theme: ${theme}.</p>`;
+ * }
+ * ```
+ */
 export const createContext = createContextMemo();
 
-export const useContext = (Context: Context<any>) => {
+/**
+ * The useContext hook is used to obtain the current value provided bya a parent Context.Provider
+ * element. The context must be created first with the `createContext` function.
+ * @param Context The context to use.
+ * @returns The value of the context above the element.
+ */
+export const useContext = (Context: Context) => {
 	const [component, hookIndex] = useHook();
 	component._$usesContext = true;
 	if (!component._$hooks.hasOwnProperty(hookIndex) || component._$hasBeenMoved) {
-		Context.subscribers.add(component);
 		let parent = component as Node;
 		const toFind = Context.name.toUpperCase();
 		while (parent && parent.nodeName !== toFind && parent !== document.body) {
 			if (parent instanceof ShadowRoot) parent = parent.host;
 			else parent = parent.parentNode;
 		}
+		const oldParent = (component._$hooks[hookIndex] as ContextHook)?.node;
+		if (parent && parent !== document.body) {
+			(parent as ContextInstance).subscribers.current.add(component);
+			const oldDisconnect = component.onDisconnected;
+			component.onDisconnected = () => {
+				(parent as ContextInstance).subscribers.current.delete(component);
+				oldDisconnect();
+			};
+		} else if (oldParent) {
+			if (DEV_MODE) {
+				console.warn(
+					`The element ${component.tagName} doens't have access to the Context ${Context.name} ` +
+						'because is no longer a child of it.'
+				);
+			}
+			oldParent.subscribers.current.delete(component);
+		} else if (DEV_MODE && component.isConnected) {
+			console.warn(
+				`The element ${component.tagName} doens't have access to the Context ${Context.name}. ` +
+					'The default value will be returned instead.'
+			);
+		}
 		component._$hooks[hookIndex] = {
 			node: parent,
-			value: parent ? (parent as WompElement).props.value : Context.default,
-		};
+			value:
+				parent && parent !== document.body
+					? (parent as ContextInstance).props.value
+					: Context.default,
+		} as ContextHook;
 	}
-	const contextNode = component._$hooks[hookIndex].node;
-	return contextNode ? (contextNode as WompElement).props.value : Context.default;
+	const contextNode = (component._$hooks[hookIndex] as ContextHook).node;
+	return contextNode ? contextNode.props.value : Context.default;
 };
 
 /* 
@@ -1867,7 +1979,10 @@ DEFINE WOMP COMPONENT
  * @param options The options of the component.
  * @returns The generated class for the component.
  */
-export function defineWomp(component: WompComponent, options: WompComponentOptions = {}) {
+export function defineWomp<Props extends WompProps, E = {}>(
+	component: WompComponent,
+	options: WompComponentOptions = {}
+) {
 	if (!component.css) component.css = '';
 	const componentOptions = {
 		...wompDefaultOptions,
@@ -1880,7 +1995,7 @@ export function defineWomp(component: WompComponent, options: WompComponentOptio
 		if (!newName.includes('-')) newName += '-womp';
 		componentOptions.name = newName;
 	}
-	const Component = _$womp(component, componentOptions);
+	const Component = _$womp<Props, E>(component, componentOptions);
 	customElements.define(componentOptions.name, Component);
 	return Component;
 }

@@ -1,4 +1,4 @@
-import Counter from './counter-component.js';
+import Counter from './perf-counter.js';
 
 let length = 1000;
 
