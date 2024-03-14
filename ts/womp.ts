@@ -652,6 +652,8 @@ SUPPORT FUNCTIONS
 /**
  * Generates the static styles of a component. If the `cssGeneration` option in the component is
  * false, the generation will be skipped and the css will be taken as it is.
+ * If the css contains an ":host" selector, it'll be replaced or kept based on if the shadow option
+ * is true, otherwise, a default "display: block;" style will be added in the component.
  * @returns an array of 2 values: the first is the generated CSS string, the second is an object
  * having as keys the original class names, and as the value the replaced class names.
  */
