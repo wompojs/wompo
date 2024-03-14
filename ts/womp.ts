@@ -673,7 +673,9 @@ const __generateSpecifcStyles = (
 			);
 	}
 	if (cssGeneration) {
-		const completeCss = `${shadow ? ':host' : componentName} {display:block;} ${css}`;
+		let completeCss = css;
+		if (!css.includes(':host'))
+			completeCss = `${shadow ? ':host' : componentName} {display:block;} ${css}`;
 		if (DEV_MODE) {
 			const invalidSelectors: string[] = [];
 			// It's appropriate that at least one class is present in each selector
@@ -688,7 +690,8 @@ const __generateSpecifcStyles = (
 				);
 			});
 		}
-		generatedCss = completeCss.replace(/\.(.*?)[\s|{]/gm, (_, className) => {
+		if (!shadow) generatedCss = generatedCss.replace(/:host/g, componentName);
+		generatedCss = generatedCss.replace(/\.(?!\d)(.*?)[\s|{|,|+|~|>]/gm, (_, className) => {
 			const uniqueClassName = `${componentName}__${className}`;
 			classes[className] = uniqueClassName;
 			return `.${uniqueClassName} `;
