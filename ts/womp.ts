@@ -2000,6 +2000,8 @@ export function defineWomp<Props, E = {}>(
 	return component as WompComponent<Props & WompProps>;
 }
 
+//! Uppercase attributes doesn't work.
+
 /* 
 ================================================
 JSX
