@@ -465,7 +465,7 @@ export declare const useRef: <T>(initialValue?: T) => RefHook<T>;
  * different.
  * This consideration doesn't apply to events, because events are stored in a simple variable and
  * will not cause an add/removal of event listeners, so it's not computationally expensive: it's
- * more expensive to store the callback and get it every time.
+ * more expensive to store the callback and get it back every time.
  *
  * @example
  * ```javascript

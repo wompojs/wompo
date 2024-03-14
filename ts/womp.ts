@@ -1491,7 +1491,7 @@ export const useLayoutEffect = (
  * @param initialValue The initial value.
  * @returns The current value of the reference.
  */
-export const useRef = <T>(initialValue?: T) => {
+export const useRef = <T>(initialValue: T = null) => {
 	const [component, hookIndex] = useHook();
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
 		component._$hooks[hookIndex] = {
@@ -2001,13 +2001,22 @@ export function defineWomp<Props, E = {}>(
 	return component as WompComponent<Props & WompProps>;
 }
 
-//! Uppercase attributes doesn't work.
-
 /* 
 ================================================
 JSX
 ================================================
 */
+/**
+ * This function enables to use JSX to create Womp Components. It'll simply re-create the
+ * functioning of the `html` tag template function, and will return a RenderHtml object.
+ *
+ * Note: Using JSX will have a small drop in performances, since with JSX you cannot know which are
+ * the dynamic parts in a component.
+ *
+ * @param Element The tag name or custom element function.
+ * @param attributes The attributes (props).
+ * @returns A RenderHtml.
+ */
 export const jsx = (Element: any, attributes: { [key: string]: any }) => {
 	const template = {
 		parts: [],
@@ -2071,5 +2080,5 @@ export const jsx = (Element: any, attributes: { [key: string]: any }) => {
 	}
 	return template as unknown as RenderHtml;
 };
-
+/** JSX Fragment */
 export const Fragment = 'wc-fragment';
