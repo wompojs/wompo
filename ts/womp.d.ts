@@ -729,8 +729,8 @@ export declare function defineWomp<Props, E = {}>(component: WompComponent<Props
  * This function enables to use JSX to create Womp Components. It'll simply re-create the
  * functioning of the `html` tag template function, and will return a RenderHtml object.
  *
- * Note: Using JSX will have a small drop in performances, since with JSX you cannot know which are
- * the dynamic parts in a component.
+ * Note: Using JSX will have a small drop in performances: since with JSX you cannot know which are
+ * the dynamic parts in a component, everything will be re-rendered.
  *
  * @param Element The tag name or custom element function.
  * @param attributes The attributes (props).
