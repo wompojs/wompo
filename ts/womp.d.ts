@@ -18,7 +18,10 @@ export interface WompProps {
     };
     /** In DEV_MODE, will write on the console performance informations. */
     ['wc-perf']?: boolean;
-    [key: string]: any;
+    /** The style of a component to customize in through the style attribute in the DOM. */
+    style?: string | Partial<CSSStyleDeclaration> | object;
+    /** A potential reference to the element. */
+    ref?: RefHook<any>;
 }
 /**
  * The options that a component can have when instantiating.
@@ -721,7 +724,7 @@ export declare const wompDefaultOptions: WompComponentOptions;
  * @param options The options of the component.
  * @returns The generated class for the component.
  */
-export declare function defineWomp<Props extends WompProps, E = {}>(component: WompComponent<Props>, options?: WompComponentOptions): WompComponent<Props>;
+export declare function defineWomp<Props, E = {}>(component: WompComponent<Props & WompProps>, options?: WompComponentOptions): WompComponent<Props & WompProps>;
 export declare const jsx: (Element: any, attributes: {
     [key: string]: any;
 }) => RenderHtml;

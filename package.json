@@ -19,21 +19,21 @@
 			"default": "./dist/womp.js"
 		},
 		"./jsx-runtime": {
-			"types": "./jsx-runtime.d.ts",
+			"types": "./jsx.d.ts",
 			"default": "./jsx-runtime.js"
 		},
 		"./jsx-dev-runtime": {
-			"types": "./jsx-runtime.d.ts",
+			"types": "./jsx.d.ts",
 			"default": "./jsx-runtime.js"
 		}
 	},
 	"typesVersions": {
 		"*": {
 			"jsx-runtime": [
-				"jsx-runtime.d.ts"
+				"jsx.d.ts"
 			],
 			"jsx-dev-runtime": [
-				"jsx-runtime.d.ts"
+				"jsx.d.ts"
 			]
 		}
 	},

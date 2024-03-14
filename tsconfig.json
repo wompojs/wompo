@@ -15,5 +15,5 @@
     "declarationDir": ".",
 	},
   "include": ["ts/womp.ts"],
-  "exclude": ["dist"]
+  "exclude": ["dist", "./jsx-runtime.ts"]
 }

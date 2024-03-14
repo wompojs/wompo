@@ -24,7 +24,10 @@ export interface WompProps {
 	styles?: { [key: string]: string };
 	/** In DEV_MODE, will write on the console performance informations. */
 	['wc-perf']?: boolean;
-	[key: string]: any;
+	/** The style of a component to customize in through the style attribute in the DOM. */
+	style?: string | Partial<CSSStyleDeclaration> | object;
+	/** A potential reference to the element. */
+	ref?: RefHook<any>;
 }
 
 /**
@@ -1188,7 +1191,7 @@ const _$womp = <Props, E>(
 			for (const attrName of componentAttributes) {
 				if (!this.props.hasOwnProperty(attrName)) {
 					const attrValue = this.getAttribute(attrName);
-					this.props[attrName] = attrValue === '' ? true : attrValue;
+					(this.props as any)[attrName] = attrValue === '' ? true : attrValue;
 				}
 				if (DEV_MODE && attrName === 'wc-perf') {
 					this._$measurePerf = true;
@@ -1287,8 +1290,8 @@ const _$womp = <Props, E>(
 		 * @param value The new value to set.
 		 */
 		public updateProps(prop: string, value: any) {
-			if (this.props[prop] !== value) {
-				this.props[prop] = value;
+			if ((this.props as any)[prop] !== value) {
+				(this.props as any)[prop] = value;
 				if (!this.__isInitializing) {
 					console.warn(`Updating ${prop}`, this.__isInitializing);
 					this.requestRender();
@@ -1973,8 +1976,8 @@ DEFINE WOMP COMPONENT
  * @param options The options of the component.
  * @returns The generated class for the component.
  */
-export function defineWomp<Props extends WompProps, E = {}>(
-	component: WompComponent<Props>,
+export function defineWomp<Props, E = {}>(
+	component: WompComponent<Props & WompProps>,
 	options?: WompComponentOptions
 ) {
 	if (!component.css) component.css = '';
@@ -1994,7 +1997,7 @@ export function defineWomp<Props extends WompProps, E = {}>(
 	const Component = _$womp<Props, E>(component, componentOptions);
 	component.class = Component;
 	customElements.define(componentOptions.name, Component);
-	return component;
+	return component as WompComponent<Props & WompProps>;
 }
 
 /* 
@@ -2047,7 +2050,7 @@ export const jsx = (Element: any, attributes: { [key: string]: any }) => {
 			if (attributes.children.parts) {
 				template.values.push(false); // NO value
 				template.parts.push(...attributes.children.parts);
-				template.values.push(attributes.children.values);
+				template.values.push(...attributes.children.values);
 				template.values.push(false); // NO value
 			} else if (Array.isArray(attributes.children)) {
 				for (const part of attributes.children) {

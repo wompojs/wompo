@@ -1112,7 +1112,7 @@ export const jsx = (Element, attributes) => {
       if (attributes.children.parts) {
         template.values.push(false);
         template.parts.push(...attributes.children.parts);
-        template.values.push(attributes.children.values);
+        template.values.push(...attributes.children.values);
         template.values.push(false);
       } else if (Array.isArray(attributes.children)) {
         for (const part of attributes.children) {
