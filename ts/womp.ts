@@ -502,7 +502,7 @@ class DynamicAttribute {
 		}
 		const isPrimitive = newValue !== Object(newValue);
 		if (newValue === false) this.node.removeAttribute(this.name);
-		else if (isPrimitive) this.node.setAttribute(this.name, newValue);
+		else if (isPrimitive && !this.name.match(/[A-Z]/)) this.node.setAttribute(this.name, newValue);
 		else if (this.name === 'style') {
 			let styleString = '';
 			const styles = Object.keys(newValue);
@@ -1184,6 +1184,7 @@ const _$womp = <Props, E>(
 		private initElement() {
 			this.__ROOT = this; // Shadow DOM is eventually attached later
 			this.props = {
+				...this.props,
 				...this._$initialProps,
 				styles: styles,
 			} as any;

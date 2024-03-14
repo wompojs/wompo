@@ -153,7 +153,7 @@ class DynamicAttribute {
     const isPrimitive = newValue !== Object(newValue);
     if (newValue === false)
       this.node.removeAttribute(this.name);
-    else if (isPrimitive)
+    else if (isPrimitive && !this.name.match(/[A-Z]/))
       this.node.setAttribute(this.name, newValue);
     else if (this.name === "style") {
       let styleString = "";
@@ -688,6 +688,7 @@ const _$womp = (Component, options) => {
     initElement() {
       this.__ROOT = this;
       this.props = {
+        ...this.props,
         ...this._$initialProps,
         styles
       };
@@ -1067,6 +1068,7 @@ export function defineWomp(component, options) {
   customElements.define(componentOptions.name, Component);
   return component;
 }
+//! Uppercase attributes doesn't work.
 export const jsx = (Element, attributes) => {
   const template = {
     parts: [],
