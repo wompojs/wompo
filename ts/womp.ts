@@ -38,7 +38,8 @@ export interface WompComponentOptions {
 	/**
 	 * Default value: `null`.
 	 * The component name. If not defined, the component name will be the name of the function in
-	 * hyphen-case. If the component doesn't have an hyphen, a "womp" string will be placed as a suffix.
+	 * hyphen-case. If the component doesn't have an hyphen, a "womp" string will be placed as a
+	 * suffix.
 	 * E.g. TabPanel = tab-panel, Counter = counter-womp
 	 */
 	name?: string;
@@ -47,9 +48,10 @@ export interface WompComponentOptions {
 	 */
 	shadow?: boolean;
 	/**
-	 * Default value: `true`. If true, the CSS of the component will be replaced with a more unique CSS. This
-	 * is done by simply putting the component name as a prefix in every class. The generated class names will
-	 * be put in the [styles] prop of the component. This is done to avoid styles collisions.
+	 * Default value: `true`. If true, the CSS of the component will be replaced with a more unique
+	 * CSS. This is done by simply putting the component name as a prefix in every class.
+	 * The generated class names will be put in the [styles] prop of the component.
+	 * This is done to avoid styles collisions.
 	 * E.g. CounterComponent.css = `.button` => .counter-component__button
 	 */
 	cssGeneration?: boolean;
@@ -120,8 +122,8 @@ export type WompElement<Props extends WompProps = WompProps, E = {}> = HTMLEleme
 		_$usesContext: boolean;
 
 		/**
-		 * True if the component has recently been moved. Used to know if a component should search again
-		 * for parent contexts.
+		 * True if the component has recently been moved. Used to know if a component should search
+		 * again for parent contexts.
 		 */
 		_$hasBeenMoved: boolean;
 
@@ -672,7 +674,7 @@ const __generateSpecifcStyles = (
 		if (DEV_MODE) {
 			const invalidSelectors: string[] = [];
 			// It's appropriate that at least one class is present in each selector
-			[...(completeCss.matchAll(/.*?}([\s\S]*?){/gm) as any)].forEach((selector) => {
+			[...completeCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
 				const cssSelector = selector[1].trim();
 				if (!cssSelector.includes('.')) invalidSelectors.push(cssSelector);
 			});
@@ -1118,7 +1120,7 @@ const _$womp = <Props, E>(
 		public _$usesContext: boolean = false;
 		public _$hasBeenMoved: boolean = false;
 
-		/** The Root of the node. It'll be the node itself, or it's ShadowRoot if shadow is set to true */
+		/** The Root. It'll be the node itself, or it's ShadowRoot if shadow is set to true */
 		private __ROOT: this | ShadowRoot;
 		/** The array containing metadata of the component, used to render the component */
 		private __dynamics: Dynamics[];
@@ -1485,7 +1487,7 @@ export const useLayoutEffect = (
  * @param initialValue The initial value.
  * @returns The current value of the reference.
  */
-export const useRef = <T>(initialValue: T | null = null) => {
+export const useRef = <T>(initialValue?: T) => {
 	const [component, hookIndex] = useHook();
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
 		component._$hooks[hookIndex] = {
@@ -1765,17 +1767,19 @@ const createContextMemo = () => {
 	return <S>(initialValue: S): Context<S> => {
 		const name = `womp-context-provider-${contextIdentifier}`;
 		contextIdentifier++;
-		const ProviderFunction = ({ children }: ContextProviderProps) => {
-			const initialSubscribers = new Set<WompElement>();
-			const subscribers = useRef(initialSubscribers);
-			useExposed({ subscribers: subscribers });
-			subscribers.current.forEach((el) => el.requestRender());
-			return html`${children}`;
-		};
-		defineWomp<ContextProviderProps, ContextProviderExposed>(ProviderFunction, {
-			name: name,
-			cssGeneration: false,
-		});
+		const ProviderFunction = defineWomp<ContextProviderProps, ContextProviderExposed>(
+			({ children }: ContextProviderProps) => {
+				const initialSubscribers = new Set<WompElement>();
+				const subscribers = useRef(initialSubscribers);
+				useExposed({ subscribers: subscribers });
+				subscribers.current.forEach((el) => el.requestRender());
+				return html`${children}`;
+			},
+			{
+				name: name,
+				cssGeneration: false,
+			}
+		);
 		const Context = {
 			name: name,
 			Provider: ProviderFunction,
@@ -1952,8 +1956,6 @@ DEFINE WOMP COMPONENT
  * The `cssGeneration` option will transform the css of the component by replacing the classes with
  * unique names, that will then be passed in the `styles` props of the component.
  *
- * **The result of this function is what should be exported (not the functional component).**
- *
  * @example
  * ```javascript
  * function Greetings(){
@@ -1972,7 +1974,7 @@ DEFINE WOMP COMPONENT
  * @returns The generated class for the component.
  */
 export function defineWomp<Props extends WompProps, E = {}>(
-	component: WompComponent,
+	component: WompComponent<Props>,
 	options?: WompComponentOptions
 ) {
 	if (!component.css) component.css = '';
@@ -1992,7 +1994,7 @@ export function defineWomp<Props extends WompProps, E = {}>(
 	const Component = _$womp<Props, E>(component, componentOptions);
 	component.class = Component;
 	customElements.define(componentOptions.name, Component);
-	return Component;
+	return component;
 }
 
 /* 
@@ -2006,7 +2008,7 @@ export const jsx = (Element: any, attributes: { [key: string]: any }) => {
 		values: [],
 		_$wompHtml: true,
 	} as { parts: string[]; values: any[]; _$wompHtml: true };
-	if (Element === 'wc-fragment') {
+	if (Element === Fragment) {
 		if (attributes.children.parts) {
 			template.parts.push(...attributes.children.parts);
 			template.values.push(...attributes.children.values);

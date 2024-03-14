@@ -5,18 +5,17 @@
 	"type": "module",
 	"module": "./dist/womp.js",
 	"main": "./dist/womp.js",
-	"types": "./womp.d.ts",
+	"types": "./ts/womp.d.ts",
 	"author": "LL",
 	"license": "ISC",
 	"scripts": {
 		"dev": "esbuild ts/womp.ts --sourcemap --watch --outdir=dist --allow-overwrite",
-		"build": "esbuild ts/womp.ts --minify --outdir=dist --allow-overwrite",
-		"jsx": "esbuild jsx-runtime.ts --outdir=. --minify --allow-overwrite",
+		"build": "tsc & esbuild ts/womp.ts --minify --outdir=dist --allow-overwrite",
 		"perf": "tach --config tachometer.json"
 	},
 	"exports": {
 		".": {
-			"types": "./womp.d.ts",
+			"types": "./ts/womp.d.ts",
 			"default": "./dist/womp.js"
 		},
 		"./jsx-runtime": {

@@ -875,7 +875,7 @@ export const useLayoutEffect = (callback, dependencies) => {
     }
   }
 };
-export const useRef = (initialValue = null) => {
+export const useRef = (initialValue) => {
   const [component, hookIndex] = useHook();
   if (!component._$hooks.hasOwnProperty(hookIndex)) {
     component._$hooks[hookIndex] = {
@@ -966,17 +966,19 @@ const createContextMemo = () => {
   return (initialValue) => {
     const name = `womp-context-provider-${contextIdentifier}`;
     contextIdentifier++;
-    const ProviderFunction = ({ children }) => {
-      const initialSubscribers = /* @__PURE__ */ new Set();
-      const subscribers = useRef(initialSubscribers);
-      useExposed({ subscribers });
-      subscribers.current.forEach((el) => el.requestRender());
-      return html`${children}`;
-    };
-    defineWomp(ProviderFunction, {
-      name,
-      cssGeneration: false
-    });
+    const ProviderFunction = defineWomp(
+      ({ children }) => {
+        const initialSubscribers = /* @__PURE__ */ new Set();
+        const subscribers = useRef(initialSubscribers);
+        useExposed({ subscribers });
+        subscribers.current.forEach((el) => el.requestRender());
+        return html`${children}`;
+      },
+      {
+        name,
+        cssGeneration: false
+      }
+    );
     const Context = {
       name,
       Provider: ProviderFunction,
@@ -1063,7 +1065,7 @@ export function defineWomp(component, options) {
   const Component = _$womp(component, componentOptions);
   component.class = Component;
   customElements.define(componentOptions.name, Component);
-  return Component;
+  return component;
 }
 export const jsx = (Element, attributes) => {
   const template = {
@@ -1071,7 +1073,7 @@ export const jsx = (Element, attributes) => {
     values: [],
     _$wompHtml: true
   };
-  if (Element === "wc-fragment") {
+  if (Element === Fragment) {
     if (attributes.children.parts) {
       template.parts.push(...attributes.children.parts);
       template.values.push(...attributes.children.values);
