@@ -289,11 +289,14 @@ const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
 
 const NODE = 0; // Is a NODE Dependency.
 const ATTR = 1; // Is an ATTRIBUTE Dependency.
-const TAG = 2; // Is a TAG Dependency.
+const TAG = 2; // Is a TAG Dependency.c
 
-/** The tree walker used to walk through the DOM Tree to create dependencies */
-const treeWalker = document.createTreeWalker(
-	document,
+const IS_SERVER = global.document === undefined;
+
+const doc = IS_SERVER ? ({ createTreeWalker() {} } as unknown as Document) : document;
+
+const treeWalker = doc.createTreeWalker(
+	doc,
 	129 // NodeFilter.SHOW_{ELEMENT|COMMENT}
 );
 
@@ -1914,9 +1917,13 @@ HTML
 export function html(templateParts: TemplateStringsArray, ...values: any[]): RenderHtml {
 	const cleanValues = [];
 	const length = templateParts.length - 1; // skip last element
-	for (let i = 0; i < length; i++) {
-		// Don't include dynamic closing tags
-		if (!templateParts[i].endsWith('</')) cleanValues.push(values[i]);
+	if (!IS_SERVER) {
+		for (let i = 0; i < length; i++) {
+			// Don't include dynamic closing tags
+			if (!templateParts[i].endsWith('</')) cleanValues.push(values[i]);
+		}
+	} else {
+		cleanValues.push(...values);
 	}
 	return {
 		parts: templateParts,
@@ -2006,9 +2013,11 @@ export function defineWomp<Props, E = {}>(
 	}
 	component.componentName = componentOptions.name;
 	component._$wompF = true;
-	const Component = _$womp<Props, E>(component, componentOptions);
-	component.class = Component;
-	customElements.define(componentOptions.name, Component);
+	if (!IS_SERVER) {
+		const Component = _$womp<Props, E>(component, componentOptions);
+		component.class = Component;
+		customElements.define(componentOptions.name, Component);
+	}
 	return component as WompComponent<Props & WompProps>;
 }
 
@@ -2081,3 +2090,69 @@ export const jsx = (Element: any, attributes: { [key: string]: any }) => {
 };
 /** JSX Fragment */
 export const Fragment = 'wc-fragment';
+
+/**
+ * SSR
+ */
+export const ssr = (Component: WompComponent, props: WompProps = { styles: {} }) => {
+	//! Handle styles
+	const render = Component(props);
+	let html = '';
+	let counter = 0;
+	let pendingTag = '';
+	const pending: number[] = [];
+	const components: {
+		component: WompComponent;
+		props: WompProps;
+	}[] = [];
+	for (let i = 0; i < render.parts.length; i++) {
+		let part = render.parts[i];
+		const value = render.values[i];
+		if (pendingTag && part.includes('>')) {
+			const firstPart = part.slice(0, part.indexOf('>') + 1);
+			const secondPart = part.slice(part.indexOf('>') + 1);
+			if (firstPart[firstPart.length - 2] === '/') {
+				part = firstPart.slice(0, firstPart.length - 2) + `></${pendingTag}>` + secondPart;
+			} else {
+				part = firstPart + `<?$WC${counter}>` + secondPart;
+				pending.push(counter);
+				pendingTag = '';
+				counter++;
+			}
+		}
+		if (pending.length && part.endsWith('/') && value._$wompF) {
+			const before = part.slice(0, part.lastIndexOf('<'));
+			part = before + `</?$WC${pending.pop()}></`;
+			pendingTag = '';
+		}
+		html += part;
+		const isPrimitive = value !== Object(value);
+		if (pendingTag) {
+			//! Il valore è una prop
+		}
+		if (isPrimitive && value) {
+			html += value;
+		} else if (value?._$wompF) {
+			if (!part.endsWith('/')) {
+				components.push({
+					component: value,
+					props: {
+						styles: {},
+					},
+				});
+				pendingTag = value.componentName;
+			}
+			html += value.componentName;
+		}
+	}
+	for (let i = components.length - 1; i >= 0; i--) {
+		const component = components[i];
+		const childrenRegex = new RegExp(`<\\?\\$WC${i}>(.*?)<\\/\\?\\$WC${i}>`, 'gs');
+		html = html.replace(childrenRegex, (_, group) => {
+			component.props.children = group;
+			const rendered = ssr(component.component, component.props);
+			return rendered;
+		});
+	}
+	return html;
+};
