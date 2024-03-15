@@ -22,6 +22,10 @@ export interface WompProps {
     style?: string | Partial<CSSStyleDeclaration> | object;
     /** A potential reference to the element. */
     ref?: RefHook<any>;
+    /** The ID of the element */
+    id?: string;
+    /** The classes of the element */
+    class?: string;
 }
 /**
  * The options that a component can have when instantiating.

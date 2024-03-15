@@ -28,6 +28,10 @@ export interface WompProps {
 	style?: string | Partial<CSSStyleDeclaration> | object;
 	/** A potential reference to the element. */
 	ref?: RefHook<any>;
+	/** The ID of the element */
+	id?: string;
+	/** The classes of the element */
+	class?: string;
 }
 
 /**
@@ -497,9 +501,8 @@ class DynamicAttribute {
 		if (DEV_MODE && this.name === 'wc-perf') {
 			(this.node as WompElement)._$measurePerf = true;
 		}
-		if ((this.node as WompElement)._$womp) {
-			(this.node as WompElement).updateProps(this.name, newValue);
-		}
+		const isWompElement = (this.node as WompElement)._$womp;
+		if (isWompElement) (this.node as WompElement).updateProps(this.name, newValue);
 		const isPrimitive = newValue !== Object(newValue);
 		if (newValue === false) this.node.removeAttribute(this.name);
 		else if (isPrimitive && !this.name.match(/[A-Z]/)) this.node.setAttribute(this.name, newValue);
@@ -514,6 +517,7 @@ class DynamicAttribute {
 			}
 			this.node.setAttribute(this.name, styleString);
 		}
+		if (this.name === 'title' && isWompElement) this.node.removeAttribute(this.name);
 	}
 
 	/**
@@ -1089,10 +1093,12 @@ const _$womp = <Props, E>(
 	const [generatedCSS, styles] = __generateSpecifcStyles(Component, options);
 	const style = document.createElement('style');
 	const styleClassName = `${options.name}__styles`;
-	style.classList.add(styleClassName);
-	style.textContent = generatedCSS;
-	if (!options.shadow) {
-		document.body.appendChild(style);
+	if (generatedCSS) {
+		style.classList.add(styleClassName);
+		style.textContent = generatedCSS;
+		if (!options.shadow) {
+			document.body.appendChild(style);
+		}
 	}
 	/**
 	 * The dynamic class created to make it possible to create a custom web-component
@@ -1153,7 +1159,7 @@ const _$womp = <Props, E>(
 		/** @override component has been connected to the DOM */
 		connectedCallback() {
 			this.__isInDOM = true;
-			if (!this.__connected) this.initElement();
+			if (!this.__connected && this.isConnected) this.initElement();
 		}
 
 		/** @override component has been disconnected from the DOM */
@@ -1227,7 +1233,7 @@ const _$womp = <Props, E>(
 			// not already present.
 			const root = this.getRootNode();
 			if (
-				(options.shadow || root !== document) &&
+				(options.shadow || root !== document.body) &&
 				!(root as ShadowRoot).querySelector(`.${styleClassName}`)
 			) {
 				const clonedStyles = style.cloneNode(true);
@@ -2028,61 +2034,49 @@ export const jsx = (Element: any, attributes: { [key: string]: any }) => {
 		values: [],
 		_$wompHtml: true,
 	} as { parts: string[]; values: any[]; _$wompHtml: true };
-	if (Element === Fragment) {
+	let tagName = Element;
+	if (Element._$wompF) tagName = Element.componentName;
+	else if (Element === Fragment) tagName = '';
+	let staticHtml = tagName ? `<${tagName}` : '';
+	const attrNames = Object.keys(attributes);
+	for (const attrName of attrNames) {
+		if (attrName === 'children') {
+			break;
+		}
+		const isEvent = attrName.match(/on([A-Z].*)/);
+		if (isEvent) {
+			staticHtml += ` @${isEvent[1].toLowerCase()}=`;
+		} else {
+			staticHtml += ` ${attrName}=`;
+		}
+		template.parts.push(staticHtml);
+		template.values.push(attributes[attrName]);
+		staticHtml = '';
+		// Children is always the last key
+	}
+	staticHtml += tagName ? '>' : '';
+	template.parts.push(staticHtml);
+	const children = attributes.children;
+	if (children && children.parts) {
 		if (attributes.children.parts) {
+			template.values.push(false); // NO value
 			template.parts.push(...attributes.children.parts);
 			template.values.push(...attributes.children.values);
+			template.values.push(false); // NO value
 		} else if (Array.isArray(attributes.children)) {
 			for (const part of attributes.children) {
+				template.values.push(false); // NO value
 				template.parts.push(...part.parts);
 				template.values.push(...part.values);
-				template.values.push(false);
+				template.values.push(false); // NO value
 			}
-			template.values.pop();
 		}
 	} else {
-		let tagName = Element;
-		if (Element._$wompF) tagName = Element.componentName;
-		let staticHtml = `<${tagName}`;
-		const attrNames = Object.keys(attributes);
-		for (const attrName of attrNames) {
-			if (attrName === 'children') {
-				break;
-			}
-			const isEvent = attrName.match(/on([A-Z].*)/);
-			if (isEvent) {
-				staticHtml += ` @${isEvent[1].toLowerCase()}=`;
-			} else {
-				staticHtml += ` ${attrName}=`;
-			}
-			template.parts.push(staticHtml);
-			template.values.push(attributes[attrName]);
-			staticHtml = '';
-			// Children is always the last key
-		}
-		staticHtml += '>';
-		template.parts.push(staticHtml);
-		const children = attributes.children;
-		if (children && children.parts) {
-			if (attributes.children.parts) {
-				template.values.push(false); // NO value
-				template.parts.push(...attributes.children.parts);
-				template.values.push(...attributes.children.values);
-				template.values.push(false); // NO value
-			} else if (Array.isArray(attributes.children)) {
-				for (const part of attributes.children) {
-					template.values.push(false); // NO value
-					template.parts.push(...part.parts);
-					template.values.push(...part.values);
-					template.values.push(false); // NO value
-				}
-			}
-		} else {
-			template.values.push(children);
-		}
-		staticHtml = `</${tagName}>`;
-		template.parts.push(staticHtml);
+		template.values.push(children);
 	}
+	staticHtml = tagName ? `</${tagName}>` : '';
+	template.parts.push(staticHtml);
+	// }
 	return template as unknown as RenderHtml;
 };
 /** JSX Fragment */
