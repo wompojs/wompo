@@ -81,6 +81,14 @@ export interface WompComponent<Props extends WompProps = WompProps> {
 	_$wompF?: true;
 	/** The generated class of the component */
 	class?: WompElementClass<Props>;
+	/** Options */
+	options?: {
+		generatedCSS: string;
+		styles: { [key: string]: string };
+		shadow: boolean;
+	};
+	/** SSR */
+	ssrStylesAttached?: boolean;
 }
 
 /**
@@ -289,9 +297,9 @@ const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
 
 const NODE = 0; // Is a NODE Dependency.
 const ATTR = 1; // Is an ATTRIBUTE Dependency.
-const TAG = 2; // Is a TAG Dependency.c
+const TAG = 2; // Is a TAG Dependency.
 
-const IS_SERVER = global.document === undefined;
+const IS_SERVER = typeof global !== undefined;
 
 const doc = IS_SERVER ? ({ createTreeWalker() {} } as unknown as Document) : document;
 
@@ -682,13 +690,12 @@ const __generateSpecifcStyles = (
 			);
 	}
 	if (cssGeneration) {
-		let completeCss = css;
 		if (!css.includes(':host'))
-			completeCss = `${shadow ? ':host' : componentName} {display:block;} ${css}`;
+			generatedCss = `${shadow ? ':host' : componentName} {display:block;} ${css}`;
 		if (DEV_MODE) {
 			const invalidSelectors: string[] = [];
 			// It's appropriate that at least one class is present in each selector
-			[...completeCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
+			[...generatedCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
 				const cssSelector = selector[1].trim();
 				if (!cssSelector.includes('.')) invalidSelectors.push(cssSelector);
 			});
@@ -1093,7 +1100,7 @@ const _$womp = <Props, E>(
 	Component: WompComponent,
 	options: WompComponentOptions
 ): WompElementClass<Props, E> => {
-	const [generatedCSS, styles] = __generateSpecifcStyles(Component, options);
+	const { generatedCSS, styles } = Component.options;
 	const style = document.createElement('style');
 	const styleClassName = `${options.name}__styles`;
 	if (generatedCSS) {
@@ -1996,29 +2003,38 @@ DEFINE WOMP COMPONENT
  * @returns The generated class for the component.
  */
 export function defineWomp<Props, E = {}>(
-	component: WompComponent<Props & WompProps>,
+	Component: WompComponent<Props & WompProps>,
 	options?: WompComponentOptions
 ) {
-	if (!component.css) component.css = '';
+	if (!Component.css) Component.css = '';
 	const componentOptions = {
 		...wompDefaultOptions,
 		...(options || {}),
 	};
 	if (!componentOptions.name) {
-		let newName = component.name
+		let newName = Component.name
 			.replace(/.[A-Z]/g, (letter) => `${letter[0]}-${letter[1].toLowerCase()}`)
 			.toLowerCase();
 		if (!newName.includes('-')) newName += '-womp';
 		componentOptions.name = newName;
 	}
-	component.componentName = componentOptions.name;
-	component._$wompF = true;
+	Component.componentName = componentOptions.name;
+	Component._$wompF = true;
+	const [generatedCSS, styles] = __generateSpecifcStyles(Component, componentOptions);
+	Component.css = generatedCSS;
+	Component.options = {
+		generatedCSS: generatedCSS,
+		styles: styles,
+		shadow: componentOptions.shadow,
+	};
 	if (!IS_SERVER) {
-		const Component = _$womp<Props, E>(component, componentOptions);
-		component.class = Component;
-		customElements.define(componentOptions.name, Component);
+		const ComponentClass = _$womp<Props, E>(Component, componentOptions);
+		Component.class = ComponentClass;
+		customElements.define(componentOptions.name, ComponentClass);
 	}
-	return component as WompComponent<Props & WompProps>;
+	//! Save registered elements' functions, so that they can be accessed through SSR
+	//! Es. registeredWomps[componentName] ? render() : skip;
+	return Component as WompComponent<Props & WompProps>;
 }
 
 /* 
@@ -2094,9 +2110,7 @@ export const Fragment = 'wc-fragment';
 /**
  * SSR
  */
-export const ssr = (Component: WompComponent, props: WompProps = { styles: {} }) => {
-	//! Handle styles
-	const render = Component(props);
+export const ssr = (Component: WompComponent, props: WompProps = { styles: {} }, root = true) => {
 	let html = '';
 	let counter = 0;
 	let pendingTag = '';
@@ -2105,6 +2119,19 @@ export const ssr = (Component: WompComponent, props: WompProps = { styles: {} })
 		component: WompComponent;
 		props: WompProps;
 	}[] = [];
+	const { generatedCSS, styles, shadow } = Component.options;
+	props.styles = styles;
+	if (root) html += `<${Component.componentName}>`;
+	if (shadow) {
+		html += `<template shadowrootmode="open">`;
+	}
+	if (generatedCSS && (!Component.ssrStylesAttached || shadow)) {
+		//! There can be repreated styles inside a shadow root.
+		//! Find a way to know if a style is already present inside a shadow root
+		Component.ssrStylesAttached = true;
+		html += `<style class="${Component.componentName}__styles">${generatedCSS}</style>`;
+	}
+	const render = Component(props);
 	for (let i = 0; i < render.parts.length; i++) {
 		let part = render.parts[i];
 		const value = render.values[i];
@@ -2112,7 +2139,13 @@ export const ssr = (Component: WompComponent, props: WompProps = { styles: {} })
 			const firstPart = part.slice(0, part.indexOf('>') + 1);
 			const secondPart = part.slice(part.indexOf('>') + 1);
 			if (firstPart[firstPart.length - 2] === '/') {
-				part = firstPart.slice(0, firstPart.length - 2) + `></${pendingTag}>` + secondPart;
+				const before = firstPart.slice(0, firstPart.length - 2);
+				part =
+					`${before}>
+						<?$WC${counter}></?$WC${counter}>
+					</${pendingTag}>` + secondPart;
+				pendingTag = '';
+				counter++;
 			} else {
 				part = firstPart + `<?$WC${counter}>` + secondPart;
 				pending.push(counter);
@@ -2127,11 +2160,15 @@ export const ssr = (Component: WompComponent, props: WompProps = { styles: {} })
 		}
 		html += part;
 		const isPrimitive = value !== Object(value);
-		if (pendingTag) {
-			//! Il valore è una prop
+		// Add non-primitive props
+		if (pendingTag && !isPrimitive) {
+			const propName = part.match(/\s(.*)[=|"]$/)[1];
+			(components[components.length - 1].props as any)[propName] = value;
 		}
-		if (isPrimitive && value) {
-			html += value;
+		const isAttr = part.endsWith('=');
+		if (isPrimitive && (isAttr || value)) {
+			if (isAttr) html += `"${value}"`;
+			else html += value;
 		} else if (value?._$wompF) {
 			if (!part.endsWith('/')) {
 				components.push({
@@ -2143,16 +2180,48 @@ export const ssr = (Component: WompComponent, props: WompProps = { styles: {} })
 				pendingTag = value.componentName;
 			}
 			html += value.componentName;
+		} else if (!isPrimitive && isAttr) {
+			const attrs = html.split(' ');
+			attrs.pop();
+			html = attrs.join(' ');
+		} else if (value?._$wompChildren) {
+			html += `<?WC-C>`;
 		}
+		if (shadow && i === render.parts.length - 1) html += '</template>';
 	}
+	// There can be other custom components not made with womp.
+	const wompComponents: { [key: string]: true } = {};
+	components.forEach((comp) => (wompComponents[comp.component.componentName] = true));
+	const webComponents = html.matchAll(/<([a-z]*?-[a-z]*?)\s(.*?)>/gs);
+	let match;
+	let compIndex = 0;
+	// For each found component, build props
+	while (!(match = webComponents.next()).done) {
+		const [_, name, attrs] = match.value;
+		if (!wompComponents[name]) continue;
+		const props = components[compIndex].props as any;
+		const attributes = attrs.matchAll(/(.*?)="(.*?)"\s?/gs);
+		let attrMatch;
+		while (!(attrMatch = attributes.next()).done) {
+			const [_, attrName, attrValue] = attrMatch.value;
+			if (props[attrName] === undefined) props[attrName] = attrValue;
+		}
+		compIndex++;
+	}
+	// Reverse rendering: starts from the deepest element.
 	for (let i = components.length - 1; i >= 0; i--) {
 		const component = components[i];
 		const childrenRegex = new RegExp(`<\\?\\$WC${i}>(.*?)<\\/\\?\\$WC${i}>`, 'gs');
 		html = html.replace(childrenRegex, (_, group) => {
-			component.props.children = group;
-			const rendered = ssr(component.component, component.props);
+			component.props.children = {
+				value: group,
+				_$wompChildren: true,
+			} as any;
+			const rendered = ssr(component.component, structuredClone(component.props), false);
 			return rendered;
 		});
 	}
+	if (props.children) html = html.replace(`<?WC-C>`, (props.children as any).value);
+	if (root) html += `</${Component.componentName}>`;
 	return html;
 };

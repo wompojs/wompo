@@ -8,8 +8,51 @@
 	</head>
 	<body>
 		<script type="module">
-			import { wompDefaultOptions } from '../dist/womp.js';
+			import { wompDefaultOptions, ssr, html, defineWomp } from '../dist/womp.js';
 			wompDefaultOptions.shadow = false;
+			const port = 3000;
+
+			function Nested({ styles: s, children, title, user = {} }) {
+				return html`<main class=${s.main}>
+					<h1>${title}</h1>
+					<h4>${user.name}</h4>
+					<div>${children}</div>
+					<${ThirdComponent} value=${0} />
+				</main>`;
+			}
+			Nested.css = `
+				.main {
+					color: red;
+				}
+			`;
+
+			function ThirdComponent({ value }) {
+				return html`<p>
+					Affected?
+					<input value=${value} />
+				</p>`;
+			}
+
+			function Component({}) {
+				return html`<div>
+					<p>I rendered this from the serverrrrr!!!</p>
+					<p>Port: ${port}</p>
+
+					<${ThirdComponent} value=${'ahah'} />
+
+					<${Nested} title=${"Gigi d'Alessio"} user=${{ name: 'Lore' }}>
+						<p>Contenuto</p>
+						<${ThirdComponent} value=${'nested'} />
+					</${Nested}>
+				</div>`;
+			}
+			Component.css = `p {color: blue;}`;
+
+			defineWomp(Component, { shadow: true });
+			defineWomp(ThirdComponent, { shadow: true });
+			defineWomp(Nested, { shadow: true });
+
+			console.log(ssr(Component));
 		</script>
 		<script type="module">
 			import Counter from './counter-component.js';
