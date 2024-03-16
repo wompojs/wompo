@@ -1062,6 +1062,7 @@ export const wompDefaultOptions = {
   name: "",
   cssGeneration: true
 };
+const registeredComponents = {};
 export function defineWomp(Component, options) {
   if (!Component.css)
     Component.css = "";
@@ -1089,6 +1090,7 @@ export function defineWomp(Component, options) {
     Component.class = ComponentClass;
     customElements.define(componentOptions.name, ComponentClass);
   }
+  registeredComponents[componentOptions.name] = Component;
   //! Save registered elements' functions, so that they can be accessed through SSR
   //! Es. registeredWomps[componentName] ? render() : skip;
   return Component;
@@ -1147,10 +1149,6 @@ export const jsx = (Element, attributes) => {
 export const Fragment = "wc-fragment";
 export const ssr = (Component, props = { styles: {} }, root = true) => {
   let html2 = "";
-  let counter = 0;
-  let pendingTag = "";
-  const pending = [];
-  const components = [];
   const { generatedCSS, styles, shadow } = Component.options;
   props.styles = styles;
   if (root)
@@ -1164,10 +1162,57 @@ export const ssr = (Component, props = { styles: {} }, root = true) => {
     Component.ssrStylesAttached = true;
     html2 += `<style class="${Component.componentName}__styles">${generatedCSS}</style>`;
   }
-  const render = Component(props);
-  for (let i = 0; i < render.parts.length; i++) {
-    let part = render.parts[i];
-    const value = render.values[i];
+  const template = Component(props);
+  return html2 + generateSsrHtml(template, props.children) + (shadow ? "</template>" : "") + (root ? `</${Component.componentName}>` : "");
+};
+const generateSsrHtml = (template, children = null) => {
+  let html2 = "";
+  let counter = 0;
+  let pendingTag = "";
+  const pending = [];
+  const components = [];
+  for (let i = 0; i < template.parts.length; i++) {
+    let part = template.parts[i];
+    const value = template.values[i];
+    part = part.replace(/<\/?([a-z]*?-[a-z]*?)[\s|/|>].*?[|/|>]?/gs, (match, componentName) => {
+      const wompComponent = registeredComponents[componentName];
+      if (wompComponent) {
+        if (match.endsWith("/")) {
+          components.push({
+            component: wompComponent,
+            props: {
+              styles: {}
+            }
+          });
+          const toReturn = `${match}><?$WC${counter}></?$WC${counter}></${componentName}>`;
+          counter++;
+          return toReturn;
+        } else if (match[1] === "/") {
+          return `</?$WC${pending.pop()}>${match}`;
+        } else if (match.endsWith(">")) {
+          components.push({
+            component: wompComponent,
+            props: {
+              styles: {}
+            }
+          });
+          pending.push(counter);
+          const toReturn = `${match}<?$WC${counter}>`;
+          counter++;
+          return toReturn;
+        } else {
+          components.push({
+            component: wompComponent,
+            props: {
+              styles: {}
+            }
+          });
+          pendingTag = componentName;
+          return match;
+        }
+      }
+      return match;
+    });
     if (pendingTag && part.includes(">")) {
       const firstPart = part.slice(0, part.indexOf(">") + 1);
       const secondPart = part.slice(part.indexOf(">") + 1);
@@ -1197,67 +1242,99 @@ export const ssr = (Component, props = { styles: {} }, root = true) => {
       components[components.length - 1].props[propName] = value;
     }
     const isAttr = part.endsWith("=");
-    if (isPrimitive && (isAttr || value)) {
-      if (isAttr)
+    const canBeRemoved = value === false || value === void 0 || value === null;
+    if (isAttr) {
+      if (isPrimitive && !canBeRemoved) {
         html2 += `"${value}"`;
-      else
-        html2 += value;
-    } else if (value?._$wompF) {
-      if (!part.endsWith("/")) {
-        components.push({
-          component: value,
-          props: {
-            styles: {}
+      } else {
+        const attrs = html2.split(" ");
+        const attrName = attrs.pop();
+        if (attrName === "style=" && typeof value === "object" && !canBeRemoved) {
+          let styleString = "";
+          const styles = Object.keys(value);
+          for (const key of styles) {
+            let styleValue = value[key];
+            let styleKey = key.replace(/[A-Z]/g, (letter) => "-" + letter.toLowerCase());
+            if (typeof styleValue === "number")
+              styleValue = `${styleValue}px`;
+            styleString += `${styleKey}:${styleValue};`;
           }
-        });
-        pendingTag = value.componentName;
+          html2 += `"${styleString}"`;
+        } else {
+          html2 = attrs.join(" ");
+        }
       }
-      html2 += value.componentName;
-    } else if (!isPrimitive && isAttr) {
-      const attrs = html2.split(" ");
-      attrs.pop();
-      html2 = attrs.join(" ");
-    } else if (value?._$wompChildren) {
-      html2 += `<?WC-C>`;
+    } else {
+      const [toAdd, pendingTagFound] = handleSsrValue(value, part, components);
+      html2 += toAdd;
+      if (pendingTagFound)
+        pendingTag = pendingTagFound;
     }
-    if (shadow && i === render.parts.length - 1)
-      html2 += "</template>";
   }
   const wompComponents = {};
   components.forEach((comp) => wompComponents[comp.component.componentName] = true);
-  const webComponents = html2.matchAll(/<([a-z]*?-[a-z]*?)\s(.*?)>/gs);
-  let match;
   let compIndex = 0;
-  while (!(match = webComponents.next()).done) {
-    const [_, name, attrs] = match.value;
+  html2 = html2.replace(">>", ">");
+  html2 = html2.replace(/<([a-z]*?-[a-z]*?)\s(.*?)>/gs, (match, name, attrs) => {
     if (!wompComponents[name])
-      continue;
-    const props2 = components[compIndex].props;
+      return match;
+    const props = components[compIndex].props;
     const attributes = attrs.matchAll(/(.*?)="(.*?)"\s?/gs);
     let attrMatch;
     while (!(attrMatch = attributes.next()).done) {
-      const [_2, attrName, attrValue] = attrMatch.value;
-      if (props2[attrName] === void 0)
-        props2[attrName] = attrValue;
+      const [_, attrName, attrValue] = attrMatch.value;
+      if (props[attrName] === void 0)
+        props[attrName] = attrValue;
     }
     compIndex++;
-  }
+    const res = match.replace(/title=".*?"/, "");
+    return res;
+  });
   for (let i = components.length - 1; i >= 0; i--) {
     const component = components[i];
     const childrenRegex = new RegExp(`<\\?\\$WC${i}>(.*?)<\\/\\?\\$WC${i}>`, "gs");
     html2 = html2.replace(childrenRegex, (_, group) => {
       component.props.children = {
         value: group,
+        nodes: [],
         _$wompChildren: true
       };
-      const rendered = ssr(component.component, structuredClone(component.props), false);
+      const rendered = ssr(component.component, component.props, false);
       return rendered;
     });
   }
-  if (props.children)
-    html2 = html2.replace(`<?WC-C>`, props.children.value);
-  if (root)
-    html2 += `</${Component.componentName}>`;
+  if (children)
+    html2 = html2.replace(`<?WC-C>`, children.value);
   return html2;
+};
+const handleSsrValue = (value, part, components) => {
+  let html2 = "";
+  let pendingTag = "";
+  const isPrimitive = value !== Object(value);
+  const canBeRemoved = value === false || value === void 0 || value === null;
+  if (value?._$wompF) {
+    if (!part.endsWith("/")) {
+      components.push({
+        component: value,
+        props: {
+          styles: {}
+        }
+      });
+      pendingTag = value.componentName;
+    }
+    html2 += value.componentName;
+  } else if (value?._$wompChildren) {
+    html2 += `<?WC-C>`;
+  } else if (Array.isArray(value)) {
+    for (const arrVal of value) {
+      const [toAdd] = handleSsrValue(arrVal, part, components);
+      html2 += toAdd;
+    }
+  } else if (value?._$wompHtml) {
+    html2 += generateSsrHtml(value);
+  } else if (isPrimitive && !canBeRemoved) {
+    html2 += value;
+  }
+  return [html2, pendingTag];
 };
 //# sourceMappingURL=womp.js.map

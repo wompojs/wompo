@@ -37,22 +37,25 @@
 				return html`<div>
 					<p>I rendered this from the serverrrrr!!!</p>
 					<p>Port: ${port}</p>
-
-					<${ThirdComponent} value=${'ahah'} />
-
-					<${Nested} title=${"Gigi d'Alessio"} user=${{ name: 'Lore' }}>
-						<p>Contenuto</p>
-						<${ThirdComponent} value=${'nested'} />
-					</${Nested}>
+					${[
+						0,
+						'Ciccio',
+						html`<i>Pasticcio</i>`,
+						html`<u>${port}</u>`,
+						html`<${ThirdComponent} value=${'fewg'} />`,
+						[1, 2, 3, 4, 5, 6, html`<u>${port}</u>`],
+					]}
 				</div>`;
 			}
 			Component.css = `p {color: blue;}`;
 
-			defineWomp(Component, { shadow: true });
-			defineWomp(ThirdComponent, { shadow: true });
-			defineWomp(Nested, { shadow: true });
+			defineWomp(Component, { shadow: false });
+			defineWomp(ThirdComponent, { shadow: false });
+			defineWomp(Nested, { shadow: false });
 
-			console.log(ssr(Component));
+			const content = ssr(Component);
+			console.log(content);
+			document.getElementById('root').innerHTML = content;
 		</script>
 		<script type="module">
 			import Counter from './counter-component.js';
@@ -73,7 +76,7 @@
 			console.timeEnd('PerfOld'); */
 		</script>
 
-		<counter-womp wc-perf></counter-womp>
+		<div id="root"></div>
 	</body>
 </html>
 
