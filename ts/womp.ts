@@ -79,6 +79,8 @@ export interface WompComponent<Props extends WompProps = WompProps> {
 	componentName?: string;
 	/** Identifies the component */
 	_$wompF?: true;
+	/** True if a component must be hydrated in the frontend */
+	_$front?: boolean;
 	/** The generated class of the component */
 	class?: WompElementClass<Props>;
 	/** Options */
@@ -1378,6 +1380,10 @@ export const useHook = (): [WompElement, number] => {
  */
 export const useState = <S>(defaultValue: S) => {
 	const [component, hookIndex] = useHook();
+	if (IS_SERVER) {
+		(component as unknown as WompComponent)._$front = true;
+		return [defaultValue, () => {}];
+	}
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
 		const index = hookIndex;
 		component._$hooks[index] = [
@@ -2109,9 +2115,11 @@ export const jsx = (Element: any, attributes: { [key: string]: any }) => {
 /** JSX Fragment */
 export const Fragment = 'wc-fragment';
 
-/**
- * SSR
- */
+/* 
+================================================
+SSR
+================================================
+*/
 export const ssr = (Component: WompComponent, props: WompProps = { styles: {} }, root = true) => {
 	let html = '';
 	const { generatedCSS, styles, shadow } = Component.options;
@@ -2126,7 +2134,11 @@ export const ssr = (Component: WompComponent, props: WompProps = { styles: {} },
 		Component.ssrStylesAttached = true;
 		html += `<style class="${Component.componentName}__styles">${generatedCSS}</style>`;
 	}
+	currentRenderingComponent = Component as unknown as WompElement;
 	const template = Component(props);
+	if (Component._$front) {
+		//! Is a dynamic script
+	}
 	return (
 		html +
 		generateSsrHtml(template, props.children) +

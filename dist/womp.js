@@ -814,6 +814,11 @@ export const useHook = () => {
 };
 export const useState = (defaultValue) => {
   const [component, hookIndex] = useHook();
+  if (IS_SERVER) {
+    component._$front = true;
+    return [defaultValue, () => {
+    }];
+  }
   if (!component._$hooks.hasOwnProperty(hookIndex)) {
     const index = hookIndex;
     component._$hooks[index] = [
@@ -1162,7 +1167,11 @@ export const ssr = (Component, props = { styles: {} }, root = true) => {
     Component.ssrStylesAttached = true;
     html2 += `<style class="${Component.componentName}__styles">${generatedCSS}</style>`;
   }
+  currentRenderingComponent = Component;
   const template = Component(props);
+  if (Component._$front) {
+    //! Is a dynamic script
+  }
   return html2 + generateSsrHtml(template, props.children) + (shadow ? "</template>" : "") + (root ? `</${Component.componentName}>` : "");
 };
 const generateSsrHtml = (template, children = null) => {
