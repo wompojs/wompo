@@ -1,5 +1,9 @@
 const DEV_MODE = true;
 
+//! Find weak points (e.g. if you put a ">" in the attributes).
+//! Deeply test ALL Regexes: putting breaks, and stuff.
+//! Maybe review the CSS Generation. Is it OK?
+
 /* 
 ================================================
 TYPES
@@ -289,6 +293,7 @@ const WC_MARKER = '$wc$';
 const DYNAMIC_TAG_MARKER = 'wc-wc';
 const isDynamicTagRegex = /<\/?$/g;
 const isAttrRegex = /\s+([^\s]*?)="?$/g;
+//! Can cause problems. You should put also the "s" modifier
 const selfClosingRegex = /(<([a-z]*?-[a-z]*).*?)\/>/g;
 const isInsideTextTag = /<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi;
 const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
@@ -697,6 +702,7 @@ const __generateSpecifcStyles = (
 				const cssSelector = selector[1].trim();
 				if (!cssSelector.includes('.')) invalidSelectors.push(cssSelector);
 			});
+			//! Some valid selectors are marked as invalid e.g. :host or the component name.
 			invalidSelectors.forEach((selector) => {
 				console.warn(
 					`The CSS selector "${selector} {...}" in the component "${componentName}" is not enough` +
@@ -2038,8 +2044,6 @@ export function defineWomp<Props, E = {}>(
 		customElements.define(componentOptions.name, ComponentClass);
 	}
 	registeredComponents[componentOptions.name] = Component;
-	//! Save registered elements' functions, so that they can be accessed through SSR
-	//! Es. registeredWomps[componentName] ? render() : skip;
 	return Component as WompComponent<Props & WompProps>;
 }
 
