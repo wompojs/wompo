@@ -87,8 +87,6 @@ export interface WompComponent<Props extends WompProps = WompProps> {
 		styles: { [key: string]: string };
 		shadow: boolean;
 	};
-	/** SSR */
-	ssrStylesAttached?: boolean;
 }
 
 /**
@@ -1204,7 +1202,12 @@ const _$womp = <Props, E>(
 		 */
 		private initElement() {
 			this.__ROOT = this; // Shadow DOM is eventually attached later
-			//! If hydrated, you don't need to CREATE the shadow, only OBTAIN it
+			const toHydrate = this.getAttribute('womp-hydrate');
+			if (toHydrate !== null) {
+				this._$initialProps = (window as any).wompHydrationData[toHydrate];
+				if (options.shadow) this.__ROOT = this.shadowRoot; // Shadow already initialized
+				this.__ROOT.innerHTML = (this._$initialProps.children as any).value;
+			}
 			this.props = {
 				...this.props,
 				...this._$initialProps,
@@ -2115,7 +2118,32 @@ export const Fragment = 'wc-fragment';
 SSR
 ================================================
 */
-let data: any = {};
+const ssr = (Component: WompComponent, props: WompProps) => {
+	const data = {};
+	let toHydrate = 0;
+	let html = '';
+	const { generatedCSS, styles, shadow } = Component.options;
+	props.styles = styles;
+	html += `<${Component.componentName} womp-hydrate="${toHydrate}">`;
+	if (shadow) html += `<template shadowrootmode="open">`;
+	if (generatedCSS)
+		html += `<style class="${Component.componentName}__styles">${generatedCSS}</style>`;
+	html += ssRenderComponent(Component, props);
+	if (shadow) html += `</template>`;
+	html += `</${Component.componentName}>`;
+};
+
+const ssRenderComponent = (Component: WompComponent, props: WompProps) => {
+	const template = Component(props);
+};
+
+const generateSsHtml = (template: RenderHtml) => {
+	for (let i = 0; i < template.parts.length; i++) {
+		let part = template.parts[i];
+		const value = template.values[i];
+	}
+};
+/* let data: any = {};
 let count = 0;
 export const ssr = (Component: WompComponent, props: WompProps = { styles: {} }, root = true) => {
 	let html = '';
@@ -2128,10 +2156,7 @@ export const ssr = (Component: WompComponent, props: WompProps = { styles: {} },
 	if (shadow) {
 		html += `<template shadowrootmode="open">`;
 	}
-	if (generatedCSS && (!Component.ssrStylesAttached || shadow)) {
-		//! There can be repreated styles inside a shadow root.
-		//! Find a way to know if a style is already present inside a shadow root
-		Component.ssrStylesAttached = true;
+	if (generatedCSS) {
 		html += `<style class="${Component.componentName}__styles">${generatedCSS}</style>`;
 	}
 	currentRenderingComponent = Component as unknown as WompElement;
@@ -2144,10 +2169,21 @@ export const ssr = (Component: WompComponent, props: WompProps = { styles: {} },
 		(shadow ? '</template>' : '') +
 		(root ? `</${Component.componentName}>` : '');
 	if (root) {
+		// Add womp-hydrate attribute to custom elements
+		result = result.replace(/<([a-z]+?-[a-z]+?.*?)>/gs, (match) => {
+			const res = match.replace(/title=".*?"/g, '');
+			return res;
+		});
 		result = result.replace(/<([a-z]+?-[a-z]+?.*?)>!!wch(.*?)!!/gs, (_, content, hId) => {
 			return `<${content} womp-hydrate="${hId}">`;
 		});
-		result += `<script>window.wompHydrationData = ${JSON.stringify(data)}</script>`;
+		// Create womp hydration data
+		result += `<script>window.wompHydrationData = ${JSON.stringify(data).replace(
+			/!!wch(.*?)!!/gs,
+			''
+		)}</script>`;
+		// Minimize content
+		result = result.replace(/\n/g, '').replace(/\t/g, '').replace(/\s\s+/g, ' ');
 	}
 	return result;
 };
@@ -2262,19 +2298,19 @@ const generateSsrHtml = (template: RenderHtml, children: any = null) => {
 			html += toAdd;
 			if (pendingTagFound) pendingTag = pendingTagFound;
 		}
-		/* if (shadow && i === render.parts.length - 1) html += '</template>'; */
+		// if (shadow && i === render.parts.length - 1) html += '</template>';
 	}
 	// There can be other custom or already elaborated components.
 	const wompComponents: { [key: string]: true } = {};
 	components.forEach((comp) => (wompComponents[comp.component.componentName] = true));
-	// For each found component, build props, replace "title" attributes
+	// For each found component, build props
 	let compIndex = 0;
 	html = html.replace('>>', '>');
 	html = html.replace(/<([a-z]*?-[a-z]*?)(?:\s(.*?))?>/gs, (match, name, attrs) => {
-		if (!wompComponents[name]) {
+		if (!wompComponents[name] || !components[compIndex]) {
 			return match;
 		}
-		const props = components[compIndex].props as any;
+		const props = components[compIndex]?.props as any;
 		let res = match;
 		if (attrs) {
 			const attributes = attrs.matchAll(/(.*?)="(.*?)"\s?/gs);
@@ -2285,7 +2321,6 @@ const generateSsrHtml = (template: RenderHtml, children: any = null) => {
 				if (props[attrName] === undefined) props[attrName] = attrValue;
 			}
 			compIndex++;
-			res = res.replace(/title=".*?"/, '');
 		}
 		res = res.replace(name, `${name}`);
 		return res;
@@ -2338,3 +2373,4 @@ const handleSsrValue = (value: any, part: string, components: any[]) => {
 	}
 	return [html, pendingTag];
 };
+ */
