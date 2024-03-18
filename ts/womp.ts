@@ -1928,8 +1928,7 @@ HTML
 export function html(templateParts: TemplateStringsArray, ...values: any[]): RenderHtml {
 	const cleanValues = [];
 	const length = templateParts.length - 1; // skip last element
-	if (!true) {
-		//! TODO: IS_SERVER
+	if (!IS_SERVER) {
 		for (let i = 0; i < length; i++) {
 			// Don't include dynamic closing tags
 			if (!templateParts[i].endsWith('</')) cleanValues.push(values[i]);
