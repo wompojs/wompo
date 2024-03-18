@@ -79,8 +79,6 @@ export interface WompComponent<Props extends WompProps = WompProps> {
 	componentName?: string;
 	/** Identifies the component */
 	_$wompF?: true;
-	/** True if a component must be hydrated in the frontend */
-	_$front?: boolean;
 	/** The generated class of the component */
 	class?: WompElementClass<Props>;
 	/** Options */
@@ -301,7 +299,7 @@ const NODE = 0; // Is a NODE Dependency.
 const ATTR = 1; // Is an ATTRIBUTE Dependency.
 const TAG = 2; // Is a TAG Dependency.
 
-const IS_SERVER = typeof global !== undefined;
+const IS_SERVER = typeof global !== 'undefined';
 
 const doc = IS_SERVER ? ({ createTreeWalker() {} } as unknown as Document) : document;
 
@@ -1206,6 +1204,7 @@ const _$womp = <Props, E>(
 		 */
 		private initElement() {
 			this.__ROOT = this; // Shadow DOM is eventually attached later
+			//! If hydrated, you don't need to CREATE the shadow, only OBTAIN it
 			this.props = {
 				...this.props,
 				...this._$initialProps,
@@ -1216,9 +1215,6 @@ const _$womp = <Props, E>(
 				if (!this.props.hasOwnProperty(attrName)) {
 					const attrValue = this.getAttribute(attrName);
 					(this.props as any)[attrName] = attrValue === '' ? true : attrValue;
-				}
-				if (DEV_MODE && attrName === 'wc-perf') {
-					this._$measurePerf = true;
 				}
 			}
 			if (DEV_MODE && this.props['wc-perf']) {
@@ -1381,7 +1377,6 @@ export const useHook = (): [WompElement, number] => {
 export const useState = <S>(defaultValue: S) => {
 	const [component, hookIndex] = useHook();
 	if (IS_SERVER) {
-		(component as unknown as WompComponent)._$front = true;
 		return [defaultValue, () => {}];
 	}
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
@@ -2120,11 +2115,16 @@ export const Fragment = 'wc-fragment';
 SSR
 ================================================
 */
+let data: any = {};
+let count = 0;
 export const ssr = (Component: WompComponent, props: WompProps = { styles: {} }, root = true) => {
 	let html = '';
 	const { generatedCSS, styles, shadow } = Component.options;
 	props.styles = styles;
-	if (root) html += `<${Component.componentName}>`;
+	if (root) html += `<${Component.componentName} womp-hydrate="${count}">`;
+	else {
+		html += `!!wch${count}!!`;
+	}
 	if (shadow) {
 		html += `<template shadowrootmode="open">`;
 	}
@@ -2136,15 +2136,20 @@ export const ssr = (Component: WompComponent, props: WompProps = { styles: {} },
 	}
 	currentRenderingComponent = Component as unknown as WompElement;
 	const template = Component(props);
-	if (Component._$front) {
-		//! Is a dynamic script
-	}
-	return (
+	data[count] = props;
+	count++;
+	let result =
 		html +
 		generateSsrHtml(template, props.children) +
 		(shadow ? '</template>' : '') +
-		(root ? `</${Component.componentName}>` : '')
-	);
+		(root ? `</${Component.componentName}>` : '');
+	if (root) {
+		result = result.replace(/<([a-z]+?-[a-z]+?.*?)>!!wch(.*?)!!/gs, (_, content, hId) => {
+			return `<${content} womp-hydrate="${hId}">`;
+		});
+		result += `<script>window.wompHydrationData = ${JSON.stringify(data)}</script>`;
+	}
+	return result;
 };
 
 const generateSsrHtml = (template: RenderHtml, children: any = null) => {
@@ -2259,24 +2264,30 @@ const generateSsrHtml = (template: RenderHtml, children: any = null) => {
 		}
 		/* if (shadow && i === render.parts.length - 1) html += '</template>'; */
 	}
-	// There can be other custom components not made with womp.
+	// There can be other custom or already elaborated components.
 	const wompComponents: { [key: string]: true } = {};
 	components.forEach((comp) => (wompComponents[comp.component.componentName] = true));
 	// For each found component, build props, replace "title" attributes
 	let compIndex = 0;
 	html = html.replace('>>', '>');
-	html = html.replace(/<([a-z]*?-[a-z]*?)\s(.*?)>/gs, (match, name, attrs) => {
-		if (!wompComponents[name]) return match;
-		const props = components[compIndex].props as any;
-		const attributes = attrs.matchAll(/(.*?)="(.*?)"\s?/gs);
-		let attrMatch;
-		// Putting props
-		while (!(attrMatch = attributes.next()).done) {
-			const [_, attrName, attrValue] = attrMatch.value;
-			if (props[attrName] === undefined) props[attrName] = attrValue;
+	html = html.replace(/<([a-z]*?-[a-z]*?)(?:\s(.*?))?>/gs, (match, name, attrs) => {
+		if (!wompComponents[name]) {
+			return match;
 		}
-		compIndex++;
-		const res = match.replace(/title=".*?"/, '');
+		const props = components[compIndex].props as any;
+		let res = match;
+		if (attrs) {
+			const attributes = attrs.matchAll(/(.*?)="(.*?)"\s?/gs);
+			let attrMatch;
+			// Putting props
+			while (!(attrMatch = attributes.next()).done) {
+				const [_, attrName, attrValue] = attrMatch.value;
+				if (props[attrName] === undefined) props[attrName] = attrValue;
+			}
+			compIndex++;
+			res = res.replace(/title=".*?"/, '');
+		}
+		res = res.replace(name, `${name}`);
 		return res;
 	});
 	// Reverse rendering: starts from the deepest element.
@@ -2312,7 +2323,7 @@ const handleSsrValue = (value: any, part: string, components: any[]) => {
 			});
 			pendingTag = value.componentName;
 		}
-		html += value.componentName;
+		html += `${value.componentName}`;
 	} else if (value?._$wompChildren) {
 		html += `<?WC-C>`;
 	} else if (Array.isArray(value)) {

@@ -11,7 +11,7 @@ const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
 const NODE = 0;
 const ATTR = 1;
 const TAG = 2;
-const IS_SERVER = typeof global !== void 0;
+const IS_SERVER = typeof global !== "undefined";
 const doc = IS_SERVER ? { createTreeWalker() {
 } } : document;
 const treeWalker = doc.createTreeWalker(
@@ -419,8 +419,8 @@ const __createDependencies = (template, parts, attributes) => {
         }
       }
     } else if (node.nodeType === 8) {
-      const data = node.data;
-      if (data === `?${WC_MARKER}`)
+      const data2 = node.data;
+      if (data2 === `?${WC_MARKER}`)
         dependencies.push({ type: NODE, index: nodeIndex });
     }
     nodeIndex++;
@@ -697,6 +697,7 @@ const _$womp = (Component, options) => {
      */
     initElement() {
       this.__ROOT = this;
+      //! If hydrated, you don't need to CREATE the shadow, only OBTAIN it
       this.props = {
         ...this.props,
         ...this._$initialProps,
@@ -707,9 +708,6 @@ const _$womp = (Component, options) => {
         if (!this.props.hasOwnProperty(attrName)) {
           const attrValue = this.getAttribute(attrName);
           this.props[attrName] = attrValue === "" ? true : attrValue;
-        }
-        if (DEV_MODE && attrName === "wc-perf") {
-          this._$measurePerf = true;
         }
       }
       if (DEV_MODE && this.props["wc-perf"]) {
@@ -815,7 +813,6 @@ export const useHook = () => {
 export const useState = (defaultValue) => {
   const [component, hookIndex] = useHook();
   if (IS_SERVER) {
-    component._$front = true;
     return [defaultValue, () => {
     }];
   }
@@ -1152,12 +1149,17 @@ export const jsx = (Element, attributes) => {
   return template;
 };
 export const Fragment = "wc-fragment";
+let data = {};
+let count = 0;
 export const ssr = (Component, props = { styles: {} }, root = true) => {
   let html2 = "";
   const { generatedCSS, styles, shadow } = Component.options;
   props.styles = styles;
   if (root)
-    html2 += `<${Component.componentName}>`;
+    html2 += `<${Component.componentName} womp-hydrate="${count}">`;
+  else {
+    html2 += `!!wch${count}!!`;
+  }
   if (shadow) {
     html2 += `<template shadowrootmode="open">`;
   }
@@ -1169,10 +1171,16 @@ export const ssr = (Component, props = { styles: {} }, root = true) => {
   }
   currentRenderingComponent = Component;
   const template = Component(props);
-  if (Component._$front) {
-    //! Is a dynamic script
+  data[count] = props;
+  count++;
+  let result = html2 + generateSsrHtml(template, props.children) + (shadow ? "</template>" : "") + (root ? `</${Component.componentName}>` : "");
+  if (root) {
+    result = result.replace(/<([a-z]+?-[a-z]+?.*?)>!!wch(.*?)!!/gs, (_, content, hId) => {
+      return `<${content} womp-hydrate="${hId}">`;
+    });
+    result += `<script>window.wompHydrationData = ${JSON.stringify(data)}<\/script>`;
   }
-  return html2 + generateSsrHtml(template, props.children) + (shadow ? "</template>" : "") + (root ? `</${Component.componentName}>` : "");
+  return result;
 };
 const generateSsrHtml = (template, children = null) => {
   let html2 = "";
@@ -1284,19 +1292,24 @@ const generateSsrHtml = (template, children = null) => {
   components.forEach((comp) => wompComponents[comp.component.componentName] = true);
   let compIndex = 0;
   html2 = html2.replace(">>", ">");
-  html2 = html2.replace(/<([a-z]*?-[a-z]*?)\s(.*?)>/gs, (match, name, attrs) => {
-    if (!wompComponents[name])
+  html2 = html2.replace(/<([a-z]*?-[a-z]*?)(?:\s(.*?))?>/gs, (match, name, attrs) => {
+    if (!wompComponents[name]) {
       return match;
-    const props = components[compIndex].props;
-    const attributes = attrs.matchAll(/(.*?)="(.*?)"\s?/gs);
-    let attrMatch;
-    while (!(attrMatch = attributes.next()).done) {
-      const [_, attrName, attrValue] = attrMatch.value;
-      if (props[attrName] === void 0)
-        props[attrName] = attrValue;
     }
-    compIndex++;
-    const res = match.replace(/title=".*?"/, "");
+    const props = components[compIndex].props;
+    let res = match;
+    if (attrs) {
+      const attributes = attrs.matchAll(/(.*?)="(.*?)"\s?/gs);
+      let attrMatch;
+      while (!(attrMatch = attributes.next()).done) {
+        const [_, attrName, attrValue] = attrMatch.value;
+        if (props[attrName] === void 0)
+          props[attrName] = attrValue;
+      }
+      compIndex++;
+      res = res.replace(/title=".*?"/, "");
+    }
+    res = res.replace(name, `${name}`);
     return res;
   });
   for (let i = components.length - 1; i >= 0; i--) {
@@ -1331,7 +1344,7 @@ const handleSsrValue = (value, part, components) => {
       });
       pendingTag = value.componentName;
     }
-    html2 += value.componentName;
+    html2 += `${value.componentName}`;
   } else if (value?._$wompChildren) {
     html2 += `<?WC-C>`;
   } else if (Array.isArray(value)) {
