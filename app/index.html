@@ -17,7 +17,7 @@
 					<h1>${title}</h1>
 					<h4>${user.name}</h4>
 					<div>${children}</div>
-					<${ThirdComponent} value=${0} />
+					<${ThirdComponent} value=${0} user=${{ name: 'Ponchi' }} />
 				</main>`;
 			}
 			Nested.css = `
@@ -26,25 +26,26 @@
 				}
 			`;
 
-			function ThirdComponent({ value }) {
-				return html`<p>
-					Affected?
+			function ThirdComponent({ user, value, children }) {
+				return html`<div>
+					<h1>${user.name} ${user.lastname}</h1>
 					<input value=${value} />
-				</p>`;
+					${children}
+				</div>`;
 			}
 
 			function Component({}) {
+				const user = {
+					name: 'Lorenzo',
+					lastname: 'Lannino',
+				};
 				return html`<div>
 					<p>I rendered this from the serverrrrr!!!</p>
 					<p>Port: ${port}</p>
-					${[
-						0,
-						'Ciccio',
-						html`<i>Pasticcio</i>`,
-						html`<u>${port}</u>`,
-						html`<${ThirdComponent} value=${'fewg'} />`,
-						[1, 2, 3, 4, 5, 6, html`<u>${port}</u>`],
-					]}
+					<${ThirdComponent} user=${user} value=${0}>
+						<${Nested} title="Suca" />
+					</${ThirdComponent}>
+					<${ThirdComponent} user=${{ name: 'Vaso' }} value=${1} />
 				</div>`;
 			}
 			Component.css = `p {color: blue;}`;
@@ -53,7 +54,7 @@
 			defineWomp(ThirdComponent, { shadow: false });
 			defineWomp(Nested, { shadow: false });
 
-			const content = ssr(Component);
+			const content = ssr(Component, {});
 			console.log(content);
 			document.getElementById('root').innerHTML = content;
 		</script>

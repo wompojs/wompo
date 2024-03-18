@@ -5,7 +5,7 @@ const WC_MARKER = "$wc$";
 const DYNAMIC_TAG_MARKER = "wc-wc";
 const isDynamicTagRegex = /<\/?$/g;
 const isAttrRegex = /\s+([^\s]*?)="?$/g;
-const selfClosingRegex = /(<([a-x]*?-[a-z]*).*?)\/>/g;
+const selfClosingRegex = /(<([a-z]*?-[a-z]*).*?)\/>/g;
 const isInsideTextTag = /<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi;
 const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
 const NODE = 0;
@@ -1051,7 +1051,8 @@ export const useContext = (Context) => {
 export function html(templateParts, ...values) {
   const cleanValues = [];
   const length = templateParts.length - 1;
-  if (!IS_SERVER) {
+  if (false) {
+    //! TODO: IS_SERVER
     for (let i = 0; i < length; i++) {
       if (!templateParts[i].endsWith("</"))
         cleanValues.push(values[i]);
@@ -1155,29 +1156,163 @@ export const jsx = (Element, attributes) => {
   return template;
 };
 export const Fragment = "wc-fragment";
-const ssr = (Component, props) => {
-  const data = {};
-  let toHydrate = 0;
+export const ssr = (Component, props) => {
+  const objects = {
+    count: 0
+  };
+  let htmlString = ssRenderComponent(Component, props, objects);
+  htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, "");
+  return htmlString;
+};
+const ssRenderComponent = (Component, props, objects) => {
   let html2 = "";
   const { generatedCSS, styles, shadow } = Component.options;
   props.styles = styles;
-  html2 += `<${Component.componentName} womp-hydrate="${toHydrate}">`;
+  html2 += `<${Component.componentName}`;
+  for (const prop in props) {
+    const value = props[prop];
+    const isPrimitive = value !== Object(value);
+    if (isPrimitive && prop !== "title")
+      html2 += ` ${prop}="${value}"`;
+  }
+  html2 += ">";
   if (shadow)
     html2 += `<template shadowrootmode="open">`;
   if (generatedCSS)
     html2 += `<style class="${Component.componentName}__styles">${generatedCSS}</style>`;
-  html2 += ssRenderComponent(Component, props);
+  const template = Component(props);
+  let toRender = generateSsHtml(template, objects);
+  toRender = toRender.replace(
+    /<([a-z]*-[a-z]*)(.*?)>/gs,
+    (match, name, attrs) => match.endsWith("/>") ? `<${name}${attrs.substring(0, attrs.length - 1)}></${name}>` : match
+  );
+  let counter = 0;
+  let pending = "";
+  const components = [];
+  toRender = toRender.replace(/<\/?([a-z]+?-[a-z]+?)\s?(?:\s.*?)?>/gs, (match, name) => {
+    const component = registeredComponents[name];
+    if (!component)
+      return match;
+    if (match[1] !== "/") {
+      if (name === pending) {
+        counter++;
+      } else if (!pending) {
+        pending = name;
+        const res = match + `<?$CWC${components.length}>`;
+        counter++;
+        return res;
+      }
+    } else if (pending) {
+      if (name === pending) {
+        counter--;
+        if (!counter) {
+          const res = `</?$CWC${components.length}>` + match;
+          pending = "";
+          components.push(components.length);
+          return res;
+        }
+      }
+    }
+    return match;
+  });
+  for (const id of components) {
+    const regex = new RegExp(
+      `<([a-z]+-[a-z]+)([^>]*?)><\\?\\$CWC${id}>(.*?)<\\/\\?\\$CWC${id}>`,
+      "gs"
+    );
+    toRender = toRender.replace(regex, (_, name, attrs, children) => {
+      const Component2 = registeredComponents[name];
+      const componentProps = {};
+      componentProps.children = {
+        _$wompChildren: true,
+        nodes: children
+      };
+      const attributes = attrs.matchAll(/\s?(.*?)="(.*?)"/gs);
+      let attr;
+      while (!(attr = attributes.next()).done) {
+        const [_2, attrName, attrValue] = attr.value;
+        if (attrValue.match(/\$wc(.*?)\$/)) {
+          const value = objects[attrValue];
+          componentProps[attrName] = value;
+        } else {
+          componentProps[attrName] = attrValue;
+        }
+      }
+      return ssRenderComponent(Component2, componentProps, objects);
+    });
+  }
+  html2 += toRender;
   if (shadow)
     html2 += `</template>`;
   html2 += `</${Component.componentName}>`;
+  return html2;
 };
-const ssRenderComponent = (Component, props) => {
-  const template = Component(props);
-};
-const generateSsHtml = (template) => {
+const generateSsHtml = (template, objects) => {
+  let html2 = "";
   for (let i = 0; i < template.parts.length; i++) {
     let part = template.parts[i];
     const value = template.values[i];
+    html2 += part;
+    html2 += handleSsValue(part, value, objects);
   }
+  return html2;
+};
+const handleSsValue = (part, value, objects) => {
+  let html2 = "";
+  const shouldBeRemoved = value === false || value === void 0 || value === null;
+  const isPrimitive = value !== Object(value);
+  if (part.endsWith("=")) {
+    if (shouldBeRemoved) {
+      html2 += `"$wcREMOVE$"`;
+      return html2;
+    }
+    if (isPrimitive) {
+      html2 += `"${value}"`;
+    } else {
+      if (part.endsWith(" style=")) {
+        let styleString = "";
+        const styles = Object.keys(value);
+        for (const key of styles) {
+          let styleValue = value[key];
+          let styleKey = key.replace(/[A-Z]/g, (letter) => "-" + letter.toLowerCase());
+          if (typeof styleValue === "number")
+            styleValue = `${styleValue}px`;
+          styleString += `${styleKey}:${styleValue};`;
+        }
+        html2 += `"${styleString}"`;
+      } else {
+        const identifier = `$wc${objects.count}$`;
+        html2 += `"${identifier}"`;
+        objects[identifier] = value;
+        objects.count++;
+      }
+    }
+    return html2;
+  }
+  if (shouldBeRemoved) {
+    return html2;
+  }
+  if (value._$wompF) {
+    html2 += value.componentName;
+    return html2;
+  }
+  if (value._$wompChildren) {
+    html2 += value.nodes;
+    return html2;
+  }
+  if (isPrimitive) {
+    html2 += value;
+    return html2;
+  }
+  if (Array.isArray(value)) {
+    for (const val of value) {
+      html2 += handleSsValue(part, val, objects);
+    }
+    return html2;
+  }
+  if (value._$wompHtml) {
+    return generateSsHtml(value, objects);
+  }
+  return html2;
 };
 //# sourceMappingURL=womp.js.map
