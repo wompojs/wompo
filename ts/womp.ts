@@ -2137,7 +2137,8 @@ export const ssr = (Component: WompComponent, props: WompProps = { styles: {} },
 	currentRenderingComponent = Component as unknown as WompElement;
 	const template = Component(props);
 	if (Component._$front) {
-		//! Is a dynamic script
+		//! Test first to full render on front the content from the backend (with a bundle).
+		//! Is a dynamic script //! If DON'T, REMOVE _$front.
 	}
 	return (
 		html +
