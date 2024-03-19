@@ -820,7 +820,7 @@ export const useHook = () => {
 };
 export const useState = (defaultValue) => {
   const [component, hookIndex] = useHook();
-  if (IS_SERVER) {
+  if (!component) {
     return [defaultValue, () => {
     }];
   }
@@ -1162,17 +1162,19 @@ export const ssr = (Component, props) => {
   };
   let htmlString = ssRenderComponent(Component, props, ssrData);
   htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, "");
-  console.log(ssrData);
   const css = {};
+  const js = {};
   const components = ssrData.components;
   for (const comp in components) {
-    const compCss = components[comp].options.generatedCSS;
+    const component = components[comp];
+    const compCss = component.options.generatedCSS;
     if (compCss)
       css[comp] = compCss.replace(/\s\s+/g, " ").replace(/\t/g, "").replace(/\n/g, "");
   }
   return {
     html: htmlString,
-    css
+    css,
+    js
   };
 };
 const ssRenderComponent = (Component, props, ssrData) => {
@@ -1190,7 +1192,7 @@ const ssRenderComponent = (Component, props, ssrData) => {
   if (shadow)
     html2 += `<template shadowrootmode="open">`;
   if (generatedCSS)
-    html2 += `<link rel="stylesheet" href="/static/${Component.componentName}.css" />`;
+    html2 += `<link rel="stylesheet" href="/${Component.componentName}.css" />`;
   ssrData.components[Component.componentName] = Component;
   const template = Component(props);
   let toRender = generateSsHtml(template, ssrData);

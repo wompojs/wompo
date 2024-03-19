@@ -1384,7 +1384,8 @@ export const useHook = (): [WompElement, number] => {
  */
 export const useState = <S>(defaultValue: S) => {
 	const [component, hookIndex] = useHook();
-	if (IS_SERVER) {
+	if (!component) {
+		// Server context
 		return [defaultValue, () => {}];
 	}
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
@@ -1768,6 +1769,7 @@ export const useReducer = <State>(
  * @param toExpose The keys to expose.
  */
 export const useExposed = <E = {}>(toExpose: E) => {
+	// No need to use useHook and increase the hook index
 	const component = currentRenderingComponent;
 	const keys = Object.keys(toExpose) as (keyof E)[];
 	for (const key of keys) {
@@ -2136,16 +2138,18 @@ export const ssr = (Component: WompComponent, props: WompProps) => {
 	};
 	let htmlString = ssRenderComponent(Component, props, ssrData);
 	htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, '');
-	console.log(ssrData);
 	const css: { [key: string]: string } = {};
+	const js = {};
 	const components = ssrData.components;
 	for (const comp in components) {
-		const compCss = components[comp].options.generatedCSS;
+		const component = components[comp];
+		const compCss = component.options.generatedCSS;
 		if (compCss) css[comp] = compCss.replace(/\s\s+/g, ' ').replace(/\t/g, '').replace(/\n/g, '');
 	}
 	return {
 		html: htmlString,
 		css: css,
+		js: js,
 	};
 };
 
@@ -2163,8 +2167,7 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: 
 	// Add shadow
 	if (shadow) html += `<template shadowrootmode="open">`;
 	// Append styles
-	if (generatedCSS)
-		html += `<link rel="stylesheet" href="/static/${Component.componentName}.css" />`;
+	if (generatedCSS) html += `<link rel="stylesheet" href="/${Component.componentName}.css" />`;
 	ssrData.components[Component.componentName] = Component;
 	const template = Component(props);
 	// Render component
