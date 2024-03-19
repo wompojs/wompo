@@ -5,6 +5,7 @@ const WC_MARKER = "$wc$";
 const DYNAMIC_TAG_MARKER = "wc-wc";
 const isDynamicTagRegex = /<\/?$/g;
 const isAttrRegex = /\s+([^\s]*?)="?$/g;
+//! Can cause problems. You should put also the "s" modifier
 const selfClosingRegex = /(<([a-z]*?-[a-z]*).*?)\/>/g;
 const isInsideTextTag = /<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi;
 const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
@@ -295,6 +296,7 @@ This can lead to unexpected behaviors, because this component can alter other co
         if (!cssSelector.includes("."))
           invalidSelectors.push(cssSelector);
       });
+      //! Some valid selectors are marked as invalid e.g. :host/componentName, @media, etc.
       invalidSelectors.forEach((selector) => {
         console.warn(
           `The CSS selector "${selector} {...}" in the component "${componentName}" is not enough specific: include at least one class.`
@@ -535,7 +537,7 @@ const __setValues = (dynamics, values, oldValues) => {
               newValues[i] = oldValue.checkUpdates(currentValue);
           } else if (DEV_MODE) {
             console.warn(
-              "Rendering objects is not supported. Doing a stringified version of it can rise errors.\nThis node will be ignored."
+              "Rendering ssrData is not supported. Doing a stringified version of it can rise errors.\nThis node will be ignored."
             );
           }
         }
@@ -1051,8 +1053,7 @@ export const useContext = (Context) => {
 export function html(templateParts, ...values) {
   const cleanValues = [];
   const length = templateParts.length - 1;
-  if (false) {
-    //! TODO: IS_SERVER
+  if (!IS_SERVER) {
     for (let i = 0; i < length; i++) {
       if (!templateParts[i].endsWith("</"))
         cleanValues.push(values[i]);
@@ -1100,8 +1101,6 @@ export function defineWomp(Component, options) {
     customElements.define(componentOptions.name, ComponentClass);
   }
   registeredComponents[componentOptions.name] = Component;
-  //! Save registered elements' functions, so that they can be accessed through SSR
-  //! Es. registeredWomps[componentName] ? render() : skip;
   return Component;
 }
 export const jsx = (Element, attributes) => {
@@ -1157,14 +1156,26 @@ export const jsx = (Element, attributes) => {
 };
 export const Fragment = "wc-fragment";
 export const ssr = (Component, props) => {
-  const objects = {
-    count: 0
+  const ssrData = {
+    count: 0,
+    components: {}
   };
-  let htmlString = ssRenderComponent(Component, props, objects);
+  let htmlString = ssRenderComponent(Component, props, ssrData);
   htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, "");
-  return htmlString;
+  console.log(ssrData);
+  const css = {};
+  const components = ssrData.components;
+  for (const comp in components) {
+    const compCss = components[comp].options.generatedCSS;
+    if (compCss)
+      css[comp] = compCss.replace(/\s\s+/g, " ").replace(/\t/g, "").replace(/\n/g, "");
+  }
+  return {
+    html: htmlString,
+    css
+  };
 };
-const ssRenderComponent = (Component, props, objects) => {
+const ssRenderComponent = (Component, props, ssrData) => {
   let html2 = "";
   const { generatedCSS, styles, shadow } = Component.options;
   props.styles = styles;
@@ -1179,9 +1190,10 @@ const ssRenderComponent = (Component, props, objects) => {
   if (shadow)
     html2 += `<template shadowrootmode="open">`;
   if (generatedCSS)
-    html2 += `<style class="${Component.componentName}__styles">${generatedCSS}</style>`;
+    html2 += `<link rel="stylesheet" href="/static/${Component.componentName}.css" />`;
+  ssrData.components[Component.componentName] = Component;
   const template = Component(props);
-  let toRender = generateSsHtml(template, objects);
+  let toRender = generateSsHtml(template, ssrData);
   toRender = toRender.replace(
     /<([a-z]*-[a-z]*)(.*?)>/gs,
     (match, name, attrs) => match.endsWith("/>") ? `<${name}${attrs.substring(0, attrs.length - 1)}></${name}>` : match
@@ -1232,13 +1244,13 @@ const ssRenderComponent = (Component, props, objects) => {
       while (!(attr = attributes.next()).done) {
         const [_2, attrName, attrValue] = attr.value;
         if (attrValue.match(/\$wc(.*?)\$/)) {
-          const value = objects[attrValue];
+          const value = ssrData[attrValue];
           componentProps[attrName] = value;
         } else {
           componentProps[attrName] = attrValue;
         }
       }
-      return ssRenderComponent(Component2, componentProps, objects);
+      return ssRenderComponent(Component2, componentProps, ssrData);
     });
   }
   html2 += toRender;
@@ -1247,17 +1259,17 @@ const ssRenderComponent = (Component, props, objects) => {
   html2 += `</${Component.componentName}>`;
   return html2;
 };
-const generateSsHtml = (template, objects) => {
+const generateSsHtml = (template, ssrData) => {
   let html2 = "";
   for (let i = 0; i < template.parts.length; i++) {
     let part = template.parts[i];
     const value = template.values[i];
     html2 += part;
-    html2 += handleSsValue(part, value, objects);
+    html2 += handleSsValue(part, value, ssrData);
   }
   return html2;
 };
-const handleSsValue = (part, value, objects) => {
+const handleSsValue = (part, value, ssrData) => {
   let html2 = "";
   const shouldBeRemoved = value === false || value === void 0 || value === null;
   const isPrimitive = value !== Object(value);
@@ -1281,10 +1293,10 @@ const handleSsValue = (part, value, objects) => {
         }
         html2 += `"${styleString}"`;
       } else {
-        const identifier = `$wc${objects.count}$`;
+        const identifier = `$wc${ssrData.count}$`;
         html2 += `"${identifier}"`;
-        objects[identifier] = value;
-        objects.count++;
+        ssrData[identifier] = value;
+        ssrData.count++;
       }
     }
     return html2;
@@ -1306,13 +1318,16 @@ const handleSsValue = (part, value, objects) => {
   }
   if (Array.isArray(value)) {
     for (const val of value) {
-      html2 += handleSsValue(part, val, objects);
+      html2 += handleSsValue(part, val, ssrData);
     }
     return html2;
   }
   if (value._$wompHtml) {
-    return generateSsHtml(value, objects);
+    return generateSsHtml(value, ssrData);
   }
   return html2;
 };
+//! Find weak points (e.g. if you put a ">" in the attributes).
+//! Deeply test ALL Regexes: putting breaks, and stuff.
+//! Maybe review the CSS Generation. Is it OK?
 //# sourceMappingURL=womp.js.map

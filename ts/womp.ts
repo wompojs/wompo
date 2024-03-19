@@ -1,8 +1,7 @@
+/**
+ * False to get smalles build file possible.
+ */
 const DEV_MODE = true;
-
-//! Find weak points (e.g. if you put a ">" in the attributes).
-//! Deeply test ALL Regexes: putting breaks, and stuff.
-//! Maybe review the CSS Generation. Is it OK?
 
 /* 
 ================================================
@@ -702,7 +701,7 @@ const __generateSpecifcStyles = (
 				const cssSelector = selector[1].trim();
 				if (!cssSelector.includes('.')) invalidSelectors.push(cssSelector);
 			});
-			//! Some valid selectors are marked as invalid e.g. :host or the component name.
+			//! Some valid selectors are marked as invalid e.g. :host/componentName, @media, etc.
 			invalidSelectors.forEach((selector) => {
 				console.warn(
 					`The CSS selector "${selector} {...}" in the component "${componentName}" is not enough` +
@@ -1006,7 +1005,7 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 						} else newValues[i] = (oldValue as WompArrayDependency).checkUpdates(currentValue);
 					} else if (DEV_MODE) {
 						console.warn(
-							'Rendering objects is not supported. Doing a stringified version of it can rise errors.\n' +
+							'Rendering ssrData is not supported. Doing a stringified version of it can rise errors.\n' +
 								'This node will be ignored.'
 						);
 					}
@@ -2122,18 +2121,35 @@ export const Fragment = 'wc-fragment';
 SSR
 ================================================
 */
-type PropsObject = { count: number; [key: string]: any };
-
-export const ssr = (Component: WompComponent, props: WompProps) => {
-	const objects: PropsObject = {
-		count: 0,
+type SsrDataObject = {
+	count: number;
+	components: {
+		[key: string]: WompComponent;
 	};
-	let htmlString = ssRenderComponent(Component, props, objects);
-	htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, '');
-	return htmlString;
+	[key: string]: any;
 };
 
-const ssRenderComponent = (Component: WompComponent, props: WompProps, objects: PropsObject) => {
+export const ssr = (Component: WompComponent, props: WompProps) => {
+	const ssrData: SsrDataObject = {
+		count: 0,
+		components: {},
+	};
+	let htmlString = ssRenderComponent(Component, props, ssrData);
+	htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, '');
+	console.log(ssrData);
+	const css: { [key: string]: string } = {};
+	const components = ssrData.components;
+	for (const comp in components) {
+		const compCss = components[comp].options.generatedCSS;
+		if (compCss) css[comp] = compCss.replace(/\s\s+/g, ' ').replace(/\t/g, '').replace(/\n/g, '');
+	}
+	return {
+		html: htmlString,
+		css: css,
+	};
+};
+
+const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: SsrDataObject) => {
 	let html = '';
 	const { generatedCSS, styles, shadow } = Component.options;
 	props.styles = styles;
@@ -2148,10 +2164,11 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, objects: 
 	if (shadow) html += `<template shadowrootmode="open">`;
 	// Append styles
 	if (generatedCSS)
-		html += `<style class="${Component.componentName}__styles">${generatedCSS}</style>`;
+		html += `<link rel="stylesheet" href="/static/${Component.componentName}.css" />`;
+	ssrData.components[Component.componentName] = Component;
 	const template = Component(props);
 	// Render component
-	let toRender = generateSsHtml(template, objects);
+	let toRender = generateSsHtml(template, ssrData);
 	// Replace self-closing tags
 	toRender = toRender.replace(/<([a-z]*-[a-z]*)(.*?)>/gs, (match, name, attrs) =>
 		match.endsWith('/>') ? `<${name}${attrs.substring(0, attrs.length - 1)}></${name}>` : match
@@ -2204,13 +2221,13 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, objects: 
 			while (!(attr = attributes.next()).done) {
 				const [_, attrName, attrValue] = attr.value;
 				if (attrValue.match(/\$wc(.*?)\$/)) {
-					const value = objects[attrValue];
+					const value = ssrData[attrValue];
 					(componentProps as any)[attrName] = value;
 				} else {
 					(componentProps as any)[attrName] = attrValue;
 				}
 			}
-			return ssRenderComponent(Component, componentProps, objects);
+			return ssRenderComponent(Component, componentProps, ssrData);
 		});
 	}
 	html += toRender;
@@ -2221,18 +2238,18 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, objects: 
 	return html;
 };
 
-const generateSsHtml = (template: RenderHtml, objects: PropsObject) => {
+const generateSsHtml = (template: RenderHtml, ssrData: SsrDataObject) => {
 	let html = '';
 	for (let i = 0; i < template.parts.length; i++) {
 		let part = template.parts[i];
 		const value = template.values[i];
 		html += part;
-		html += handleSsValue(part, value, objects);
+		html += handleSsValue(part, value, ssrData);
 	}
 	return html;
 };
 
-const handleSsValue = (part: string, value: any, objects: PropsObject) => {
+const handleSsValue = (part: string, value: any, ssrData: SsrDataObject) => {
 	let html = '';
 	const shouldBeRemoved = value === false || value === undefined || value === null;
 	const isPrimitive = value !== Object(value);
@@ -2257,10 +2274,10 @@ const handleSsValue = (part: string, value: any, objects: PropsObject) => {
 				}
 				html += `"${styleString}"`;
 			} else {
-				const identifier = `$wc${objects.count}$`;
+				const identifier = `$wc${ssrData.count}$`;
 				html += `"${identifier}"`;
-				objects[identifier] = value;
-				objects.count++;
+				ssrData[identifier] = value;
+				ssrData.count++;
 			}
 		}
 		return html;
@@ -2287,14 +2304,18 @@ const handleSsValue = (part: string, value: any, objects: PropsObject) => {
 	// Is array
 	if (Array.isArray(value)) {
 		for (const val of value) {
-			html += handleSsValue(part, val, objects);
+			html += handleSsValue(part, val, ssrData);
 		}
 		return html;
 	}
 	// Is template
 	if (value._$wompHtml) {
-		return generateSsHtml(value, objects);
+		return generateSsHtml(value, ssrData);
 	}
 
 	return html;
 };
+
+//! Find weak points (e.g. if you put a ">" in the attributes).
+//! Deeply test ALL Regexes: putting breaks, and stuff.
+//! Maybe review the CSS Generation. Is it OK?
