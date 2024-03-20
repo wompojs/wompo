@@ -1209,17 +1209,19 @@ const _$womp = <Props, E>(
 			this.__ROOT = this; // Shadow DOM is eventually attached later
 			if (this.shadowRoot) this.__ROOT = this.shadowRoot; // Means it's been Server-side rendered
 			const toHydrate = this.getAttribute('womp-hydrate');
-			//! Add ssr props (uncomment following lines)
-			if (toHydrate !== null /* && (window as any).wompHydrationData */) {
-				/* this._$initialProps = (window as any).wompHydrationData[options.name][toHydrate]; */
-				const childrenMatch = this.__ROOT.innerHTML.match(
-					/^.*?<!--\?\$sswcc-->(.*)<!--\?\$sswcc-->/s
-				);
-				if (childrenMatch) {
-					this.__ROOT.innerHTML = childrenMatch[1];
-				} else {
-					this.__ROOT.innerHTML = '';
+			if (toHydrate !== null && (window as any).wompHydrationData) {
+				this._$initialProps = (window as any).wompHydrationData[options.name][toHydrate];
+				const template = document.createElement('template');
+				template.innerHTML = this._$initialProps.children.nodes as unknown as string;
+				const children: Node[] = [];
+				for (const child of template.content.childNodes as any) {
+					children.push(child);
 				}
+				this._$initialProps.children = {
+					_$wompChildren: true,
+					nodes: children,
+				};
+				// delete this._$initialProps.children;
 			}
 			this.props = {
 				...this.props,
@@ -1233,30 +1235,31 @@ const _$womp = <Props, E>(
 					(this.props as any)[attrName] = attrValue === '' ? true : attrValue;
 				}
 			}
-			if (DEV_MODE && this.props['wc-perf']) {
-				this._$measurePerf = true;
-			}
+			if (DEV_MODE && this.props['wc-perf']) this._$measurePerf = true;
 
 			if (DEV_MODE && this._$measurePerf) console.time('First render ' + options.name);
 			// The children are saved in a WompChildren instance, so that
 			// they are not lost even when disconnected from the DOM.
-			const childNodes = this.__ROOT.childNodes;
-			const childrenArray: Node[] = [];
-			// Removing items from the DOM doesn't delete them.
-			while (childNodes.length) {
-				childrenArray.push(childNodes[0]);
-				childNodes[0].remove();
+			if (!toHydrate) {
+				const childNodes = this.__ROOT.childNodes;
+				const childrenArray: Node[] = [];
+				// Removing items from the DOM doesn't delete them.
+				while (childNodes.length) {
+					childrenArray.push(childNodes[0]);
+					childNodes[0].remove();
+				}
+				const children = new WompChildren(childrenArray);
+				this.props.children = children;
 			}
-			const children = new WompChildren(childrenArray);
-			this.props.children = children;
 
 			// Create shadow DOM
-			if (options.shadow) this.__ROOT = this.attachShadow({ mode: 'open' });
+			if (options.shadow && !this.shadowRoot) this.__ROOT = this.attachShadow({ mode: 'open' });
 
 			// Attach styles only if we are inside a shadow root and the same style is
 			// not already present.
 			const root = this.getRootNode();
 			if (
+				!toHydrate && // bacuse styles are already there if it's been SSR
 				(options.shadow || root !== document.body) &&
 				!(root as ShadowRoot).querySelector(`.${styleClassName}`)
 			) {
@@ -1272,8 +1275,15 @@ const _$womp = <Props, E>(
 			const elaboratedValues = __setValues(this.__dynamics, values, this.__oldValues);
 			this.__oldValues = elaboratedValues;
 
-			while (fragment.childNodes.length) {
-				this.__ROOT.appendChild(fragment.childNodes[0]);
+			if (!toHydrate) {
+				while (fragment.childNodes.length) {
+					this.__ROOT.appendChild(fragment.childNodes[0]);
+				}
+			} else {
+				let link;
+				if (this.__ROOT.childNodes[0].nodeName === 'LINK') link = this.__ROOT.childNodes[0];
+				this.__ROOT.replaceChildren(...(fragment.childNodes as any));
+				if (link) this.__ROOT.prepend(link);
 			}
 			this.__isInitializing = false;
 			this.__connected = true;
@@ -2133,7 +2143,7 @@ SSR
 */
 type SsrDataObject = {
 	count: number;
-	componentCount: number;
+	cCounter: number;
 	components: {
 		[key: string]: WompComponent;
 	};
@@ -2146,7 +2156,7 @@ type SsrDataObject = {
 export const ssr = (Component: WompComponent, props: WompProps) => {
 	const ssrData: SsrDataObject = {
 		count: 0,
-		componentCount: 0,
+		cCounter: 0,
 		components: {},
 		props: {},
 	};
@@ -2173,6 +2183,7 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: 
 	const componentName = Component.componentName;
 	if (!ssrData.props[componentName]) ssrData.props[componentName] = [];
 	html += `<${componentName} womp-hydrate="${ssrData.props[componentName].length}"`;
+	ssrData.props[componentName].push(props);
 	for (const prop in props) {
 		const value = props[prop as keyof WompProps];
 		const isPrimitive = value !== Object(value);
@@ -2311,7 +2322,8 @@ const handleSsValue = (part: string, value: any, ssrData: SsrDataObject) => {
 	}
 	// Is children
 	if (value._$wompChildren) {
-		html += `<?$sswcc>${value.nodes}<?$sswcc>`;
+		html += `<?$cwc${ssrData.cCounter}>${value.nodes}<?$cwc${ssrData.cCounter}>`;
+		ssrData.cCounter++;
 		return html;
 	}
 	// Is node
@@ -2335,5 +2347,6 @@ const handleSsValue = (part: string, value: any, ssrData: SsrDataObject) => {
 };
 
 //! Find weak points (e.g. if you put a ">" in the attributes).
+//! Dynamic composed attr doesnt work on custom elements (e.g. title="N. ${counter}")
 //! Deeply test ALL Regexes: putting line breaks, and stuff.
 //! Maybe review the CSS Generation. Is it OK?

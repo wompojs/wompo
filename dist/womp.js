@@ -702,16 +702,18 @@ const _$womp = (Component, options) => {
       if (this.shadowRoot)
         this.__ROOT = this.shadowRoot;
       const toHydrate = this.getAttribute("womp-hydrate");
-      //! Add ssr props (uncomment following lines)
-      if (toHydrate !== null) {
-        const childrenMatch = this.__ROOT.innerHTML.match(
-          /^.*?<!--\?\$sswcc-->(.*)<!--\?\$sswcc-->/s
-        );
-        if (childrenMatch) {
-          this.__ROOT.innerHTML = childrenMatch[1];
-        } else {
-          this.__ROOT.innerHTML = "";
+      if (toHydrate !== null && window.wompHydrationData) {
+        this._$initialProps = window.wompHydrationData[options.name][toHydrate];
+        const template2 = document.createElement("template");
+        template2.innerHTML = this._$initialProps.children.nodes;
+        const children = [];
+        for (const child of template2.content.childNodes) {
+          children.push(child);
         }
+        this._$initialProps.children = {
+          _$wompChildren: true,
+          nodes: children
+        };
       }
       this.props = {
         ...this.props,
@@ -725,23 +727,25 @@ const _$womp = (Component, options) => {
           this.props[attrName] = attrValue === "" ? true : attrValue;
         }
       }
-      if (DEV_MODE && this.props["wc-perf"]) {
+      if (DEV_MODE && this.props["wc-perf"])
         this._$measurePerf = true;
-      }
       if (DEV_MODE && this._$measurePerf)
         console.time("First render " + options.name);
-      const childNodes = this.__ROOT.childNodes;
-      const childrenArray = [];
-      while (childNodes.length) {
-        childrenArray.push(childNodes[0]);
-        childNodes[0].remove();
+      if (!toHydrate) {
+        const childNodes = this.__ROOT.childNodes;
+        const childrenArray = [];
+        while (childNodes.length) {
+          childrenArray.push(childNodes[0]);
+          childNodes[0].remove();
+        }
+        const children = new WompChildren(childrenArray);
+        this.props.children = children;
       }
-      const children = new WompChildren(childrenArray);
-      this.props.children = children;
-      if (options.shadow)
+      if (options.shadow && !this.shadowRoot)
         this.__ROOT = this.attachShadow({ mode: "open" });
       const root = this.getRootNode();
-      if ((options.shadow || root !== document.body) && !root.querySelector(`.${styleClassName}`)) {
+      if (!toHydrate && // bacuse styles are already there if it's been SSR
+      (options.shadow || root !== document.body) && !root.querySelector(`.${styleClassName}`)) {
         const clonedStyles = style.cloneNode(true);
         this.__ROOT.appendChild(clonedStyles);
       }
@@ -752,8 +756,17 @@ const _$womp = (Component, options) => {
       this.__dynamics = dynamics;
       const elaboratedValues = __setValues(this.__dynamics, values, this.__oldValues);
       this.__oldValues = elaboratedValues;
-      while (fragment.childNodes.length) {
-        this.__ROOT.appendChild(fragment.childNodes[0]);
+      if (!toHydrate) {
+        while (fragment.childNodes.length) {
+          this.__ROOT.appendChild(fragment.childNodes[0]);
+        }
+      } else {
+        let link;
+        if (this.__ROOT.childNodes[0].nodeName === "LINK")
+          link = this.__ROOT.childNodes[0];
+        this.__ROOT.replaceChildren(...fragment.childNodes);
+        if (link)
+          this.__ROOT.prepend(link);
       }
       this.__isInitializing = false;
       this.__connected = true;
@@ -1165,7 +1178,7 @@ export const Fragment = "wc-fragment";
 export const ssr = (Component, props) => {
   const ssrData = {
     count: 0,
-    componentCount: 0,
+    cCounter: 0,
     components: {},
     props: {}
   };
@@ -1193,6 +1206,7 @@ const ssRenderComponent = (Component, props, ssrData) => {
   if (!ssrData.props[componentName])
     ssrData.props[componentName] = [];
   html2 += `<${componentName} womp-hydrate="${ssrData.props[componentName].length}"`;
+  ssrData.props[componentName].push(props);
   for (const prop in props) {
     const value = props[prop];
     const isPrimitive = value !== Object(value);
@@ -1322,7 +1336,8 @@ const handleSsValue = (part, value, ssrData) => {
     return html2;
   }
   if (value._$wompChildren) {
-    html2 += `<?$sswcc>${value.nodes}<?$sswcc>`;
+    html2 += `<?$cwc${ssrData.cCounter}>${value.nodes}<?$cwc${ssrData.cCounter}>`;
+    ssrData.cCounter++;
     return html2;
   }
   if (isPrimitive) {
@@ -1341,6 +1356,7 @@ const handleSsValue = (part, value, ssrData) => {
   return html2;
 };
 //! Find weak points (e.g. if you put a ">" in the attributes).
+//! Dynamic composed attr doesnt work on custom elements (e.g. title="N. ${counter}")
 //! Deeply test ALL Regexes: putting line breaks, and stuff.
 //! Maybe review the CSS Generation. Is it OK?
 //# sourceMappingURL=womp.js.map
