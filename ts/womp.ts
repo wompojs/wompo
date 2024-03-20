@@ -1207,11 +1207,19 @@ const _$womp = <Props, E>(
 		 */
 		private initElement() {
 			this.__ROOT = this; // Shadow DOM is eventually attached later
+			if (this.shadowRoot) this.__ROOT = this.shadowRoot; // Means it's been Server-side rendered
 			const toHydrate = this.getAttribute('womp-hydrate');
-			if (toHydrate !== null) {
-				this._$initialProps = (window as any).wompHydrationData[toHydrate];
-				if (options.shadow) this.__ROOT = this.shadowRoot; // Shadow already initialized
-				this.__ROOT.innerHTML = (this._$initialProps.children as any).value;
+			//! Add ssr props (uncomment following lines)
+			if (toHydrate !== null /* && (window as any).wompHydrationData */) {
+				/* this._$initialProps = (window as any).wompHydrationData[options.name][toHydrate]; */
+				const childrenMatch = this.__ROOT.innerHTML.match(
+					/^.*?<!--\?\$sswcc-->(.*)<!--\?\$sswcc-->/s
+				);
+				if (childrenMatch) {
+					this.__ROOT.innerHTML = childrenMatch[1];
+				} else {
+					this.__ROOT.innerHTML = '';
+				}
 			}
 			this.props = {
 				...this.props,
@@ -1973,7 +1981,7 @@ export const wompDefaultOptions: WompComponentOptions = {
 DEFINE WOMP COMPONENT
 ================================================
 */
-const registeredComponents: { [key: string]: WompComponent } = {};
+export const registeredComponents: { [key: string]: WompComponent } = {};
 /**
  * The defineWomp function will be the trigger point to generate your custom web component.
  * It accepts 2 parameter: your functional component and the options to customize it.
@@ -2125,8 +2133,12 @@ SSR
 */
 type SsrDataObject = {
 	count: number;
+	componentCount: number;
 	components: {
 		[key: string]: WompComponent;
+	};
+	props: {
+		[key: string]: WompProps[];
 	};
 	[key: string]: any;
 };
@@ -2134,12 +2146,13 @@ type SsrDataObject = {
 export const ssr = (Component: WompComponent, props: WompProps) => {
 	const ssrData: SsrDataObject = {
 		count: 0,
+		componentCount: 0,
 		components: {},
+		props: {},
 	};
 	let htmlString = ssRenderComponent(Component, props, ssrData);
 	htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, '');
 	const css: { [key: string]: string } = {};
-	const js = {};
 	const components = ssrData.components;
 	for (const comp in components) {
 		const component = components[comp];
@@ -2149,7 +2162,7 @@ export const ssr = (Component: WompComponent, props: WompProps) => {
 	return {
 		html: htmlString,
 		css: css,
-		js: js,
+		props: ssrData.props,
 	};
 };
 
@@ -2157,7 +2170,9 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: 
 	let html = '';
 	const { generatedCSS, styles, shadow } = Component.options;
 	props.styles = styles;
-	html += `<${Component.componentName}`;
+	const componentName = Component.componentName;
+	if (!ssrData.props[componentName]) ssrData.props[componentName] = [];
+	html += `<${componentName} womp-hydrate="${ssrData.props[componentName].length}"`;
 	for (const prop in props) {
 		const value = props[prop as keyof WompProps];
 		const isPrimitive = value !== Object(value);
@@ -2167,8 +2182,8 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: 
 	// Add shadow
 	if (shadow) html += `<template shadowrootmode="open">`;
 	// Append styles
-	if (generatedCSS) html += `<link rel="stylesheet" href="/${Component.componentName}.css" />`;
-	ssrData.components[Component.componentName] = Component;
+	if (generatedCSS) html += `<link rel="stylesheet" href="/${componentName}.css" />`;
+	ssrData.components[componentName] = Component;
 	const template = Component(props);
 	// Render component
 	let toRender = generateSsHtml(template, ssrData);
@@ -2237,7 +2252,7 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: 
 	// Close shadow
 	if (shadow) html += `</template>`;
 	// Close component
-	html += `</${Component.componentName}>`;
+	html += `</${componentName}>`;
 	return html;
 };
 
@@ -2296,7 +2311,7 @@ const handleSsValue = (part: string, value: any, ssrData: SsrDataObject) => {
 	}
 	// Is children
 	if (value._$wompChildren) {
-		html += value.nodes;
+		html += `<?$sswcc>${value.nodes}<?$sswcc>`;
 		return html;
 	}
 	// Is node
@@ -2320,5 +2335,5 @@ const handleSsValue = (part: string, value: any, ssrData: SsrDataObject) => {
 };
 
 //! Find weak points (e.g. if you put a ">" in the attributes).
-//! Deeply test ALL Regexes: putting breaks, and stuff.
+//! Deeply test ALL Regexes: putting line breaks, and stuff.
 //! Maybe review the CSS Generation. Is it OK?

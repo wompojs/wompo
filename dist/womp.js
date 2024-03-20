@@ -699,12 +699,19 @@ const _$womp = (Component, options) => {
      */
     initElement() {
       this.__ROOT = this;
+      if (this.shadowRoot)
+        this.__ROOT = this.shadowRoot;
       const toHydrate = this.getAttribute("womp-hydrate");
+      //! Add ssr props (uncomment following lines)
       if (toHydrate !== null) {
-        this._$initialProps = window.wompHydrationData[toHydrate];
-        if (options.shadow)
-          this.__ROOT = this.shadowRoot;
-        this.__ROOT.innerHTML = this._$initialProps.children.value;
+        const childrenMatch = this.__ROOT.innerHTML.match(
+          /^.*?<!--\?\$sswcc-->(.*)<!--\?\$sswcc-->/s
+        );
+        if (childrenMatch) {
+          this.__ROOT.innerHTML = childrenMatch[1];
+        } else {
+          this.__ROOT.innerHTML = "";
+        }
       }
       this.props = {
         ...this.props,
@@ -1072,7 +1079,7 @@ export const wompDefaultOptions = {
   name: "",
   cssGeneration: true
 };
-const registeredComponents = {};
+export const registeredComponents = {};
 export function defineWomp(Component, options) {
   if (!Component.css)
     Component.css = "";
@@ -1158,12 +1165,13 @@ export const Fragment = "wc-fragment";
 export const ssr = (Component, props) => {
   const ssrData = {
     count: 0,
-    components: {}
+    componentCount: 0,
+    components: {},
+    props: {}
   };
   let htmlString = ssRenderComponent(Component, props, ssrData);
   htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, "");
   const css = {};
-  const js = {};
   const components = ssrData.components;
   for (const comp in components) {
     const component = components[comp];
@@ -1174,14 +1182,17 @@ export const ssr = (Component, props) => {
   return {
     html: htmlString,
     css,
-    js
+    props: ssrData.props
   };
 };
 const ssRenderComponent = (Component, props, ssrData) => {
   let html2 = "";
   const { generatedCSS, styles, shadow } = Component.options;
   props.styles = styles;
-  html2 += `<${Component.componentName}`;
+  const componentName = Component.componentName;
+  if (!ssrData.props[componentName])
+    ssrData.props[componentName] = [];
+  html2 += `<${componentName} womp-hydrate="${ssrData.props[componentName].length}"`;
   for (const prop in props) {
     const value = props[prop];
     const isPrimitive = value !== Object(value);
@@ -1192,8 +1203,8 @@ const ssRenderComponent = (Component, props, ssrData) => {
   if (shadow)
     html2 += `<template shadowrootmode="open">`;
   if (generatedCSS)
-    html2 += `<link rel="stylesheet" href="/${Component.componentName}.css" />`;
-  ssrData.components[Component.componentName] = Component;
+    html2 += `<link rel="stylesheet" href="/${componentName}.css" />`;
+  ssrData.components[componentName] = Component;
   const template = Component(props);
   let toRender = generateSsHtml(template, ssrData);
   toRender = toRender.replace(
@@ -1258,7 +1269,7 @@ const ssRenderComponent = (Component, props, ssrData) => {
   html2 += toRender;
   if (shadow)
     html2 += `</template>`;
-  html2 += `</${Component.componentName}>`;
+  html2 += `</${componentName}>`;
   return html2;
 };
 const generateSsHtml = (template, ssrData) => {
@@ -1311,7 +1322,7 @@ const handleSsValue = (part, value, ssrData) => {
     return html2;
   }
   if (value._$wompChildren) {
-    html2 += value.nodes;
+    html2 += `<?$sswcc>${value.nodes}<?$sswcc>`;
     return html2;
   }
   if (isPrimitive) {
@@ -1330,6 +1341,6 @@ const handleSsValue = (part, value, ssrData) => {
   return html2;
 };
 //! Find weak points (e.g. if you put a ">" in the attributes).
-//! Deeply test ALL Regexes: putting breaks, and stuff.
+//! Deeply test ALL Regexes: putting line breaks, and stuff.
 //! Maybe review the CSS Generation. Is it OK?
 //# sourceMappingURL=womp.js.map
