@@ -1401,7 +1401,7 @@ export const useState = <S>(defaultValue: S) => {
 	const [component, hookIndex] = useHook();
 	if (!component) {
 		// Server context
-		return [defaultValue, () => {}];
+		return [defaultValue, () => {}] as StateHook<S>;
 	}
 	if (!component._$hooks.hasOwnProperty(hookIndex)) {
 		const index = hookIndex;

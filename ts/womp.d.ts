@@ -399,7 +399,7 @@ export declare const useHook: () => [WompElement, number];
  * @param defaultValue The starter value.
  * @returns The current StateHook value.
  */
-export declare const useState: <S>(defaultValue: S) => (S | (() => void))[] | StateHook<S>;
+export declare const useState: <S>(defaultValue: S) => StateHook<S>;
 /**
  * The useEffect hook allows to execute a callback (passed in the first argument) on first render
  * and whenever one of the dependencies changes (second argument). This is useful to execute async
