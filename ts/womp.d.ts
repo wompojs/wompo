@@ -73,6 +73,14 @@ export interface WompComponent<Props extends WompProps = WompProps> {
     _$wompF?: true;
     /** The generated class of the component */
     class?: WompElementClass<Props>;
+    /** Options */
+    options?: {
+        generatedCSS: string;
+        styles: {
+            [key: string]: string;
+        };
+        shadow: boolean;
+    };
 }
 /**
  * The type of a Womp component Instance.
@@ -391,7 +399,7 @@ export declare const useHook: () => [WompElement, number];
  * @param defaultValue The starter value.
  * @returns The current StateHook value.
  */
-export declare const useState: <S>(defaultValue: S) => StateHook<S>;
+export declare const useState: <S>(defaultValue: S) => (S | (() => void))[] | StateHook<S>;
 /**
  * The useEffect hook allows to execute a callback (passed in the first argument) on first render
  * and whenever one of the dependencies changes (second argument). This is useful to execute async
@@ -688,6 +696,9 @@ export declare function html(templateParts: TemplateStringsArray, ...values: any
  * - `cssGeneration`: true (boolean)
  */
 export declare const wompDefaultOptions: WompComponentOptions;
+export declare const registeredComponents: {
+    [key: string]: WompComponent;
+};
 /**
  * The defineWomp function will be the trigger point to generate your custom web component.
  * It accepts 2 parameter: your functional component and the options to customize it.
@@ -728,7 +739,7 @@ export declare const wompDefaultOptions: WompComponentOptions;
  * @param options The options of the component.
  * @returns The generated class for the component.
  */
-export declare function defineWomp<Props, E = {}>(component: WompComponent<Props & WompProps>, options?: WompComponentOptions): WompComponent<Props & WompProps>;
+export declare function defineWomp<Props, E = {}>(Component: WompComponent<Props & WompProps>, options?: WompComponentOptions): WompComponent<Props & WompProps>;
 /**
  * This function enables to use JSX to create Womp Components. It'll simply re-create the
  * functioning of the `html` tag template function, and will return a RenderHtml object.

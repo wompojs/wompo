@@ -14,6 +14,6 @@
     "emitDeclarationOnly": true,
     "declarationDir": ".",
 	},
-  "include": ["ts/womp.ts"],
+  "include": ["ts/womp.ts", "ts/ssr/index.ts"],
   "exclude": ["dist", "./jsx-runtime.ts"]
 }

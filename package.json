@@ -9,7 +9,7 @@
 	"author": "LL",
 	"license": "ISC",
 	"scripts": {
-		"dev": "esbuild ts/womp.ts --sourcemap --watch --outdir=dist --allow-overwrite",
+		"dev": "esbuild ts/womp.ts ts/ssr/index.ts --sourcemap --watch --outdir=dist --allow-overwrite",
 		"build": "tsc & esbuild ts/womp.ts --minify --outdir=dist --allow-overwrite",
 		"perf": "tach --config tachometer.json"
 	},
@@ -17,6 +17,10 @@
 		".": {
 			"types": "./ts/womp.d.ts",
 			"default": "./dist/womp.js"
+		},
+		"./ssr": {
+			"types": "./ts/ssr/index.d.ts",
+			"default": "./dist/ssr/index.js"
 		},
 		"./jsx-runtime": {
 			"types": "./jsx.d.ts",
