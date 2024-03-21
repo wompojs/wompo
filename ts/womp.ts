@@ -511,9 +511,7 @@ class DynamicAttribute {
 			}
 			return;
 		}
-		if (DEV_MODE && this.name === 'wc-perf') {
-			(this.node as WompElement)._$measurePerf = true;
-		}
+		if (DEV_MODE && this.name === 'wc-perf') (this.node as WompElement)._$measurePerf = true;
 		const isWompElement = (this.node as WompElement)._$womp;
 		if (isWompElement) (this.node as WompElement).updateProps(this.name, newValue);
 		const isPrimitive = newValue !== Object(newValue);
@@ -1104,14 +1102,21 @@ const _$womp = <Props, E>(
 	options: WompComponentOptions
 ): WompElementClass<Props, E> => {
 	const { generatedCSS, styles } = Component.options;
-	const style = document.createElement('style');
+	let style: HTMLElement;
 	const styleClassName = `${options.name}__styles`;
-	if (generatedCSS) {
-		style.classList.add(styleClassName);
-		style.textContent = generatedCSS;
-		if (!options.shadow) {
-			document.body.appendChild(style);
+	if (!(window as any).wompHydrationData) {
+		style = document.createElement('style');
+		if (generatedCSS) {
+			style.classList.add(styleClassName);
+			style.textContent = generatedCSS;
+			if (!options.shadow) {
+				document.body.appendChild(style);
+			}
 		}
+	} else {
+		style = document.createElement('link');
+		(style as HTMLLinkElement).rel = 'stylesheet';
+		(style as HTMLLinkElement).href = `/${options.name}.css`;
 	}
 	/**
 	 * The dynamic class created to make it possible to create a custom web-component
@@ -1207,22 +1212,13 @@ const _$womp = <Props, E>(
 		 */
 		private initElement() {
 			this.__ROOT = this; // Shadow DOM is eventually attached later
-			if (this.shadowRoot) this.__ROOT = this.shadowRoot; // Means it's been Server-side rendered
+
+			// If component has to be hydrated
+			//! To finish
 			const toHydrate = this.getAttribute('womp-hydrate');
-			if (toHydrate !== null && (window as any).wompHydrationData) {
-				this._$initialProps = (window as any).wompHydrationData[options.name][toHydrate];
-				const template = document.createElement('template');
-				template.innerHTML = this._$initialProps.children.nodes as unknown as string;
-				const children: Node[] = [];
-				for (const child of template.content.childNodes as any) {
-					children.push(child);
-				}
-				this._$initialProps.children = {
-					_$wompChildren: true,
-					nodes: children,
-				};
-				// delete this._$initialProps.children;
-			}
+			//! when you implement hydration, immediately return: it's not necessary to initialize
+			if (toHydrate !== null && (window as any).wompHydrationData) this.__hydrate(toHydrate);
+
 			this.props = {
 				...this.props,
 				...this._$initialProps,
@@ -1240,32 +1236,22 @@ const _$womp = <Props, E>(
 			if (DEV_MODE && this._$measurePerf) console.time('First render ' + options.name);
 			// The children are saved in a WompChildren instance, so that
 			// they are not lost even when disconnected from the DOM.
-			if (!toHydrate) {
-				const childNodes = this.__ROOT.childNodes;
-				const childrenArray: Node[] = [];
-				// Removing items from the DOM doesn't delete them.
-				while (childNodes.length) {
-					childrenArray.push(childNodes[0]);
-					childNodes[0].remove();
-				}
-				const children = new WompChildren(childrenArray);
-				this.props.children = children;
+			const childNodes = this.__ROOT.childNodes;
+			const childrenArray: Node[] = [];
+			// Removing items from the DOM doesn't delete them.
+			while (childNodes.length) {
+				childrenArray.push(childNodes[0]);
+				childNodes[0].remove();
 			}
+			const children = new WompChildren(childrenArray);
+			this.props.children = children;
 
 			// Create shadow DOM
 			if (options.shadow && !this.shadowRoot) this.__ROOT = this.attachShadow({ mode: 'open' });
 
-			// Attach styles only if we are inside a shadow root and the same style is
-			// not already present.
-			const root = this.getRootNode();
-			if (
-				!toHydrate && // bacuse styles are already there if it's been SSR
-				(options.shadow || root !== document.body) &&
-				!(root as ShadowRoot).querySelector(`.${styleClassName}`)
-			) {
-				const clonedStyles = style.cloneNode(true);
-				this.__ROOT.appendChild(clonedStyles);
-			}
+			// Attach styles in every case.
+			const clonedStyles = style.cloneNode(true);
+			this.__ROOT.appendChild(clonedStyles);
 
 			const renderHtml = this.__callComponent();
 			const { values, parts } = renderHtml;
@@ -1274,20 +1260,31 @@ const _$womp = <Props, E>(
 			this.__dynamics = dynamics;
 			const elaboratedValues = __setValues(this.__dynamics, values, this.__oldValues);
 			this.__oldValues = elaboratedValues;
-
-			if (!toHydrate) {
-				while (fragment.childNodes.length) {
-					this.__ROOT.appendChild(fragment.childNodes[0]);
-				}
-			} else {
-				let link;
-				if (this.__ROOT.childNodes[0].nodeName === 'LINK') link = this.__ROOT.childNodes[0];
-				this.__ROOT.replaceChildren(...(fragment.childNodes as any));
-				if (link) this.__ROOT.prepend(link);
+			while (fragment.childNodes.length) {
+				this.__ROOT.appendChild(fragment.childNodes[0]);
 			}
 			this.__isInitializing = false;
 			this.__connected = true;
 			if (DEV_MODE && this._$measurePerf) console.timeEnd('First render ' + options.name);
+		}
+
+		private __hydrate(propId: string) {
+			//! To finish
+			if (this.shadowRoot) this.__ROOT = this.shadowRoot;
+			const serverProps = (window as any).wompHydrationData[options.name][propId];
+			this._$initialProps = structuredClone(serverProps);
+			/* delete serverProps.children;
+			this.props = { ...serverProps };
+
+			const renderHtml = this.__callComponent();
+			const { values, parts } = renderHtml;
+			const template = (this.constructor as typeof WompComponent)._$getOrCreateTemplate(parts);
+			const [fragment, dynamics] = template.clone();
+			this.__dynamics = dynamics;
+			const elaboratedValues = __setValues(this.__dynamics, values, this.__oldValues);
+			this.__oldValues = elaboratedValues;
+			this.__isInitializing = false;
+			this.__connected = true; */
 		}
 
 		/**
@@ -2183,7 +2180,6 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: 
 	const componentName = Component.componentName;
 	if (!ssrData.props[componentName]) ssrData.props[componentName] = [];
 	html += `<${componentName} womp-hydrate="${ssrData.props[componentName].length}"`;
-	ssrData.props[componentName].push(props);
 	for (const prop in props) {
 		const value = props[prop as keyof WompProps];
 		const isPrimitive = value !== Object(value);
@@ -2196,6 +2192,8 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: 
 	if (generatedCSS) html += `<link rel="stylesheet" href="/${componentName}.css" />`;
 	ssrData.components[componentName] = Component;
 	const template = Component(props);
+	delete props.children; //! Maybe remove when implementing hydration
+	ssrData.props[componentName].push(props);
 	// Render component
 	let toRender = generateSsHtml(template, ssrData);
 	// Replace self-closing tags
@@ -2322,7 +2320,7 @@ const handleSsValue = (part: string, value: any, ssrData: SsrDataObject) => {
 	}
 	// Is children
 	if (value._$wompChildren) {
-		html += `<?$cwc${ssrData.cCounter}>${value.nodes}<?$cwc${ssrData.cCounter}>`;
+		html += value.nodes;
 		ssrData.cCounter++;
 		return html;
 	}

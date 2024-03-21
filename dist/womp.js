@@ -148,9 +148,8 @@ class DynamicAttribute {
       }
       return;
     }
-    if (DEV_MODE && this.name === "wc-perf") {
+    if (DEV_MODE && this.name === "wc-perf")
       this.node._$measurePerf = true;
-    }
     const isWompElement = this.node._$womp;
     if (isWompElement)
       this.node.updateProps(this.name, newValue);
@@ -611,14 +610,21 @@ const __setValues = (dynamics, values, oldValues) => {
 };
 const _$womp = (Component, options) => {
   const { generatedCSS, styles } = Component.options;
-  const style = document.createElement("style");
+  let style;
   const styleClassName = `${options.name}__styles`;
-  if (generatedCSS) {
-    style.classList.add(styleClassName);
-    style.textContent = generatedCSS;
-    if (!options.shadow) {
-      document.body.appendChild(style);
+  if (!window.wompHydrationData) {
+    style = document.createElement("style");
+    if (generatedCSS) {
+      style.classList.add(styleClassName);
+      style.textContent = generatedCSS;
+      if (!options.shadow) {
+        document.body.appendChild(style);
+      }
     }
+  } else {
+    style = document.createElement("link");
+    style.rel = "stylesheet";
+    style.href = `/${options.name}.css`;
   }
   const WompComponent = class extends HTMLElement {
     constructor() {
@@ -699,22 +705,11 @@ const _$womp = (Component, options) => {
      */
     initElement() {
       this.__ROOT = this;
-      if (this.shadowRoot)
-        this.__ROOT = this.shadowRoot;
+      //! To finish
       const toHydrate = this.getAttribute("womp-hydrate");
-      if (toHydrate !== null && window.wompHydrationData) {
-        this._$initialProps = window.wompHydrationData[options.name][toHydrate];
-        const template2 = document.createElement("template");
-        template2.innerHTML = this._$initialProps.children.nodes;
-        const children = [];
-        for (const child of template2.content.childNodes) {
-          children.push(child);
-        }
-        this._$initialProps.children = {
-          _$wompChildren: true,
-          nodes: children
-        };
-      }
+      //! when you implement hydration, immediately return: it's not necessary to initialize
+      if (toHydrate !== null && window.wompHydrationData)
+        this.__hydrate(toHydrate);
       this.props = {
         ...this.props,
         ...this._$initialProps,
@@ -731,24 +726,18 @@ const _$womp = (Component, options) => {
         this._$measurePerf = true;
       if (DEV_MODE && this._$measurePerf)
         console.time("First render " + options.name);
-      if (!toHydrate) {
-        const childNodes = this.__ROOT.childNodes;
-        const childrenArray = [];
-        while (childNodes.length) {
-          childrenArray.push(childNodes[0]);
-          childNodes[0].remove();
-        }
-        const children = new WompChildren(childrenArray);
-        this.props.children = children;
+      const childNodes = this.__ROOT.childNodes;
+      const childrenArray = [];
+      while (childNodes.length) {
+        childrenArray.push(childNodes[0]);
+        childNodes[0].remove();
       }
+      const children = new WompChildren(childrenArray);
+      this.props.children = children;
       if (options.shadow && !this.shadowRoot)
         this.__ROOT = this.attachShadow({ mode: "open" });
-      const root = this.getRootNode();
-      if (!toHydrate && // bacuse styles are already there if it's been SSR
-      (options.shadow || root !== document.body) && !root.querySelector(`.${styleClassName}`)) {
-        const clonedStyles = style.cloneNode(true);
-        this.__ROOT.appendChild(clonedStyles);
-      }
+      const clonedStyles = style.cloneNode(true);
+      this.__ROOT.appendChild(clonedStyles);
       const renderHtml = this.__callComponent();
       const { values, parts } = renderHtml;
       const template = this.constructor._$getOrCreateTemplate(parts);
@@ -756,22 +745,20 @@ const _$womp = (Component, options) => {
       this.__dynamics = dynamics;
       const elaboratedValues = __setValues(this.__dynamics, values, this.__oldValues);
       this.__oldValues = elaboratedValues;
-      if (!toHydrate) {
-        while (fragment.childNodes.length) {
-          this.__ROOT.appendChild(fragment.childNodes[0]);
-        }
-      } else {
-        let link;
-        if (this.__ROOT.childNodes[0].nodeName === "LINK")
-          link = this.__ROOT.childNodes[0];
-        this.__ROOT.replaceChildren(...fragment.childNodes);
-        if (link)
-          this.__ROOT.prepend(link);
+      while (fragment.childNodes.length) {
+        this.__ROOT.appendChild(fragment.childNodes[0]);
       }
       this.__isInitializing = false;
       this.__connected = true;
       if (DEV_MODE && this._$measurePerf)
         console.timeEnd("First render " + options.name);
+    }
+    __hydrate(propId) {
+      //! To finish
+      if (this.shadowRoot)
+        this.__ROOT = this.shadowRoot;
+      const serverProps = window.wompHydrationData[options.name][propId];
+      this._$initialProps = structuredClone(serverProps);
     }
     /**
      * Calls the functional component by first setting correct values to the
@@ -1206,7 +1193,6 @@ const ssRenderComponent = (Component, props, ssrData) => {
   if (!ssrData.props[componentName])
     ssrData.props[componentName] = [];
   html2 += `<${componentName} womp-hydrate="${ssrData.props[componentName].length}"`;
-  ssrData.props[componentName].push(props);
   for (const prop in props) {
     const value = props[prop];
     const isPrimitive = value !== Object(value);
@@ -1220,6 +1206,9 @@ const ssRenderComponent = (Component, props, ssrData) => {
     html2 += `<link rel="stylesheet" href="/${componentName}.css" />`;
   ssrData.components[componentName] = Component;
   const template = Component(props);
+  delete props.children;
+  //! Maybe remove when implementing hydration
+  ssrData.props[componentName].push(props);
   let toRender = generateSsHtml(template, ssrData);
   toRender = toRender.replace(
     /<([a-z]*-[a-z]*)(.*?)>/gs,
@@ -1336,7 +1325,7 @@ const handleSsValue = (part, value, ssrData) => {
     return html2;
   }
   if (value._$wompChildren) {
-    html2 += `<?$cwc${ssrData.cCounter}>${value.nodes}<?$cwc${ssrData.cCounter}>`;
+    html2 += value.nodes;
     ssrData.cCounter++;
     return html2;
   }
