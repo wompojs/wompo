@@ -320,6 +320,9 @@ CLASSES
  * stored here and only cloned when a new component is instantiated.
  */
 class CachedTemplate {
+	/** The stringified RenderTmplate  */
+	public stringified: string;
+
 	/**
 	 * The HTML Template element that has all the structure and comments built in to identify dynamic
 	 * elements.
@@ -336,9 +339,10 @@ class CachedTemplate {
 	 * @param template The HTML Template already elaborated to handle the dynamic parts.
 	 * @param dependencies The metadata dependencies for the template.
 	 */
-	constructor(template: HTMLTemplateElement, dependencies: Dependency[]) {
+	constructor(template: HTMLTemplateElement, dependencies: Dependency[], stringified: string) {
 		this.template = template;
 		this.dependencies = dependencies;
+		this.stringified = stringified;
 	}
 
 	/**
@@ -866,12 +870,12 @@ const __createDependencies = (
  * @param parts The parts returned by the `html` function.
  * @returns a new instance of CachedTemplate
  */
-const __createTemplate = (parts: TemplateStringsArray) => {
-	const [dom, attributes] = __createHtml(parts);
+const __createTemplate = (html: RenderHtml) => {
+	const [dom, attributes] = __createHtml(html.parts);
 	const template = document.createElement('template');
 	template.innerHTML = dom;
-	const dependencies = __createDependencies(template, parts, attributes);
-	return new CachedTemplate(template, dependencies);
+	const dependencies = __createDependencies(template, html.parts, attributes);
+	return new CachedTemplate(template, dependencies, __getRenderHtmlString(html));
 };
 
 /**
@@ -937,7 +941,7 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 				const newTemplate = __getRenderHtmlString(currentValue);
 				const sameString = newTemplate === oldStringified;
 				if (oldValue === undefined || !sameString) {
-					const cachedTemplate = __createTemplate(currentValue.parts);
+					const cachedTemplate = __createTemplate(currentValue);
 					const template = cachedTemplate.clone();
 					const [fragment, dynamics] = template;
 					newValues[i] = new HtmlProcessedValue(newTemplate, currentValue.values, template);
@@ -1138,8 +1142,8 @@ const _$womp = <Props, E>(
 		 * @param parts The template parts from the html function.
 		 * @returns The cached template.
 		 */
-		static _$getOrCreateTemplate(parts: TemplateStringsArray) {
-			if (!this._$cachedTemplate) this._$cachedTemplate = __createTemplate(parts);
+		static _$getOrCreateTemplate(html: RenderHtml, makeNew: boolean) {
+			if (!this._$cachedTemplate || makeNew) this._$cachedTemplate = __createTemplate(html);
 			return this._$cachedTemplate;
 		}
 
@@ -1212,13 +1216,6 @@ const _$womp = <Props, E>(
 		 */
 		private initElement() {
 			this.__ROOT = this; // Shadow DOM is eventually attached later
-
-			// If component has to be hydrated
-			//! To finish
-			const toHydrate = this.getAttribute('womp-hydrate');
-			//! when you implement hydration, immediately return: it's not necessary to initialize
-			if (toHydrate !== null && (window as any).wompHydrationData) this.__hydrate(toHydrate);
-
 			this.props = {
 				...this.props,
 				...this._$initialProps,
@@ -1253,38 +1250,12 @@ const _$womp = <Props, E>(
 			const clonedStyles = style.cloneNode(true);
 			this.__ROOT.appendChild(clonedStyles);
 
-			const renderHtml = this.__callComponent();
-			const { values, parts } = renderHtml;
-			const template = (this.constructor as typeof WompComponent)._$getOrCreateTemplate(parts);
-			const [fragment, dynamics] = template.clone();
-			this.__dynamics = dynamics;
-			const elaboratedValues = __setValues(this.__dynamics, values, this.__oldValues);
-			this.__oldValues = elaboratedValues;
-			while (fragment.childNodes.length) {
-				this.__ROOT.appendChild(fragment.childNodes[0]);
-			}
+			// Render
+			this.__render();
+
 			this.__isInitializing = false;
 			this.__connected = true;
 			if (DEV_MODE && this._$measurePerf) console.timeEnd('First render ' + options.name);
-		}
-
-		private __hydrate(propId: string) {
-			//! To finish
-			if (this.shadowRoot) this.__ROOT = this.shadowRoot;
-			const serverProps = (window as any).wompHydrationData[options.name][propId];
-			this._$initialProps = structuredClone(serverProps);
-			/* delete serverProps.children;
-			this.props = { ...serverProps };
-
-			const renderHtml = this.__callComponent();
-			const { values, parts } = renderHtml;
-			const template = (this.constructor as typeof WompComponent)._$getOrCreateTemplate(parts);
-			const [fragment, dynamics] = template.clone();
-			this.__dynamics = dynamics;
-			const elaboratedValues = __setValues(this.__dynamics, values, this.__oldValues);
-			this.__oldValues = elaboratedValues;
-			this.__isInitializing = false;
-			this.__connected = true; */
 		}
 
 		/**
@@ -1299,6 +1270,35 @@ const _$womp = <Props, E>(
 			let renderHtml: RenderHtml = result as RenderHtml;
 			if (typeof result === 'string' || result instanceof HTMLElement) renderHtml = html`${result}`;
 			return renderHtml;
+		}
+
+		/**
+		 * Calls the component and executes the operations to update the DOM.
+		 */
+		private __render() {
+			const renderHtml = this.__callComponent();
+			if (renderHtml === null) {
+				this.remove();
+				return;
+			}
+			const constructor = this.constructor as typeof WompComponent;
+			//! Find another way to quickly compare 2 renderHtml results
+			const shouldRebuild =
+				__getRenderHtmlString(renderHtml) !== constructor._$cachedTemplate?.stringified;
+			if (this.__isInitializing || shouldRebuild) {
+				const template = constructor._$getOrCreateTemplate(renderHtml, shouldRebuild);
+				const [fragment, dynamics] = template.clone();
+				this.__dynamics = dynamics;
+				const elaboratedValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
+				this.__oldValues = elaboratedValues;
+				if (!this.__isInitializing) this.__ROOT.innerHTML = '';
+				while (fragment.childNodes.length) {
+					this.__ROOT.appendChild(fragment.childNodes[0]);
+				}
+			} else {
+				const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
+				this.__oldValues = oldValues;
+			}
 		}
 
 		/**
@@ -1317,9 +1317,7 @@ const _$womp = <Props, E>(
 				this.__updating = true;
 				Promise.resolve().then(() => {
 					if (DEV_MODE && this._$measurePerf) console.time('Re-render ' + options.name);
-					const renderHtml = this.__callComponent();
-					const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
-					this.__oldValues = oldValues;
+					this.__render();
 					this.__updating = false;
 					this._$hasBeenMoved = false;
 					if (DEV_MODE && this._$measurePerf) console.timeEnd('Re-render ' + options.name);

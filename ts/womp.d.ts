@@ -235,6 +235,8 @@ type Dynamics = DynamicNode | DynamicAttribute | DynamicTag;
  * stored here and only cloned when a new component is instantiated.
  */
 declare class CachedTemplate {
+    /** The stringified RenderTmplate  */
+    stringified: string;
     /**
      * The HTML Template element that has all the structure and comments built in to identify dynamic
      * elements.
@@ -250,7 +252,7 @@ declare class CachedTemplate {
      * @param template The HTML Template already elaborated to handle the dynamic parts.
      * @param dependencies The metadata dependencies for the template.
      */
-    constructor(template: HTMLTemplateElement, dependencies: Dependency[]);
+    constructor(template: HTMLTemplateElement, dependencies: Dependency[], stringified: string);
     /**
      * This function will clone the template content and build the dynamcis metadata - an array
      * containing all the information to efficiently put values in the DOM, without checking if each
