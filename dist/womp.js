@@ -638,6 +638,7 @@ const _$womp = (Component, options) => {
       this._$initialProps = {};
       this._$usesContext = false;
       this._$hasBeenMoved = false;
+      this._$layoutEffects = [];
       /** It'll be true if the component has already processing an update. */
       this.__updating = false;
       /** The array containing the dynamic values of the last render. */
@@ -684,6 +685,9 @@ const _$womp = (Component, options) => {
         Promise.resolve().then(() => {
           if (!this.__isInDOM) {
             this.onDisconnected();
+            //! For each hook, if the hook is !null && has a cleanupFunction, execute it.
+            //! This beacuse timers will continue it's execution also after the component has been
+            //! Disconnected
             if (DEV_MODE)
               console.warn("Disconnected", this);
           } else {
@@ -732,8 +736,10 @@ const _$womp = (Component, options) => {
       this.props.children = children;
       if (options.shadow && !this.shadowRoot)
         this.__ROOT = this.attachShadow({ mode: "open" });
-      const clonedStyles = style.cloneNode(true);
-      this.__ROOT.appendChild(clonedStyles);
+      if (generatedCSS) {
+        const clonedStyles = style.cloneNode(true);
+        this.__ROOT.appendChild(clonedStyles);
+      }
       this.__render();
       this.__isInitializing = false;
       this.__connected = true;
@@ -759,12 +765,14 @@ const _$womp = (Component, options) => {
      */
     __render() {
       const renderHtml = this.__callComponent();
-      if (renderHtml === null) {
+      if (renderHtml === null || renderHtml === void 0) {
         this.remove();
         return;
       }
       const constructor = this.constructor;
-      //! Find another way to quickly compare 2 renderHtml results
+      //! Create a compare htmlTemplates function which will compare each part and return false
+      //! in the first non-match (better than stringifying the whole templates and compare them).
+      //! Use it also on __setValues.
       const shouldRebuild = __getRenderHtmlString(renderHtml) !== constructor._$cachedTemplate?.stringified;
       if (this.__isInitializing || shouldRebuild) {
         const template = constructor._$getOrCreateTemplate(renderHtml, shouldRebuild);
@@ -780,6 +788,10 @@ const _$womp = (Component, options) => {
       } else {
         const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
         this.__oldValues = oldValues;
+      }
+      while (this._$layoutEffects.length) {
+        const layoutEffectHook = this._$layoutEffects.pop();
+        layoutEffectHook.cleanupFunction = layoutEffectHook.callback();
       }
     }
     /**
@@ -857,7 +869,7 @@ export const useState = (defaultValue) => {
   const state = component._$hooks[hookIndex];
   return state;
 };
-export const useEffect = (callback, dependencies) => {
+export const useEffect = (callback, dependencies = null) => {
   const [component, hookIndex] = useHook();
   if (!component._$hooks.hasOwnProperty(hookIndex)) {
     const effectHook = {
@@ -871,21 +883,28 @@ export const useEffect = (callback, dependencies) => {
     });
   } else {
     const componentEffect = component._$hooks[hookIndex];
-    for (let i = 0; i < dependencies.length; i++) {
-      const oldDep = componentEffect.dependencies[i];
-      if (oldDep !== dependencies[i]) {
-        if (typeof componentEffect.cleanupFunction === "function")
-          componentEffect.cleanupFunction();
-        Promise.resolve().then(() => {
-          componentEffect.cleanupFunction = callback();
-          componentEffect.dependencies = dependencies;
-        });
-        break;
+    if (dependencies !== null) {
+      for (let i = 0; i < dependencies.length; i++) {
+        const oldDep = componentEffect.dependencies[i];
+        if (oldDep !== dependencies[i]) {
+          if (typeof componentEffect.cleanupFunction === "function")
+            componentEffect.cleanupFunction();
+          Promise.resolve().then(() => {
+            componentEffect.cleanupFunction = callback();
+            componentEffect.dependencies = dependencies;
+          });
+          break;
+        }
       }
+    } else {
+      Promise.resolve().then(() => {
+        componentEffect.cleanupFunction = callback();
+        componentEffect.dependencies = dependencies;
+      });
     }
   }
 };
-export const useLayoutEffect = (callback, dependencies) => {
+export const useLayoutEffect = (callback, dependencies = null) => {
   const [component, hookIndex] = useHook();
   if (!component._$hooks.hasOwnProperty(hookIndex)) {
     const effectHook = {
@@ -894,18 +913,22 @@ export const useLayoutEffect = (callback, dependencies) => {
       cleanupFunction: null
     };
     component._$hooks[hookIndex] = effectHook;
-    effectHook.cleanupFunction = callback();
+    component._$layoutEffects.push(effectHook);
   } else {
-    const componentEffect = component._$hooks[hookIndex];
-    for (let i = 0; i < dependencies.length; i++) {
-      const oldDep = componentEffect.dependencies[i];
-      if (oldDep !== dependencies[i]) {
-        if (typeof componentEffect.cleanupFunction === "function")
-          componentEffect.cleanupFunction();
-        componentEffect.cleanupFunction = callback();
-        componentEffect.dependencies = dependencies;
-        break;
+    const effectHook = component._$hooks[hookIndex];
+    if (dependencies !== null) {
+      for (let i = 0; i < dependencies.length; i++) {
+        const oldDep = effectHook.dependencies[i];
+        if (oldDep !== dependencies[i]) {
+          if (typeof effectHook.cleanupFunction === "function")
+            effectHook.cleanupFunction();
+          component._$layoutEffects.push(effectHook);
+          effectHook.dependencies = dependencies;
+          break;
+        }
       }
+    } else {
+      component._$layoutEffects.push(effectHook);
     }
   }
 };
@@ -1056,8 +1079,7 @@ export const useContext = (Context) => {
       );
     }
     component._$hooks[hookIndex] = {
-      node: parent,
-      value: parent && parent !== document.body ? parent.props.value : Context.default
+      node: parent
     };
   }
   const contextNode = component._$hooks[hookIndex].node;
