@@ -453,6 +453,53 @@ const __shouldUpdate = (currentValue, oldValue, dependency) => {
   const childrenNeedUpdate = isWompChildren && dependency.startNode.nextSibling !== currentValue.nodes[0];
   return valuesDiffers || isComposedAttribute || childrenNeedUpdate;
 };
+const __handleDynamicTag = (currentValue, currentDependency, valueIndex, dynamics, values) => {
+  const node = currentDependency.node;
+  let customElement = null;
+  const isCustomComponent = currentValue._$wompF;
+  const newNodeName = isCustomComponent ? currentValue.componentName : currentValue;
+  if (node.nodeName !== newNodeName.toUpperCase()) {
+    const oldAttributes = node.getAttributeNames();
+    if (isCustomComponent) {
+      if (DEV_MODE) {
+        if (node._$womp) {
+          console.error(
+            "Dynamic tags are currently not supported, unsless used to render for the first time a custom component.\nInstead, you can use conditional rendering.\n(e.g. condition ? html`<${First} />` : html`<${Second} />`)."
+          );
+          return;
+        }
+      }
+      const initialProps = {};
+      for (const attrName of oldAttributes) {
+        const attrValue = node.getAttribute(attrName);
+        initialProps[attrName] = attrValue === "" ? true : attrValue;
+      }
+      customElement = new currentValue.class();
+      customElement._$initialProps = initialProps;
+      const childNodes = node.childNodes;
+      while (childNodes.length) {
+        customElement.appendChild(childNodes[0]);
+      }
+    } else {
+      customElement = document.createElement(newNodeName);
+      for (const attrName of oldAttributes) {
+        customElement.setAttribute(attrName, node.getAttribute(attrName));
+      }
+    }
+    let index = valueIndex;
+    let currentDynamic = dynamics[index];
+    while (currentDynamic?.node === node) {
+      currentDynamic.node = customElement;
+      currentDynamic = dynamics[++index];
+      if (currentDynamic?.name && currentDynamic?.name !== "ref")
+        customElement._$initialProps[currentDynamic.name] = values[index];
+    }
+    let notify = node.notifyLoaded;
+    node.replaceWith(customElement);
+    if (notify)
+      notify(customElement);
+  }
+};
 const __setValues = (dynamics, values, oldValues) => {
   const newValues = [...values];
   for (let i = 0; i < dynamics.length; i++) {
@@ -563,48 +610,14 @@ const __setValues = (dynamics, values, oldValues) => {
         }
       }
     } else if (currentDependency.isTag) {
-      const node = currentDependency.node;
-      let customElement = null;
-      const isCustomComponent = currentValue._$wompF;
-      const newNodeName = isCustomComponent ? currentValue.componentName : currentValue;
-      if (node.nodeName !== newNodeName.toUpperCase()) {
-        const oldAttributes = node.getAttributeNames();
-        if (isCustomComponent) {
-          if (DEV_MODE) {
-            if (node._$womp) {
-              console.error(
-                "Dynamic tags are currently not supported, unsless used to render for the first time a custom component.\nInstead, you can use conditional rendering.\n(e.g. condition ? html`<${First} />` : html`<${Second} />`)."
-              );
-              continue;
-            }
-          }
-          const initialProps = {};
-          for (const attrName of oldAttributes) {
-            const attrValue = node.getAttribute(attrName);
-            initialProps[attrName] = attrValue === "" ? true : attrValue;
-          }
-          customElement = new currentValue.class();
-          customElement._$initialProps = initialProps;
-          const childNodes = node.childNodes;
-          while (childNodes.length) {
-            customElement.appendChild(childNodes[0]);
-          }
-        } else {
-          customElement = document.createElement(newNodeName);
-          for (const attrName of oldAttributes) {
-            customElement.setAttribute(attrName, node.getAttribute(attrName));
-          }
-        }
-        let index = i;
-        let currentDynamic = dynamics[index];
-        while (currentDynamic?.node === node) {
-          currentDynamic.node = customElement;
-          currentDynamic = dynamics[++index];
-          if (currentDynamic?.name && currentDynamic?.name !== "ref")
-            customElement._$initialProps[currentDynamic.name] = values[index];
-        }
-        node.replaceWith(customElement);
+      const isLazy = currentValue._$wompLazy;
+      if (isLazy) {
+        currentValue().then((Component) => {
+          __handleDynamicTag(Component, currentDependency, i, dynamics, values);
+        });
+        continue;
       }
+      __handleDynamicTag(currentValue, currentDependency, i, dynamics, values);
     }
   }
   return newValues;
@@ -1138,4 +1151,52 @@ export function defineWomp(Component, options) {
   registeredComponents[componentOptions.name] = Component;
   return Component;
 }
+export const lazy = (load) => {
+  let loaded = null;
+  async function LazyComponent() {
+    if (!loaded) {
+      const importedModule = await load();
+      loaded = importedModule.default;
+      return loaded;
+    }
+    return loaded;
+  }
+  LazyComponent._$wompLazy = true;
+  return LazyComponent;
+};
+const hasLoadingComponents = (node, notifyLoaded, loadingComponents = /* @__PURE__ */ new Set()) => {
+  node.forEach((child, i) => {
+    if (child.nodeName === DYNAMIC_TAG_MARKER.toUpperCase()) {
+      child.notifyLoaded = (newNode) => notifyLoaded(child, newNode, i);
+      loadingComponents.add(child);
+    }
+    if (child.nodeName !== Suspense.componentName.toUpperCase())
+      hasLoadingComponents(child.childNodes, notifyLoaded, loadingComponents);
+  });
+  return loadingComponents;
+};
+export function Suspense({ children, fallback }) {
+  const notifyLoaded = (node, newNode, i) => {
+    loadingComponents.delete(node);
+    if (children.nodes[i] === node)
+      children.nodes[i] = newNode;
+    if (!loadingComponents.size) {
+      console.log(children.nodes);
+      this.requestRender();
+    }
+  };
+  const loadingComponents = useMemo(
+    () => hasLoadingComponents(children.nodes, notifyLoaded),
+    []
+  );
+  if (loadingComponents.size)
+    return fallback;
+  return html`${children}`;
+}
+defineWomp(Suspense, {
+  name: "womp-suspense"
+});
+//! Test events on custom components
+//! Test inputs (value attribute, specifically)
+//! in DEV_MODE, handle errors nicely, in PRODUCTION, only console.error
 //# sourceMappingURL=womp.js.map

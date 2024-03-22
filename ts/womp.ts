@@ -916,6 +916,66 @@ const __shouldUpdate = (currentValue: any, oldValue: any, dependency: Dynamics) 
 	return valuesDiffers || isComposedAttribute || childrenNeedUpdate;
 };
 
+const __handleDynamicTag = (
+	currentValue: any,
+	currentDependency: DynamicTag,
+	valueIndex: number,
+	dynamics: Dynamics[],
+	values: any[]
+) => {
+	const node = currentDependency.node;
+	let customElement: HTMLElement = null;
+	const isCustomComponent = currentValue._$wompF;
+	const newNodeName: string = isCustomComponent ? currentValue.componentName : currentValue;
+	if (node.nodeName !== newNodeName.toUpperCase()) {
+		const oldAttributes = (node as HTMLElement).getAttributeNames();
+		if (isCustomComponent) {
+			// Is a Womp Element
+			if (DEV_MODE) {
+				if ((node as WompElement)._$womp) {
+					console.error(
+						'Dynamic tags are currently not supported, unsless used to render for the first ' +
+							'time a custom component.\nInstead, you can use conditional rendering.\n' +
+							'(e.g. condition ? html`<${First} />` : html`<${Second} />`).'
+					);
+					return;
+				}
+			}
+			const initialProps: any = {};
+			for (const attrName of oldAttributes) {
+				// attributes on the dom will be set when creating the element
+				const attrValue = (node as HTMLElement).getAttribute(attrName);
+				initialProps[attrName] = attrValue === '' ? true : attrValue;
+			}
+			customElement = new currentValue.class() as WompElement;
+			(customElement as WompElement)._$initialProps = initialProps;
+			const childNodes = node.childNodes;
+			while (childNodes.length) {
+				customElement.appendChild(childNodes[0]);
+			}
+		} else {
+			// Is normal element
+			customElement = document.createElement(newNodeName);
+			for (const attrName of oldAttributes) {
+				customElement.setAttribute(attrName, (node as HTMLElement).getAttribute(attrName));
+			}
+		}
+		let index = valueIndex;
+		let currentDynamic = dynamics[index] as DynamicAttribute;
+		while (currentDynamic?.node === node) {
+			// Update node pointer of dynamics pointing to the old one.
+			currentDynamic.node = customElement;
+			currentDynamic = dynamics[++index] as DynamicAttribute;
+			// Set initial props of the correct type, so a number doesn't become a string
+			if (currentDynamic?.name && currentDynamic?.name !== 'ref')
+				((customElement as WompElement)._$initialProps as any)[currentDynamic.name] = values[index];
+		}
+		let notify = (node as any).notifyLoaded;
+		node.replaceWith(customElement);
+		if (notify) notify(customElement);
+	}
+};
+
 /**
  * This function will compare the values of the previous render with the current one, and update the
  * DOM accordingly.
@@ -1039,56 +1099,14 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 				}
 			}
 		} else if (currentDependency.isTag) {
-			const node = currentDependency.node;
-			let customElement: HTMLElement = null;
-			const isCustomComponent = currentValue._$wompF;
-			const newNodeName: string = isCustomComponent ? currentValue.componentName : currentValue;
-			if (node.nodeName !== newNodeName.toUpperCase()) {
-				const oldAttributes = (node as HTMLElement).getAttributeNames();
-				if (isCustomComponent) {
-					// Is a Womp Element
-					if (DEV_MODE) {
-						if ((node as WompElement)._$womp) {
-							console.error(
-								'Dynamic tags are currently not supported, unsless used to render for the first ' +
-									'time a custom component.\nInstead, you can use conditional rendering.\n' +
-									'(e.g. condition ? html`<${First} />` : html`<${Second} />`).'
-							);
-							continue;
-						}
-					}
-					const initialProps: any = {};
-					for (const attrName of oldAttributes) {
-						// attributes on the dom will be set when creating the element
-						const attrValue = (node as HTMLElement).getAttribute(attrName);
-						initialProps[attrName] = attrValue === '' ? true : attrValue;
-					}
-					customElement = new currentValue.class() as WompElement;
-					(customElement as WompElement)._$initialProps = initialProps;
-					const childNodes = node.childNodes;
-					while (childNodes.length) {
-						customElement.appendChild(childNodes[0]);
-					}
-				} else {
-					// Is normal element
-					customElement = document.createElement(newNodeName);
-					for (const attrName of oldAttributes) {
-						customElement.setAttribute(attrName, (node as HTMLElement).getAttribute(attrName));
-					}
-				}
-				let index = i;
-				let currentDynamic = dynamics[index] as DynamicAttribute;
-				while (currentDynamic?.node === node) {
-					// Update node pointer of dynamics pointing to the old one.
-					currentDynamic.node = customElement;
-					currentDynamic = dynamics[++index] as DynamicAttribute;
-					// Set initial props of the correct type, so a number doesn't become a string
-					if (currentDynamic?.name && currentDynamic?.name !== 'ref')
-						((customElement as WompElement)._$initialProps as any)[currentDynamic.name] =
-							values[index];
-				}
-				node.replaceWith(customElement);
+			const isLazy = currentValue._$wompLazy;
+			if (isLazy) {
+				currentValue().then((Component: WompComponent) => {
+					__handleDynamicTag(Component, currentDependency, i, dynamics, values);
+				});
+				continue;
 			}
+			__handleDynamicTag(currentValue, currentDependency, i, dynamics, values);
 		}
 	}
 	return newValues;
@@ -2086,3 +2104,115 @@ export function defineWomp<Props, E = {}>(
 	registeredComponents[componentOptions.name] = Component;
 	return Component as WompComponent<Props & WompProps>;
 }
+
+/* 
+================================================
+METHODS
+================================================
+*/
+
+/**
+ * The lazy function allows to asynchronously import a component. The load function will be executed
+ * only when the component is used, and the result will be cached so that for the next times it'll
+ * always return the loaded component. The lazy component can then be combined with the `Suspense`
+ * component to render a loading interface while the lazy component is loading.
+ *
+ * @example
+ * ```javascript
+ * const DynamicallyLoadedComponent = lazy(() => import('./super-big-component.js'));
+ *
+ * function App(){
+ *   return html`
+ *     <${Suspense} fallback=${html`<i>Loading...</i>`}>
+ *       <${DynamicallyLoadedComponent} />
+ *     </${Suspense}>
+ *   `
+ * }
+ * ```
+ * @param load The callback that loads the component
+ * @returns A LazyComponent or the loaded compnent
+ */
+export const lazy = (load: () => Promise<{ default: WompComponent }>) => {
+	let loaded: WompComponent = null;
+	async function LazyComponent() {
+		if (!loaded) {
+			const importedModule = await load();
+			loaded = importedModule.default;
+			return loaded;
+		}
+		return loaded;
+	}
+	LazyComponent._$wompLazy = true;
+	return LazyComponent;
+};
+
+interface SuspenseProps extends WompProps {
+	fallback: RenderHtml;
+}
+
+/**
+ * This function is used to recursively see if there are components that are still loading inside a
+ * Suspense component.
+ * @param node The node to iterate over
+ * @param notifyLoaded The notify function to notify the `Suspense` a component loaded
+ * @param loadingComponents The Set of loading components
+ * @returns The Set of loading components
+ */
+const hasLoadingComponents = (
+	node: Node[] | NodeList,
+	notifyLoaded: (node: Node, newNode: Node, i: number) => void,
+	loadingComponents: Set<Node> = new Set()
+) => {
+	node.forEach((child, i) => {
+		if (child.nodeName === DYNAMIC_TAG_MARKER.toUpperCase()) {
+			(child as any).notifyLoaded = (newNode: Node) => notifyLoaded(child, newNode, i);
+			loadingComponents.add(child);
+		}
+		if (child.nodeName !== (Suspense as WompComponent).componentName.toUpperCase())
+			hasLoadingComponents(child.childNodes, notifyLoaded, loadingComponents);
+	});
+	return loadingComponents;
+};
+
+/**
+ * The Suspense component is used to render a Loading UI while its children are still being rendered
+ * because they are lazy or because one of its children has a deferred value that is being updated.
+ *
+ * @example
+ * ```javascript
+ * const DynamicallyLoadedComponent = lazy(() => import('./super-big-component.js'));
+ *
+ * function App(){
+ *   return html`
+ *     <${Suspense} fallback=${html`<i>Loading...</i>`}>
+ *       <${DynamicallyLoadedComponent} />
+ *     </${Suspense}>
+ *   `
+ * }
+ * ```
+ * @param props Accepts children and a Fallback component.
+ * @returns The Fallback if loading, otherwise the loaded content.
+ */
+export function Suspense({ children, fallback }: SuspenseProps) {
+	const notifyLoaded = (node: Node, newNode: Node, i: number) => {
+		loadingComponents.delete(node);
+		if (children.nodes[i] === node) children.nodes[i] = newNode;
+		if (!loadingComponents.size) {
+			console.log(children.nodes);
+			this.requestRender();
+		}
+	};
+	const loadingComponents: Set<Node> = useMemo(
+		() => hasLoadingComponents(children.nodes, notifyLoaded),
+		[]
+	);
+	if (loadingComponents.size) return fallback;
+	return html`${children}`;
+}
+defineWomp(Suspense, {
+	name: 'womp-suspense',
+});
+
+//! Test events on custom components
+//! Test inputs (value attribute, specifically)
+//! in DEV_MODE, handle errors nicely, in PRODUCTION, only console.error

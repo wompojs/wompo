@@ -2,17 +2,24 @@ import {
 	html,
 	defineWomp,
 	useState,
-	useEffect,
 	useRef,
 	useCallback,
 	useId,
-	useLayoutEffect,
-	useMemo,
 	useReducer,
 	createContext,
+	lazy,
+	Suspense,
 	/* useGlobalState, */
 } from '../dist/womp.js';
-import SecondComponent from './second-component.js';
+
+function delayForDemo(promise, ms) {
+	return new Promise((resolve) => {
+		setTimeout(resolve, ms);
+	}).then(() => promise);
+}
+
+const SecondComponent = lazy(() => delayForDemo(import('./second-component.js'), 3000));
+const PerfCounter = lazy(() => delayForDemo(import('./perf-counter.js'), 10000));
 
 export const ThemeProvider = createContext('light');
 
@@ -77,7 +84,12 @@ export default function Counter({ styles: s, children }) {
 		<button id=${idInc} class=${s.button} @click=${inc}>+</button>
 		<p>${theme}</p>
 		<${ThemeProvider.Provider} value=${theme}>
-			<${SecondComponent} ref=${secondRef} wc-perf />
+			<${Suspense} fallback=${html`<i>Loading...</i>`}>
+				<${SecondComponent} ref=${secondRef} wc-perf name="Lorenzo" counter=${counter} />
+				<${Suspense} fallback=${html`<i>Loading...</i>`}>
+					<${PerfCounter} ref=${secondRef} wc-perf name="Lorenzo" counter=${counter} />
+				</${Suspense}>
+			</${Suspense}>
 		</${ThemeProvider.Provider}>
 	`;
 }
@@ -109,4 +121,5 @@ Counter.css = `
 
 defineWomp(Counter, {
 	shadow: true,
+	name: 'counter-component-test',
 });
