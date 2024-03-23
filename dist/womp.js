@@ -494,10 +494,8 @@ const __handleDynamicTag = (currentValue, currentDependency, valueIndex, dynamic
       if (currentDynamic?.name && currentDynamic?.name !== "ref")
         customElement._$initialProps[currentDynamic.name] = values[index];
     }
-    let notify = node.notifyLoaded;
     node.replaceWith(customElement);
-    if (notify)
-      notify(customElement);
+    return customElement;
   }
 };
 const __setValues = (dynamics, values, oldValues) => {
@@ -509,7 +507,7 @@ const __setValues = (dynamics, values, oldValues) => {
     if (!__shouldUpdate(currentValue, oldValue, currentDependency))
       continue;
     if (currentDependency.isNode) {
-      if (currentValue === false) {
+      if (currentValue === false || currentValue === void 0 || currentValue === null) {
         currentDependency.clearValue();
         continue;
       }
@@ -612,12 +610,32 @@ const __setValues = (dynamics, values, oldValues) => {
     } else if (currentDependency.isTag) {
       const isLazy = currentValue._$wompLazy;
       if (isLazy) {
+        const node = currentDependency.node;
+        const suspenseNode = findSuspense(node);
+        if (suspenseNode) {
+          if (suspenseNode.addSuspense) {
+            suspenseNode.addSuspense(node);
+          } else {
+            suspenseNode.loadingComponents = /* @__PURE__ */ new Set();
+            suspenseNode.loadingComponents.add(node);
+          }
+          node.suspense = suspenseNode;
+        }
         currentValue().then((Component) => {
-          __handleDynamicTag(Component, currentDependency, i, dynamics, values);
+          const customElement = __handleDynamicTag(
+            Component,
+            currentDependency,
+            i,
+            dynamics,
+            values
+          );
+          if (suspenseNode)
+            suspenseNode.removeSuspense(node, customElement);
         });
         continue;
+      } else {
+        __handleDynamicTag(currentValue, currentDependency, i, dynamics, values);
       }
-      __handleDynamicTag(currentValue, currentDependency, i, dynamics, values);
     }
   }
   return newValues;
@@ -656,6 +674,8 @@ const _$womp = (Component, options) => {
       this.__updating = false;
       /** The array containing the dynamic values of the last render. */
       this.__oldValues = [];
+      /** The stringified verions of the parts of the last render. */
+      this.__oldPartsStringified = "";
       /** It'll be true if the component is currently initializing. */
       this.__isInitializing = true;
       /** It's true if the component is connected to the DOM. */
@@ -786,7 +806,8 @@ const _$womp = (Component, options) => {
       //! Create a compare htmlTemplates function which will compare each part and return false
       //! in the first non-match (better than stringifying the whole templates and compare them).
       //! Use it also on __setValues.
-      const shouldRebuild = __getRenderHtmlString(renderHtml) !== constructor._$cachedTemplate?.stringified;
+      const stringified = __getRenderHtmlString(renderHtml);
+      const shouldRebuild = stringified !== this.__oldPartsStringified;
       if (this.__isInitializing || shouldRebuild) {
         const template = constructor._$getOrCreateTemplate(renderHtml, shouldRebuild);
         const [fragment, dynamics] = template.clone();
@@ -795,6 +816,7 @@ const _$womp = (Component, options) => {
         this.__oldValues = elaboratedValues;
         if (!this.__isInitializing)
           this.__ROOT.innerHTML = "";
+        this.__oldPartsStringified = stringified;
         while (fragment.childNodes.length) {
           this.__ROOT.appendChild(fragment.childNodes[0]);
         }
@@ -1031,6 +1053,45 @@ export const useExposed = (toExpose) => {
     component[key] = toExpose[key];
   }
 };
+const executeUseAsyncCallback = (hook, suspense, callback) => {
+  const [component, hookIndex] = hook;
+  if (suspense) {
+    suspense.addSuspense(component);
+  }
+  component._$hooks[hookIndex].value = null;
+  const promise = callback();
+  promise.then((data) => {
+    component.requestRender();
+    suspense.removeSuspense(component);
+    component._$hooks[hookIndex].value = data;
+  }).catch((err) => console.error(err));
+};
+export const useAsync = (callback, dependencies) => {
+  const [component, hookIndex] = useHook();
+  const suspense = findSuspense(component);
+  if (!component._$hooks.hasOwnProperty(hookIndex)) {
+    component._$hooks[hookIndex] = {
+      dependencies,
+      value: null
+    };
+    executeUseAsyncCallback([component, hookIndex], suspense, callback);
+  } else {
+    const oldAsync = component._$hooks[hookIndex];
+    let newCall = false;
+    for (let i = 0; i < dependencies.length; i++) {
+      const oldDep = oldAsync.dependencies[i];
+      if (oldDep !== dependencies[i]) {
+        oldAsync.dependencies = dependencies;
+        newCall = true;
+        break;
+      }
+    }
+    if (newCall) {
+      executeUseAsyncCallback([component, hookIndex], suspense, callback);
+    }
+  }
+  return component._$hooks[hookIndex].value;
+};
 const createContextMemo = () => {
   let contextIdentifier = 0;
   return (initialValue) => {
@@ -1164,32 +1225,39 @@ export const lazy = (load) => {
   LazyComponent._$wompLazy = true;
   return LazyComponent;
 };
-const hasLoadingComponents = (node, notifyLoaded, loadingComponents = /* @__PURE__ */ new Set()) => {
-  node.forEach((child, i) => {
-    if (child.nodeName === DYNAMIC_TAG_MARKER.toUpperCase()) {
-      child.notifyLoaded = (newNode) => notifyLoaded(child, newNode, i);
-      loadingComponents.add(child);
-    }
-    if (child.nodeName !== Suspense.componentName.toUpperCase())
-      hasLoadingComponents(child.childNodes, notifyLoaded, loadingComponents);
-  });
-  return loadingComponents;
+const findSuspense = (startNode) => {
+  let suspense = startNode;
+  while (suspense && suspense.nodeName !== Suspense.componentName.toUpperCase()) {
+    if (suspense.parentNode === null && suspense.host)
+      suspense = suspense.host;
+    else
+      suspense = suspense?.parentNode;
+  }
+  return suspense;
 };
 export function Suspense({ children, fallback }) {
-  const notifyLoaded = (node, newNode, i) => {
-    loadingComponents.delete(node);
-    if (children.nodes[i] === node)
-      children.nodes[i] = newNode;
-    if (!loadingComponents.size) {
-      console.log(children.nodes);
+  if (!this.loadingComponents) {
+    this.loadingComponents = useRef(/* @__PURE__ */ new Set()).current;
+  }
+  this.addSuspense = (node) => {
+    if (!this.loadingComponents.size)
       this.requestRender();
-    }
+    this.loadingComponents.add(node);
   };
-  const loadingComponents = useMemo(
-    () => hasLoadingComponents(children.nodes, notifyLoaded),
-    []
-  );
-  if (loadingComponents.size)
+  this.removeSuspense = (node, newNode = null) => {
+    this.loadingComponents.delete(node);
+    if (newNode) {
+      for (let i = 0; i < children.nodes.length; i++) {
+        if (children.nodes[i] === node) {
+          children.nodes[i] = newNode;
+          break;
+        }
+      }
+    }
+    if (!this.loadingComponents.size)
+      this.requestRender();
+  };
+  if (this.loadingComponents.size)
     return fallback;
   return html`${children}`;
 }

@@ -9,6 +9,7 @@ import {
 	createContext,
 	lazy,
 	Suspense,
+	useAsync,
 	/* useGlobalState, */
 } from '../dist/womp.js';
 
@@ -18,7 +19,7 @@ function delayForDemo(promise, ms) {
 	}).then(() => promise);
 }
 
-const SecondComponent = lazy(() => delayForDemo(import('./second-component.js'), 3000));
+const SecondComponent = lazy(() => delayForDemo(import('./second-component.js'), 4000));
 const PerfCounter = lazy(() => delayForDemo(import('./perf-counter.js'), 10000));
 
 export const ThemeProvider = createContext('light');
@@ -31,6 +32,24 @@ function reducer(state, action) {
 	}
 	throw Error('Unknown action.');
 }
+
+const fetchResults = async () => {
+	const res = await new Promise((resolve, reject) => {
+		setTimeout(() => {
+			reject();
+		}, 5000);
+	}).catch((err) => {
+		return '❌ Errore!';
+	});
+	return res;
+};
+
+function Results() {
+	const [counter, setCounter] = useState(10);
+	const data = useAsync(() => fetchResults(), [counter]);
+	return html`<button @click=${() => setCounter(counter + 1)}>${counter}</button> ${data}`;
+}
+defineWomp(Results);
 
 export default function Counter({ styles: s, children }) {
 	const [counter, setCounter] = useState(0);
@@ -84,6 +103,9 @@ export default function Counter({ styles: s, children }) {
 		<button id=${idInc} class=${s.button} @click=${inc}>+</button>
 		<p>${theme}</p>
 		<${ThemeProvider.Provider} value=${theme}>
+			<${Suspense} fallback=${html`<i>Loading...</i>`}>
+				<${Results} />
+			</${Suspense}>
 			<${Suspense} fallback=${html`<i>Loading...</i>`}>
 				<${SecondComponent} ref=${secondRef} wc-perf name="Lorenzo" counter=${counter} />
 				<${Suspense} fallback=${html`<i>Loading...</i>`}>

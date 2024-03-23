@@ -23,8 +23,16 @@ const wJsx = (Element: any, attributes: { [key: string]: any }) => {
 		_$wompHtml: true,
 	} as { parts: string[]; values: any[]; _$wompHtml: true };
 	let tagName = Element;
-	if (Element._$wompF) tagName = Element.componentName;
-	else if (Element === Fragment) tagName = '';
+
+	if (Element._$wompLazy) {
+		tagName = '';
+		template.parts.push('<');
+		template.values.push(Element);
+	} else if (Element._$wompF) {
+		tagName = Element.componentName;
+	} else if (Element === Fragment) {
+		tagName = '';
+	}
 	let staticHtml = tagName ? `<${tagName}` : '';
 	const attrNames = Object.keys(attributes);
 	for (const attrName of attrNames) {
@@ -42,7 +50,7 @@ const wJsx = (Element: any, attributes: { [key: string]: any }) => {
 		staticHtml = '';
 		// Children is always the last key
 	}
-	staticHtml += tagName ? '>' : '';
+	staticHtml += tagName || Element._$wompLazy ? '>' : '';
 	template.parts.push(staticHtml);
 	const children = attributes.children;
 	if (children && children.parts) {
@@ -63,6 +71,9 @@ const wJsx = (Element: any, attributes: { [key: string]: any }) => {
 		template.values.push(children);
 	}
 	staticHtml = tagName ? `</${tagName}>` : '';
+	if (Element._$wompLazy) {
+		staticHtml = `</wc-wc>`;
+	}
 	template.parts.push(staticHtml);
 	// }
 	return template as unknown as RenderHtml;
