@@ -724,10 +724,10 @@ const __generateSpecifcStyles = (
 			});
 		}
 		if (!shadow) generatedCss = generatedCss.replace(/:host/g, componentName);
-		generatedCss = generatedCss.replace(/\.(?!\d)(.*?)[\s|{|,|+|~|>]/gm, (_, className) => {
+		generatedCss = generatedCss.replace(/\.(?!\d)([_a-zA-Z0-9-]+)/gm, (_, className) => {
 			const uniqueClassName = `${componentName}__${className}`;
 			classes[className] = uniqueClassName;
-			return `.${uniqueClassName} `;
+			return `.${uniqueClassName}`;
 		});
 	}
 	return [generatedCss, classes];
