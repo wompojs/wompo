@@ -50,6 +50,11 @@ const wJsx = (Element: any, attributes: { [key: string]: any }) => {
 		staticHtml = '';
 		// Children is always the last key
 	}
+	if (['br', 'img'].includes(tagName)) {
+		staticHtml += '/>';
+		template.parts.push(staticHtml);
+		return template;
+	}
 	staticHtml += tagName || Element._$wompLazy ? '>' : '';
 	template.parts.push(staticHtml);
 	const children = attributes.children;
