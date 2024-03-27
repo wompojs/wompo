@@ -11,27 +11,21 @@ export default function Counter({ styles: s }) {
 	};
 
 	return html`
-		<button class=${s.button} @click=${dec}>-</button>
-		<span class=${s.span}>${counter}</span>
-		<button class=${s.button} @click=${inc}>+</button>
+		<button @click=${dec}>-</button>
+		<span>${counter}</span>
+		<button @click=${inc}>+</button>
 	`;
 }
 Counter.css = `
 		* {
       font-size: 50px;
 		}
-		p {
-			color: blue;
-		}
-		.span {
+		span {
 			width: 100px;
 			display: inline-block;
 			text-align: center;
 		}
-		.span a {
-			color: red;
-		}
-		.button {
+		button {
 			width: 100px;
 			height: 100px;
 			border: none;
@@ -41,4 +35,4 @@ Counter.css = `
 		}
 `;
 
-defineWomp(Counter);
+defineWomp(Counter, { cssModule: false });

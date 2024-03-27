@@ -1144,9 +1144,6 @@ const _$womp = <Props, E>(
 		if (generatedCSS) {
 			style.classList.add(styleClassName);
 			style.textContent = generatedCSS;
-			if (!options.shadow) {
-				document.body.appendChild(style);
-			}
 		}
 	} else {
 		style = document.createElement('link');
