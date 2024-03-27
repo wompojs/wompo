@@ -1,5 +1,188 @@
-import{registeredComponents as b}from"../womp";export const ssr=(s,t)=>{const n={count:0,cCounter:0,components:{},props:{}};let e=w(s,t,n);e=e.replace(/\s[a-z]+="\$wcREMOVE\$"/g,"");const l={},m=n.components;for(const r in m){const $=m[r].options.generatedCSS;$&&(l[r]=$.replace(/\s\s+/g," ").replace(/\t/g,"").replace(/\n/g,""))}return{html:e,css:l,props:n.props}};const w=(s,t,n)=>{let e="";const{generatedCSS:l,styles:m,shadow:r}=s.options;t.styles=m;const i=s.componentName;n.props[i]||(n.props[i]=[]),e+=`<${i} womp-hydrate="${n.props[i].length}"`;for(const o in t){const c=t[o];c!==Object(c)&&o!=="title"&&(e+=` ${o}="${c}"`)}e+=">",r&&(e+='<template shadowrootmode="open">'),l&&(e+=`<link rel="stylesheet" href="/${i}.css" />`),n.components[i]=s;const $=s(t);delete t.children;//! Maybe remove when implementing hydration
-n.props[i].push(t);let p=S($,n);p=p.replace(/<([a-z]*-[a-z]*)(.*?)>/gs,(o,c,y)=>o.endsWith("/>")?`<${c}${y.substring(0,y.length-1)}></${c}>`:o);let g=0,f="";const d=[];p=p.replace(/<\/?([a-z]+?-[a-z]+?)\s?(?:\s.*?)?>/gs,(o,c)=>{if(!b[c])return o;if(o[1]!=="/"){if(c===f)g++;else if(!f){f=c;const u=o+`<?$CWC${d.length}>`;return g++,u}}else if(f&&c===f&&(g--,!g)){const u=`</?$CWC${d.length}>`+o;return f="",d.push(d.length),u}return o});for(const o of d){const c=new RegExp(`<([a-z]+-[a-z]+)([^>]*?)><\\?\\$CWC${o}>(.*?)<\\/\\?\\$CWC${o}>`,"gs");p=p.replace(c,(y,u,P,j)=>{const k=b[u],h={};h.children={_$wompChildren:!0,nodes:j};const R=P.matchAll(/\s?(.*?)="(.*?)"/gs);let a;for(;!(a=R.next()).done;){const[_,W,C]=a.value;if(C.match(/\$wc(.*?)\$/)){const z=n[C];h[W]=z}else h[W]=C}return w(k,h,n)})}return e+=p,r&&(e+="</template>"),e+=`</${i}>`,e},S=(s,t)=>{let n="";for(let e=0;e<s.parts.length;e++){let l=s.parts[e];const m=s.values[e];n+=l,n+=O(l,m,t)}return n},O=(s,t,n)=>{let e="";const l=t===!1||t===void 0||t===null,m=t!==Object(t);if(s.endsWith("=")){if(l)return e+='"$wcREMOVE$"',e;if(m)e+=`"${t}"`;else if(s.endsWith(" style=")){let r="";const i=Object.keys(t);for(const $ of i){let p=t[$],g=$.replace(/[A-Z]/g,f=>"-"+f.toLowerCase());typeof p=="number"&&(p=`${p}px`),r+=`${g}:${p};`}e+=`"${r}"`}else{const r=`$wc${n.count}$`;e+=`"${r}"`,n[r]=t,n.count++}return e}if(l)return e;if(t._$wompF)return e+=t.componentName,e;if(t._$wompChildren)return e+=t.nodes,n.cCounter++,e;if(m)return e+=t,e;if(Array.isArray(t)){for(const r of t)e+=O(s,r,n);return e}return t._$wompHtml?S(t,n):e};//! Find weak points (e.g. if you put a ">" in the attributes).
+import { registeredComponents } from "../womp";
+export const ssr = (Component, props) => {
+  const ssrData = {
+    count: 0,
+    cCounter: 0,
+    components: {},
+    props: {}
+  };
+  let htmlString = ssRenderComponent(Component, props, ssrData);
+  htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, "");
+  const css = {};
+  const components = ssrData.components;
+  for (const comp in components) {
+    const component = components[comp];
+    const compCss = component.options.generatedCSS;
+    if (compCss)
+      css[comp] = compCss.replace(/\s\s+/g, " ").replace(/\t/g, "").replace(/\n/g, "");
+  }
+  return {
+    html: htmlString,
+    css,
+    props: ssrData.props
+  };
+};
+const ssRenderComponent = (Component, props, ssrData) => {
+  let html = "";
+  const { generatedCSS, styles, shadow } = Component.options;
+  props.styles = styles;
+  const componentName = Component.componentName;
+  if (!ssrData.props[componentName])
+    ssrData.props[componentName] = [];
+  html += `<${componentName} womp-hydrate="${ssrData.props[componentName].length}"`;
+  for (const prop in props) {
+    const value = props[prop];
+    const isPrimitive = value !== Object(value);
+    if (isPrimitive && prop !== "title")
+      html += ` ${prop}="${value}"`;
+  }
+  html += ">";
+  if (shadow)
+    html += `<template shadowrootmode="open">`;
+  if (generatedCSS)
+    html += `<link rel="stylesheet" href="/${componentName}.css" />`;
+  ssrData.components[componentName] = Component;
+  const template = Component(props);
+  delete props.children;
+  //! Maybe remove when implementing hydration
+  ssrData.props[componentName].push(props);
+  let toRender = generateSsHtml(template, ssrData);
+  toRender = toRender.replace(
+    /<([a-z]*-[a-z]*)(.*?)>/gs,
+    (match, name, attrs) => match.endsWith("/>") ? `<${name}${attrs.substring(0, attrs.length - 1)}></${name}>` : match
+  );
+  let counter = 0;
+  let pending = "";
+  const components = [];
+  toRender = toRender.replace(/<\/?([a-z]+?-[a-z]+?)\s?(?:\s.*?)?>/gs, (match, name) => {
+    const component = registeredComponents[name];
+    if (!component)
+      return match;
+    if (match[1] !== "/") {
+      if (name === pending) {
+        counter++;
+      } else if (!pending) {
+        pending = name;
+        const res = match + `<?$CWC${components.length}>`;
+        counter++;
+        return res;
+      }
+    } else if (pending) {
+      if (name === pending) {
+        counter--;
+        if (!counter) {
+          const res = `</?$CWC${components.length}>` + match;
+          pending = "";
+          components.push(components.length);
+          return res;
+        }
+      }
+    }
+    return match;
+  });
+  for (const id of components) {
+    const regex = new RegExp(
+      `<([a-z]+-[a-z]+)([^>]*?)><\\?\\$CWC${id}>(.*?)<\\/\\?\\$CWC${id}>`,
+      "gs"
+    );
+    toRender = toRender.replace(regex, (_, name, attrs, children) => {
+      const Component2 = registeredComponents[name];
+      const componentProps = {};
+      componentProps.children = {
+        _$wompChildren: true,
+        nodes: children
+      };
+      const attributes = attrs.matchAll(/\s?(.*?)="(.*?)"/gs);
+      let attr;
+      while (!(attr = attributes.next()).done) {
+        const [_2, attrName, attrValue] = attr.value;
+        if (attrValue.match(/\$wc(.*?)\$/)) {
+          const value = ssrData[attrValue];
+          componentProps[attrName] = value;
+        } else {
+          componentProps[attrName] = attrValue;
+        }
+      }
+      return ssRenderComponent(Component2, componentProps, ssrData);
+    });
+  }
+  html += toRender;
+  if (shadow)
+    html += `</template>`;
+  html += `</${componentName}>`;
+  return html;
+};
+const generateSsHtml = (template, ssrData) => {
+  let html = "";
+  for (let i = 0; i < template.parts.length; i++) {
+    let part = template.parts[i];
+    const value = template.values[i];
+    html += part;
+    html += handleSsValue(part, value, ssrData);
+  }
+  return html;
+};
+const handleSsValue = (part, value, ssrData) => {
+  let html = "";
+  const shouldBeRemoved = value === false || value === void 0 || value === null;
+  const isPrimitive = value !== Object(value);
+  if (part.endsWith("=")) {
+    if (shouldBeRemoved) {
+      html += `"$wcREMOVE$"`;
+      return html;
+    }
+    if (isPrimitive) {
+      html += `"${value}"`;
+    } else {
+      if (part.endsWith(" style=")) {
+        let styleString = "";
+        const styles = Object.keys(value);
+        for (const key of styles) {
+          let styleValue = value[key];
+          let styleKey = key.replace(/[A-Z]/g, (letter) => "-" + letter.toLowerCase());
+          if (typeof styleValue === "number")
+            styleValue = `${styleValue}px`;
+          styleString += `${styleKey}:${styleValue};`;
+        }
+        html += `"${styleString}"`;
+      } else {
+        const identifier = `$wc${ssrData.count}$`;
+        html += `"${identifier}"`;
+        ssrData[identifier] = value;
+        ssrData.count++;
+      }
+    }
+    return html;
+  }
+  if (shouldBeRemoved) {
+    return html;
+  }
+  if (value._$wompF) {
+    html += value.componentName;
+    return html;
+  }
+  if (value._$wompChildren) {
+    html += value.nodes;
+    ssrData.cCounter++;
+    return html;
+  }
+  if (isPrimitive) {
+    html += value;
+    return html;
+  }
+  if (Array.isArray(value)) {
+    for (const val of value) {
+      html += handleSsValue(part, val, ssrData);
+    }
+    return html;
+  }
+  if (value._$wompHtml) {
+    return generateSsHtml(value, ssrData);
+  }
+  return html;
+};
+//! Find weak points (e.g. if you put a ">" in the attributes).
 //! Dynamic composed attr doesnt work on custom elements (e.g. title="N. ${counter}")
 //! Deeply test ALL Regexes: putting line breaks, and stuff.
 //! Maybe review the CSS Generation. Is it OK?
+//# sourceMappingURL=index.js.map

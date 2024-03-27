@@ -1,7 +1,7 @@
 /**
  * False to get smalles build file possible.
  */
-const DEV_MODE = false;
+const DEV_MODE = true;
 
 /* 
 ================================================
@@ -922,17 +922,6 @@ const __handleDynamicTag = (
 	if (node.nodeName !== newNodeName.toUpperCase()) {
 		const oldAttributes = (node as HTMLElement).getAttributeNames();
 		if (isCustomComponent) {
-			// Is a Womp Element
-			if (DEV_MODE) {
-				if ((node as WompElement)._$womp) {
-					console.error(
-						'Dynamic tags are currently not supported, unsless used to render for the first ' +
-							'time a custom component.\nInstead, you can use conditional rendering.\n' +
-							'(e.g. condition ? html`<${First} />` : html`<${Second} />`).'
-					);
-					return;
-				}
-			}
 			const initialProps: any = {};
 			for (const attrName of oldAttributes) {
 				// attributes on the dom will be set when creating the element
@@ -1101,6 +1090,7 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					}
 					(node as any).suspense = suspenseNode;
 				}
+				// Catch is handled inside the lazy() function.
 				currentValue().then((Component: WompComponent) => {
 					const customElement = __handleDynamicTag(
 						Component,
@@ -1227,7 +1217,6 @@ const _$womp = <Props, E>(
 						for (const hook of this._$hooks) {
 							if ((hook as EffectHook)?.cleanupFunction) (hook as any).cleanupFunction();
 						}
-						if (DEV_MODE) console.warn('Disconnected', this);
 					} else {
 						this._$hasBeenMoved = true;
 						if (this._$usesContext) this.requestRender();
@@ -1310,29 +1299,43 @@ const _$womp = <Props, E>(
 		 * Calls the component and executes the operations to update the DOM.
 		 */
 		private __render() {
-			const renderHtml = this.__callComponent();
-			if (renderHtml === null || renderHtml === undefined) {
-				this.remove();
-				return;
-			}
-			const constructor = this.constructor as typeof WompComponent;
-			if (this.__isInitializing) {
-				const template = constructor._$getOrCreateTemplate(renderHtml);
-				const [fragment, dynamics] = template.clone();
-				this.__dynamics = dynamics;
-				const elaboratedValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
-				this.__oldValues = elaboratedValues;
-				if (!this.__isInitializing) this.__ROOT.innerHTML = '';
-				while (fragment.childNodes.length) {
-					this.__ROOT.appendChild(fragment.childNodes[0]);
+			try {
+				const renderHtml = this.__callComponent();
+				if (renderHtml === null || renderHtml === undefined) {
+					this.remove();
+					return;
 				}
-			} else {
-				const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
-				this.__oldValues = oldValues;
-			}
-			while (this._$layoutEffects.length) {
-				const layoutEffectHook = this._$layoutEffects.pop();
-				layoutEffectHook.cleanupFunction = layoutEffectHook.callback();
+				const constructor = this.constructor as typeof WompComponent;
+				if (this.__isInitializing) {
+					const template = constructor._$getOrCreateTemplate(renderHtml);
+					const [fragment, dynamics] = template.clone();
+					this.__dynamics = dynamics;
+					const elaboratedValues = __setValues(
+						this.__dynamics,
+						renderHtml.values,
+						this.__oldValues
+					);
+					this.__oldValues = elaboratedValues;
+					if (!this.__isInitializing) this.__ROOT.innerHTML = '';
+					while (fragment.childNodes.length) {
+						this.__ROOT.appendChild(fragment.childNodes[0]);
+					}
+				} else {
+					const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
+					this.__oldValues = oldValues;
+				}
+				while (this._$layoutEffects.length) {
+					const layoutEffectHook = this._$layoutEffects.pop();
+					layoutEffectHook.cleanupFunction = layoutEffectHook.callback();
+				}
+			} catch (err) {
+				console.error(err);
+				if (DEV_MODE) {
+					const wompError = new WompError.class();
+					(wompError.props as WompErrorProps).error = err;
+					(wompError.props as WompErrorProps).element = this;
+					this.replaceWith(wompError);
+				}
 			}
 		}
 
@@ -2224,9 +2227,14 @@ export const lazy = (load: () => LazyCallbackResult): LazyResult => {
 	let loaded: WompComponent = null;
 	async function LazyComponent() {
 		if (!loaded) {
-			const importedModule = await load();
-			loaded = importedModule.default;
-			return loaded;
+			try {
+				const importedModule = await load();
+				loaded = importedModule.default;
+				return loaded;
+			} catch (err) {
+				console.error(err);
+				return WompError;
+			}
 		}
 		return loaded;
 	}
@@ -2271,6 +2279,35 @@ const findSuspense = (startNode: Node): SuspenseInstance | null => {
 	}
 	return suspense as SuspenseInstance | null;
 };
+
+/* 
+================================================
+COMPONENTS
+================================================
+*/
+interface WompErrorProps extends WompProps {
+	error: any;
+	element: WompElement;
+}
+
+let WompError: WompComponent;
+if (DEV_MODE) {
+	WompError = function Error({ styles: s, error, element }: WompErrorProps) {
+		console.log(error, element);
+		return html`<div class="${s.error}">An error occured</div>`;
+	} as any;
+	WompError.css = `
+		:host {
+			display: block;
+			padding: 20px;
+			background-color: #ffd0cf;
+			color: #a44040;
+			margin: 20px;
+			border-left: 3px solid #a44040;
+		}
+	`;
+	defineWomp(WompError, { name: 'womp-error' });
+}
 
 /**
  * The Suspense component is used to render a Loading UI while its children are still being rendered
