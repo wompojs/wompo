@@ -1190,8 +1190,8 @@ const _$womp = <Props, E>(
 		 * @param parts The template parts from the html function.
 		 * @returns The cached template.
 		 */
-		static _$getOrCreateTemplate(html: RenderHtml, makeNew: boolean) {
-			if (!this._$cachedTemplate || makeNew) this._$cachedTemplate = __createTemplate(html);
+		static _$getOrCreateTemplate(html: RenderHtml) {
+			if (!this._$cachedTemplate) this._$cachedTemplate = __createTemplate(html);
 			return this._$cachedTemplate;
 		}
 
@@ -1213,8 +1213,6 @@ const _$womp = <Props, E>(
 		private __updating: boolean = false;
 		/** The array containing the dynamic values of the last render. */
 		private __oldValues: any[] = [];
-		/** The stringified verions of the parts of the last render. */
-		private __oldPartsStringified: string = '';
 		/** It'll be true if the component is currently initializing. */
 		private __isInitializing: boolean = true;
 		/** It's true if the component is connected to the DOM. */
@@ -1338,19 +1336,13 @@ const _$womp = <Props, E>(
 				return;
 			}
 			const constructor = this.constructor as typeof WompComponent;
-			//! Create a compare htmlTemplates function which will compare each part and return false
-			//! in the first non-match (better than stringifying the whole templates and compare them).
-			//! Use it also on __setValues.
-			const stringified = __getRenderHtmlString(renderHtml);
-			const shouldRebuild = stringified !== this.__oldPartsStringified;
-			if (this.__isInitializing || shouldRebuild) {
-				const template = constructor._$getOrCreateTemplate(renderHtml, shouldRebuild);
+			if (this.__isInitializing) {
+				const template = constructor._$getOrCreateTemplate(renderHtml);
 				const [fragment, dynamics] = template.clone();
 				this.__dynamics = dynamics;
 				const elaboratedValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
 				this.__oldValues = elaboratedValues;
 				if (!this.__isInitializing) this.__ROOT.innerHTML = '';
-				this.__oldPartsStringified = stringified;
 				while (fragment.childNodes.length) {
 					this.__ROOT.appendChild(fragment.childNodes[0]);
 				}
@@ -1397,7 +1389,6 @@ const _$womp = <Props, E>(
 			if ((this.props as any)[prop] !== value) {
 				(this.props as any)[prop] = value;
 				if (!this.__isInitializing) {
-					console.warn(`Updating ${prop}`, this.__isInitializing);
 					this.requestRender();
 				}
 			}
@@ -2340,7 +2331,7 @@ export function Suspense({ children, fallback }: SuspenseProps) {
 		}
 		if (!this.loadingComponents.size) this.requestRender();
 	};
-	if (this.loadingComponents.size) return fallback;
+	if (this.loadingComponents.size) return html`${fallback}`;
 	return html`${children}`;
 }
 defineWomp(Suspense, {

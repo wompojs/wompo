@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
@@ -8,12 +8,12 @@
 	</head>
 	<body>
 		<script type="module">
-			import Counter from './counter-component.js';
+			import Counter from './perf-counter.js';
 
 			// import OldCounter from './old-counter.js';
 
 			console.time('Perf');
-			let length = 1;
+			let length = 1000;
 			while (length--) {
 				const counter = new Counter.class();
 				document.body.appendChild(counter);
@@ -26,7 +26,7 @@
 			console.timeEnd('PerfOld'); */
 		</script>
 	</body>
-</html>
+</html> -->
 
 <!-- 
 12.84kb
@@ -34,9 +34,9 @@
 -->
 
 <!-- npx tachometer ./app/index.html -->
-<!-- <script type="module">
+<script type="module">
 	import * as bench from '/bench.js';
 	bench.start();
 	await import('./render.js');
 	bench.stop();
-</script> -->
+</script>

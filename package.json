@@ -44,9 +44,7 @@
 	},
 	"devDependencies": {
 		"esbuild": "0.20.1",
+		"tachometer": "^0.7.0",
 		"ts-loader": "^9.4.3"
-	},
-	"dependencies": {
-		"tachometer": "^0.7.0"
 	}
 }
