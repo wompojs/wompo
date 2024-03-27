@@ -42,7 +42,7 @@ export interface WompProps {
  * The current available options are:
  * - `name` (string)
  * - `shadow` (boolean)
- * - `cssGeneration` (boolean)
+ * - `cssModule` (boolean)
  */
 export interface WompComponentOptions {
 	/**
@@ -64,7 +64,7 @@ export interface WompComponentOptions {
 	 * This is done to avoid styles collisions.
 	 * E.g. CounterComponent.css = `.button` => .counter-component__button
 	 */
-	cssGeneration?: boolean;
+	cssModule?: boolean;
 }
 
 /**
@@ -304,8 +304,7 @@ const WC_MARKER = '$wc$';
 const DYNAMIC_TAG_MARKER = 'wc-wc';
 const isDynamicTagRegex = /<\/?$/g;
 const isAttrRegex = /\s+([^\s]*?)="?$/g;
-//! Can cause problems. You should put also the "s" modifier
-const selfClosingRegex = /(<([a-z]*?-[a-z]*).*?)\/>/g;
+const selfClosingRegex = /(<([a-z]*?-[a-z]*).*?)\/>/gs;
 const isInsideTextTag = /<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi;
 const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
 
@@ -332,9 +331,6 @@ CLASSES
  * stored here and only cloned when a new component is instantiated.
  */
 class CachedTemplate {
-	/** The stringified RenderTmplate  */
-	public stringified: string;
-
 	/**
 	 * The HTML Template element that has all the structure and comments built in to identify dynamic
 	 * elements.
@@ -351,10 +347,9 @@ class CachedTemplate {
 	 * @param template The HTML Template already elaborated to handle the dynamic parts.
 	 * @param dependencies The metadata dependencies for the template.
 	 */
-	constructor(template: HTMLTemplateElement, dependencies: Dependency[], stringified: string) {
+	constructor(template: HTMLTemplateElement, dependencies: Dependency[]) {
 		this.template = template;
 		this.dependencies = dependencies;
-		this.stringified = stringified;
 	}
 
 	/**
@@ -405,23 +400,16 @@ class CachedTemplate {
  * so a [dynamics] array is build and used to perform updated on the html result.
  */
 class HtmlProcessedValue {
-	/**
-	 * The stringified template is the result of the `html` function without the dynamic parts. This
-	 * property is used to compare 2 different html results.
-	 */
-	public stringifiedTemplate: string;
 	/** The last values that the html function returned. */
 	public values: any[];
+	/** The parts of the render value. */
+	public parts: TemplateStringsArray;
 	/** The Cached template data returned by the `clone` function. */
 	public template: [DocumentFragment, Dynamics[]];
 
-	constructor(
-		stringifiedTemplate: string,
-		values: any[],
-		template: [DocumentFragment, Dynamics[]]
-	) {
-		this.stringifiedTemplate = stringifiedTemplate;
-		this.values = values;
+	constructor(render: RenderHtml, template: [DocumentFragment, Dynamics[]]) {
+		this.values = render.values;
+		this.parts = render.parts;
 		this.template = template;
 	}
 }
@@ -681,7 +669,7 @@ SUPPORT FUNCTIONS
 */
 
 /**
- * Generates the static styles of a component. If the `cssGeneration` option in the component is
+ * Generates the static styles of a component. If the `cssModule` option in the component is
  * false, the generation will be skipped and the css will be taken as it is.
  * If the css contains an ":host" selector, it'll be replaced or kept based on if the shadow option
  * is true, otherwise, a default "display: block;" style will be added in the component.
@@ -693,19 +681,11 @@ const __generateSpecifcStyles = (
 	options: WompComponentOptions
 ): [string, { [className: string]: string }] => {
 	const { css } = component;
-	const { shadow, name, cssGeneration } = options;
+	const { shadow, name, cssModule } = options;
 	const componentName = name;
 	const classes: { [key: string]: string } = {};
 	let generatedCss = css;
-	if (DEV_MODE) {
-		if (!shadow && !cssGeneration && !name.startsWith('womp-context-provider'))
-			console.warn(
-				`The component ${name} is not an isolated component (shadow=false) and has the ` +
-					`cssGeneration option set to false.\nThis can lead to unexpected behaviors, because ` +
-					`this component can alter other components' styles.`
-			);
-	}
-	if (cssGeneration) {
+	if (cssModule) {
 		if (!css.includes(':host'))
 			generatedCss = `${shadow ? ':host' : componentName} {display:block;} ${css}`;
 		if (DEV_MODE) {
@@ -713,13 +693,12 @@ const __generateSpecifcStyles = (
 			// It's appropriate that at least one class is present in each selector
 			[...generatedCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
 				const cssSelector = selector[1].trim();
-				if (!cssSelector.includes('.')) invalidSelectors.push(cssSelector);
+				if (!cssSelector.match(/\.|:host|@/)) invalidSelectors.push(cssSelector);
 			});
-			//! Some valid selectors are marked as invalid e.g. :host/componentName, @media, etc.
 			invalidSelectors.forEach((selector) => {
 				console.warn(
 					`The CSS selector "${selector} {...}" in the component "${componentName}" is not enough` +
-						` specific: include at least one class.`
+						` specific: include at least one class or deactive the "cssModule" option on the component.`
 				);
 			});
 		}
@@ -887,24 +866,30 @@ const __createTemplate = (html: RenderHtml) => {
 	const template = document.createElement('template');
 	template.innerHTML = dom;
 	const dependencies = __createDependencies(template, html.parts, attributes);
-	return new CachedTemplate(template, dependencies, __getRenderHtmlString(html));
+	return new CachedTemplate(template, dependencies);
 };
 
 /**
- * This function will "stringify" the result of the `html` function, by simply joining all the parts
- * of the template. The stringified version is used to compare 2 html results. If the 2 strings are
- * equal, the 2 templates are also considered to be equal (dynamic values excluded).
+ * This function will compare the parts of the new and old template. If one of the parts differs,
+ * means the 2 templates are not equal.
  * @param render The whole result of the `html` function
  * @returns The string representation of the the template.
  */
-const __getRenderHtmlString = (render: RenderHtml) => {
-	let value = '';
-	const { parts, values } = render;
-	for (let i = 0; i < parts.length; i++) {
-		value += parts[i];
-		if (values[i]?.componentName) value += values[i].componentName;
+const __areSameTemplates = (newTemplate: RenderHtml, oldTemplate: RenderHtml) => {
+	if (!newTemplate || !oldTemplate) return false;
+	const newParts = newTemplate.parts;
+	const oldParts = oldTemplate.parts;
+	if (newParts.length !== oldParts?.length) return false;
+	const newValues = newTemplate.values;
+	const oldValues = oldTemplate.values;
+	for (let i = 0; i < newParts.length; i++) {
+		if (newParts[i] !== oldParts[i]) return false;
+		if (newValues[i]?._$wompF) {
+			if (!oldValues[i]?._$wompF) return false;
+			if (newValues[i].componentName !== oldValues[i].componentName) return false;
+		}
 	}
-	return value;
+	return true;
 };
 
 /**
@@ -1008,14 +993,12 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 			}
 			if (currentValue?._$wompHtml) {
 				// handle template elements
-				const oldStringified = oldValue?.stringifiedTemplate;
-				const newTemplate = __getRenderHtmlString(currentValue);
-				const sameString = newTemplate === oldStringified;
-				if (oldValue === undefined || !sameString) {
+				const areTheSame = __areSameTemplates(currentValue, oldValue);
+				if (oldValue === undefined || !areTheSame) {
 					const cachedTemplate = __createTemplate(currentValue);
 					const template = cachedTemplate.clone();
 					const [fragment, dynamics] = template;
-					newValues[i] = new HtmlProcessedValue(newTemplate, currentValue.values, template);
+					newValues[i] = new HtmlProcessedValue(currentValue, template);
 					__setValues(dynamics, currentValue.values, oldValue?.values ?? oldValue ?? []);
 					const endNode = (currentDependency as DynamicNode).endNode;
 					const startNode = (currentDependency as DynamicNode).startNode;
@@ -1244,9 +1227,9 @@ const _$womp = <Props, E>(
 					// If the connectedCallback is called again, isInTheDOM will be true
 					if (!this.__isInDOM) {
 						this.onDisconnected();
-						//! For each hook, if the hook is !null && has a cleanupFunction, execute it.
-						//! This beacuse timers will continue it's execution also after the component has been
-						//! Disconnected
+						for (const hook of this._$hooks) {
+							if ((hook as EffectHook)?.cleanupFunction) (hook as any).cleanupFunction();
+						}
 						if (DEV_MODE) console.warn('Disconnected', this);
 					} else {
 						this._$hasBeenMoved = true;
@@ -1976,7 +1959,7 @@ const createContextMemo = () => {
 			},
 			{
 				name: name,
-				cssGeneration: false,
+				cssModule: false,
 			}
 		);
 		const Context = {
@@ -2119,12 +2102,12 @@ DEFAULT OPTIONS
  * should do it at the TOP of your html file, before every other component renders.
  * The current options are:
  * - `shadow`: false (boolean)
- * - `cssGeneration`: true (boolean)
+ * - `cssModule`: true (boolean)
  */
 export const wompDefaultOptions: WompComponentOptions = {
 	shadow: false,
 	name: '',
-	cssGeneration: true,
+	cssModule: true,
 };
 
 /* 
@@ -2139,7 +2122,7 @@ export const registeredComponents: { [key: string]: WompComponent } = {};
  * The current available options are the followings:
  * - `name` (string)
  * - `shadow` (boolean).
- * - `cssGeneration` (boolean)
+ * - `cssModule` (boolean)
  *
  * The default values will depend on the [wompDefaultOptions] variable.
  *
@@ -2153,7 +2136,7 @@ export const registeredComponents: { [key: string]: WompComponent } = {};
  *
  * The `shadow` option, if true, will build the content of the component in a Shadow DOM.
  *
- * The `cssGeneration` option will transform the css of the component by replacing the classes with
+ * The `cssModule` option will transform the css of the component by replacing the classes with
  * unique names, that will then be passed in the `styles` props of the component.
  *
  * @example
@@ -2341,3 +2324,4 @@ defineWomp(Suspense, {
 //! Test events on custom components
 //! Test inputs (value attribute, specifically)
 //! in DEV_MODE, handle errors nicely, in PRODUCTION, only console.error
+//! Add ErrorBoundary component

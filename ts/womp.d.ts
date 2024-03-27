@@ -32,7 +32,7 @@ export interface WompProps {
  * The current available options are:
  * - `name` (string)
  * - `shadow` (boolean)
- * - `cssGeneration` (boolean)
+ * - `cssModule` (boolean)
  */
 export interface WompComponentOptions {
     /**
@@ -54,7 +54,7 @@ export interface WompComponentOptions {
      * This is done to avoid styles collisions.
      * E.g. CounterComponent.css = `.button` => .counter-component__button
      */
-    cssGeneration?: boolean;
+    cssModule?: boolean;
 }
 /**
  * The type of the function to create a Womp Component.
@@ -244,8 +244,6 @@ type Dynamics = DynamicNode | DynamicAttribute | DynamicTag;
  * stored here and only cloned when a new component is instantiated.
  */
 declare class CachedTemplate {
-    /** The stringified RenderTmplate  */
-    stringified: string;
     /**
      * The HTML Template element that has all the structure and comments built in to identify dynamic
      * elements.
@@ -261,7 +259,7 @@ declare class CachedTemplate {
      * @param template The HTML Template already elaborated to handle the dynamic parts.
      * @param dependencies The metadata dependencies for the template.
      */
-    constructor(template: HTMLTemplateElement, dependencies: Dependency[], stringified: string);
+    constructor(template: HTMLTemplateElement, dependencies: Dependency[]);
     /**
      * This function will clone the template content and build the dynamcis metadata - an array
      * containing all the information to efficiently put values in the DOM, without checking if each
@@ -735,7 +733,7 @@ export declare function html(templateParts: TemplateStringsArray, ...values: any
  * should do it at the TOP of your html file, before every other component renders.
  * The current options are:
  * - `shadow`: false (boolean)
- * - `cssGeneration`: true (boolean)
+ * - `cssModule`: true (boolean)
  */
 export declare const wompDefaultOptions: WompComponentOptions;
 export declare const registeredComponents: {
@@ -747,7 +745,7 @@ export declare const registeredComponents: {
  * The current available options are the followings:
  * - `name` (string)
  * - `shadow` (boolean).
- * - `cssGeneration` (boolean)
+ * - `cssModule` (boolean)
  *
  * The default values will depend on the [wompDefaultOptions] variable.
  *
@@ -761,7 +759,7 @@ export declare const registeredComponents: {
  *
  * The `shadow` option, if true, will build the content of the component in a Shadow DOM.
  *
- * The `cssGeneration` option will transform the css of the component by replacing the classes with
+ * The `cssModule` option will transform the css of the component by replacing the classes with
  * unique names, that will then be passed in the `styles` props of the component.
  *
  * @example
