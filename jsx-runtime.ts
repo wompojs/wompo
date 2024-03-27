@@ -37,9 +37,10 @@ const wJsx = (Element: any, attributes: { [key: string]: any }) => {
 	const attrNames = Object.keys(attributes);
 	for (const attrName of attrNames) {
 		if (attrName === 'children') {
+			// Children is always the last key
 			break;
 		}
-		const isEvent = attrName.match(/on([A-Z].*)/);
+		const isEvent = attrName.match(/^on([A-Z].*)/);
 		if (isEvent) {
 			staticHtml += ` @${isEvent[1].toLowerCase()}=`;
 		} else {
@@ -48,7 +49,6 @@ const wJsx = (Element: any, attributes: { [key: string]: any }) => {
 		template.parts.push(staticHtml);
 		template.values.push(attributes[attrName]);
 		staticHtml = '';
-		// Children is always the last key
 	}
 	if (['br', 'img'].includes(tagName)) {
 		staticHtml += '/>';

@@ -1049,9 +1049,8 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 							newValues[i] = new WompArrayDependency(currentValue, currentDependency);
 						} else newValues[i] = (oldValue as WompArrayDependency).checkUpdates(currentValue);
 					} else if (DEV_MODE) {
-						console.warn(
-							'Rendering objects is not supported. Doing a stringified version of it can rise errors.\n' +
-								'This node will be ignored.'
+						throw new Error(
+							'Rendering objects is not supported. Please stringify or remove the object.'
 						);
 					}
 				}
@@ -1334,7 +1333,8 @@ const _$womp = <Props, E>(
 					const error = new WompError.class();
 					(error.props as WompErrorProps).error = err;
 					(error.props as WompErrorProps).element = this;
-					this.replaceWith(error);
+					this.__ROOT.innerHTML = '';
+					this.__ROOT.appendChild(error);
 				}
 			}
 		}
@@ -1550,8 +1550,9 @@ export const useLayoutEffect = (
 				const oldDep = effectHook.dependencies[i];
 				if (oldDep !== dependencies[i]) {
 					if (typeof effectHook.cleanupFunction === 'function') effectHook.cleanupFunction();
-					component._$layoutEffects.push(effectHook);
 					effectHook.dependencies = dependencies;
+					effectHook.callback = callback;
+					component._$layoutEffects.push(effectHook);
 					break;
 				}
 			}
@@ -2293,10 +2294,18 @@ interface WompErrorProps extends WompProps {
 let WompError: WompComponent;
 if (DEV_MODE) {
 	WompError = function ({ styles: s, error, element }: WompErrorProps) {
-		return html`<div class="${s.error}">
-			<p>An error occured while rendering the element "${element.nodeName.toLowerCase()}".</p>
-			<p>${error.stack.split('\n').map((row: string) => html`${row}<br />`)}</p>
-		</div>`;
+		let content;
+		if (element && error) {
+			content = html`<div>
+				<p>An error rised while rendering the element "${element.nodeName.toLowerCase()}".</p>
+				<p>${error.stack.split('\n').map((row: string) => html`${row}<br />`)}</p>
+			</div>`;
+		} else {
+			content = html`<div>
+				<p>An error rised while rendering. Check the developer console for more details.</p>
+			</div>`;
+		}
+		return html`${content}`;
 	} as any;
 	WompError.css = `
 		:host {
