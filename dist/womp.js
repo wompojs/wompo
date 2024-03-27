@@ -815,10 +815,10 @@ const _$womp = (Component, options) => {
       } catch (err) {
         console.error(err);
         if (DEV_MODE) {
-          const wompError = new WompError.class();
-          wompError.props.error = err;
-          wompError.props.element = this;
-          this.replaceWith(wompError);
+          const error = new WompError.class();
+          error.props.error = err;
+          error.props.element = this;
+          this.replaceWith(error);
         }
       }
     }
@@ -1234,9 +1234,11 @@ const findSuspense = (startNode) => {
 };
 let WompError;
 if (DEV_MODE) {
-  WompError = function Error({ styles: s, error, element }) {
-    console.log(error, element);
-    return html`<div class="${s.error}">An error occured</div>`;
+  WompError = function({ styles: s, error, element }) {
+    return html`<div class="${s.error}">
+			<p>An error occured while rendering the element "${element.nodeName.toLowerCase()}".</p>
+			<p>${error.stack.split("\n").map((row) => html`${row}<br />`)}</p>
+		</div>`;
   };
   WompError.css = `
 		:host {
@@ -1248,7 +1250,7 @@ if (DEV_MODE) {
 			border-left: 3px solid #a44040;
 		}
 	`;
-  defineWomp(WompError, { name: "womp-error" });
+  defineWomp(WompError, { name: "womp-error", shadow: true });
 }
 export function Suspense({ children, fallback }) {
   if (!this.loadingComponents) {

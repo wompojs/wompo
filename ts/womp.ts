@@ -1331,10 +1331,10 @@ const _$womp = <Props, E>(
 			} catch (err) {
 				console.error(err);
 				if (DEV_MODE) {
-					const wompError = new WompError.class();
-					(wompError.props as WompErrorProps).error = err;
-					(wompError.props as WompErrorProps).element = this;
-					this.replaceWith(wompError);
+					const error = new WompError.class();
+					(error.props as WompErrorProps).error = err;
+					(error.props as WompErrorProps).element = this;
+					this.replaceWith(error);
 				}
 			}
 		}
@@ -2292,9 +2292,11 @@ interface WompErrorProps extends WompProps {
 
 let WompError: WompComponent;
 if (DEV_MODE) {
-	WompError = function Error({ styles: s, error, element }: WompErrorProps) {
-		console.log(error, element);
-		return html`<div class="${s.error}">An error occured while rendering</div>`;
+	WompError = function ({ styles: s, error, element }: WompErrorProps) {
+		return html`<div class="${s.error}">
+			<p>An error occured while rendering the element "${element.nodeName.toLowerCase()}".</p>
+			<p>${error.stack.split('\n').map((row: string) => html`${row}<br />`)}</p>
+		</div>`;
 	} as any;
 	WompError.css = `
 		:host {
@@ -2306,7 +2308,7 @@ if (DEV_MODE) {
 			border-left: 3px solid #a44040;
 		}
 	`;
-	defineWomp(WompError, { name: 'womp-error' });
+	defineWomp(WompError, { name: 'womp-error', shadow: true });
 }
 
 /**
@@ -2357,5 +2359,4 @@ defineWomp(Suspense, {
 
 // TODO Test events on custom components
 // TODO Test inputs (value attribute, specifically)
-// TODO in DEV_MODE, handle errors nicely, in PRODUCTION, only console.error
 // TODO Add ErrorBoundary component
