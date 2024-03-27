@@ -2294,7 +2294,7 @@ let WompError: WompComponent;
 if (DEV_MODE) {
 	WompError = function Error({ styles: s, error, element }: WompErrorProps) {
 		console.log(error, element);
-		return html`<div class="${s.error}">An error occured</div>`;
+		return html`<div class="${s.error}">An error occured while rendering</div>`;
 	} as any;
 	WompError.css = `
 		:host {
