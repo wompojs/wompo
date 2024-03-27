@@ -2318,7 +2318,7 @@ defineWomp(Suspense, {
 	name: 'womp-suspense',
 });
 
-//! Test events on custom components
-//! Test inputs (value attribute, specifically)
-//! in DEV_MODE, handle errors nicely, in PRODUCTION, only console.error
-//! Add ErrorBoundary component
+// TODO Test events on custom components
+// TODO Test inputs (value attribute, specifically)
+// TODO in DEV_MODE, handle errors nicely, in PRODUCTION, only console.error
+// TODO Add ErrorBoundary component
