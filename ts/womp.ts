@@ -1645,7 +1645,7 @@ const useIdMemo = () => {
 	return () => {
 		const [component, hookIndex] = useHook();
 		if (!component._$hooks.hasOwnProperty(hookIndex)) {
-			component._$hooks[hookIndex] = `:r${counter}:` as IdHook;
+			component._$hooks[hookIndex] = `:w${counter}:` as IdHook;
 			counter++;
 		}
 		const callback = component._$hooks[hookIndex];
