@@ -520,7 +520,9 @@ class DynamicAttribute {
 		if (isWompElement) (this.node as WompElement).updateProps(this.name, newValue);
 		const isPrimitive = newValue !== Object(newValue);
 		if (newValue === false) this.node.removeAttribute(this.name);
-		else if (isPrimitive && !this.name.match(/[A-Z]/)) this.node.setAttribute(this.name, newValue);
+		else if (isPrimitive && (!this.name.match(/[A-Z]/) || this.node.nodeName === 'svg'))
+			// TODO Check which elements allow uppercase attributes
+			this.node.setAttribute(this.name, newValue);
 		else if (this.name === 'style') {
 			let styleString = '';
 			const styles = Object.keys(newValue);
