@@ -305,7 +305,7 @@ const WC_MARKER = '$wc$';
 const DYNAMIC_TAG_MARKER = 'wc-wc';
 const isDynamicTagRegex = /<\/?$/g;
 const isAttrRegex = /\s+([^\s]*?)="?$/g;
-const selfClosingRegex = /(<([a-z]*?-[a-z]*).*?)\/>/gs;
+const selfClosingRegex = /(<([a-z]*-[a-z]*).*?)\/?>/gs;
 const isInsideTextTag = /<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi;
 const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
 
@@ -769,7 +769,10 @@ const __createHtml = (parts: TemplateStringsArray): [string, string[]] => {
 		}
 	}
 	html += parts[parts.length - 1];
-	html = html.replace(selfClosingRegex, '$1></$2>');
+	html = html.replace(selfClosingRegex, (match, firstPart, componentName) => {
+		if (match.endsWith('/>')) return `${firstPart}></${componentName}>`;
+		return match;
+	});
 	return [html, attributes];
 };
 
