@@ -1,7 +1,7 @@
 /**
  * False to get smalles build file possible.
  */
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 /* 
 ================================================
