@@ -1,4 +1,9 @@
-import { type RenderHtml, type WompComponent, type WompProps, registeredComponents } from '../womp';
+import {
+	type RenderHtml,
+	type WompoComponent,
+	type WompoProps,
+	registeredComponents,
+} from '../wompo';
 
 /* 
 ================================================
@@ -9,15 +14,15 @@ type SsrDataObject = {
 	count: number;
 	cCounter: number;
 	components: {
-		[key: string]: WompComponent;
+		[key: string]: WompoComponent;
 	};
 	props: {
-		[key: string]: WompProps[];
+		[key: string]: WompoProps[];
 	};
 	[key: string]: any;
 };
 
-export const ssr = (Component: WompComponent, props: WompProps) => {
+export const ssr = (Component: WompoComponent, props: WompoProps) => {
 	const ssrData: SsrDataObject = {
 		count: 0,
 		cCounter: 0,
@@ -40,15 +45,19 @@ export const ssr = (Component: WompComponent, props: WompProps) => {
 	};
 };
 
-const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: SsrDataObject) => {
+const ssRenderComponent = (
+	Component: WompoComponent,
+	props: WompoProps,
+	ssrData: SsrDataObject
+) => {
 	let html = '';
 	const { generatedCSS, styles, shadow } = Component.options;
 	props.styles = styles;
 	const componentName = Component.componentName;
 	if (!ssrData.props[componentName]) ssrData.props[componentName] = [];
-	html += `<${componentName} womp-hydrate="${ssrData.props[componentName].length}"`;
+	html += `<${componentName} wompo-hydrate="${ssrData.props[componentName].length}"`;
 	for (const prop in props) {
-		const value = props[prop as keyof WompProps];
+		const value = props[prop as keyof WompoProps];
 		const isPrimitive = value !== Object(value);
 		if (isPrimitive && prop !== 'title') html += ` ${prop}="${value}"`;
 	}
@@ -105,9 +114,9 @@ const ssRenderComponent = (Component: WompComponent, props: WompProps, ssrData: 
 		);
 		toRender = toRender.replace(regex, (_, name, attrs, children) => {
 			const Component = registeredComponents[name];
-			const componentProps: WompProps = {};
+			const componentProps: WompoProps = {};
 			componentProps.children = {
-				_$wompChildren: true,
+				_$wompoChildren: true,
 				nodes: children as any,
 			};
 			const attributes = attrs.matchAll(/\s?(.*?)="(.*?)"/gs);
@@ -180,13 +189,13 @@ const handleSsValue = (part: string, value: any, ssrData: SsrDataObject) => {
 	if (shouldBeRemoved) {
 		return html;
 	}
-	// Is Womp Component
-	if (value._$wompF) {
+	// Is Wompo Component
+	if (value._$wompoF) {
 		html += value.componentName;
 		return html;
 	}
 	// Is children
-	if (value._$wompChildren) {
+	if (value._$wompoChildren) {
 		html += value.nodes;
 		ssrData.cCounter++;
 		return html;
@@ -204,7 +213,7 @@ const handleSsValue = (part: string, value: any, ssrData: SsrDataObject) => {
 		return html;
 	}
 	// Is template
-	if (value._$wompHtml) {
+	if (value._$wompoHtml) {
 		return generateSsHtml(value, ssrData);
 	}
 

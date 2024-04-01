@@ -1,31 +1,31 @@
 {
-	"name": "womp",
-	"description": "Womp is a React-like Web-Components library",
+	"name": "wompo",
+	"description": "Wompo is a React-like Web-Components library",
 	"version": "1.0.0",
 	"type": "module",
-	"module": "./dist/womp.js",
-	"main": "./dist/womp.js",
-	"types": "./ts/womp.d.ts",
+	"module": "./dist/wompo.js",
+	"main": "./dist/wompo.js",
+	"types": "./ts/wompo.d.ts",
 	"author": "Lorenzo Lannino <lanninolore@gmail.com>",
 	"license": "ISC",
 	"scripts": {
-		"dev": "esbuild ts/womp.ts ts/ssr/index.ts --sourcemap --watch --outdir=dist --allow-overwrite",
-		"build": "tsc & esbuild ts/womp.ts ts/ssr/index.ts --minify --outdir=dist --allow-overwrite",
+		"dev": "esbuild ts/wompo.ts ts/ssr/index.ts --sourcemap --watch --outdir=dist --allow-overwrite",
+		"build": "tsc & esbuild ts/wompo.ts ts/ssr/index.ts --minify --outdir=dist --allow-overwrite",
 		"jsx": "esbuild jsx-runtime.ts --minify --outfile=jsx-runtime.js --allow-overwrite",
 		"perf": "tach --config tachometer.json"
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/Saderyal/Womp.git"
+		"url": "https://github.com/Saderyal/Wompo.git"
 	},
 	"bugs": {
-		"url": "https://github.com/Saderyal/Womp/issues"
+		"url": "https://github.com/Saderyal/Wompo/issues"
 	},
-	"homepage": "https://github.com/Saderyal/Womp",
+	"homepage": "https://github.com/Saderyal/Wompo",
 	"exports": {
 		".": {
-			"types": "./ts/womp.d.ts",
-			"default": "./dist/womp.js"
+			"types": "./ts/wompo.d.ts",
+			"default": "./dist/wompo.js"
 		},
 		"./ssr": {
 			"types": "./ts/ssr/index.d.ts",

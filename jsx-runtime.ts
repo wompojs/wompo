@@ -1,4 +1,4 @@
-import { type RenderHtml } from './ts/womp';
+import { type RenderHtml } from './ts/wompo';
 
 /* 
 ================================================
@@ -6,7 +6,7 @@ JSX
 ================================================
 */
 /**
- * This function enables to use JSX to create Womp Components. It'll simply re-create the
+ * This function enables to use JSX to create Wompo Components. It'll simply re-create the
  * functioning of the `html` tag template function, and will return a RenderHtml object.
  *
  * Note: Using JSX will have a small drop in performances: since with JSX you cannot know which are
@@ -20,15 +20,15 @@ const wJsx = (Element: any, attributes: { [key: string]: any }) => {
 	const template = {
 		parts: [],
 		values: [],
-		_$wompHtml: true,
-	} as { parts: string[]; values: any[]; _$wompHtml: true };
+		_$wompoHtml: true,
+	} as { parts: string[]; values: any[]; _$wompoHtml: true };
 	let tagName = Element;
 
-	if (Element._$wompLazy) {
+	if (Element._$wompoLazy) {
 		tagName = '';
 		template.parts.push('<');
 		template.values.push(Element);
-	} else if (Element._$wompF) {
+	} else if (Element._$wompoF) {
 		tagName = Element.componentName;
 	} else if (Element === Fragment) {
 		tagName = '';
@@ -55,7 +55,7 @@ const wJsx = (Element: any, attributes: { [key: string]: any }) => {
 		template.parts.push(staticHtml);
 		return template;
 	}
-	staticHtml += tagName || Element._$wompLazy ? '>' : '';
+	staticHtml += tagName || Element._$wompoLazy ? '>' : '';
 	template.parts.push(staticHtml);
 	const children = attributes.children;
 	if (children && children.parts) {
@@ -76,7 +76,7 @@ const wJsx = (Element: any, attributes: { [key: string]: any }) => {
 		template.values.push(children);
 	}
 	staticHtml = tagName ? `</${tagName}>` : '';
-	if (Element._$wompLazy) {
+	if (Element._$wompoLazy) {
 		staticHtml = `</wc-wc>`;
 	}
 	template.parts.push(staticHtml);

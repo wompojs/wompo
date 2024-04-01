@@ -3,17 +3,17 @@
 		"outDir": "./dist/",
 		"noImplicitAny": true,
 		"module": "ES6",
-    "lib": ["es2020","dom"],
+		"lib": ["es2020", "dom"],
 		"target": "ES2021",
 		"jsx": "react-jsx",
 		"jsxImportSource": "../",
-    "downlevelIteration": true,
+		"downlevelIteration": true,
 		"moduleResolution": "node",
-    "skipLibCheck": true,
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "declarationDir": ".",
+		"skipLibCheck": true,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"declarationDir": "."
 	},
-  "include": ["ts/womp.ts", "ts/ssr/index.ts"],
-  "exclude": ["dist", "./jsx-runtime.ts"]
+	"include": ["ts/wompo.ts", "ts/ssr/index.ts"],
+	"exclude": ["dist", "./jsx-runtime.ts"]
 }

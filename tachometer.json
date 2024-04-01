@@ -2,7 +2,7 @@
 	"$schema": "https://raw.githubusercontent.com/Polymer/tachometer/master/config.schema.json",
 	"benchmarks": [
 		{
-			"name": "womp",
+			"name": "wompo",
 			"url": "app/index.html",
 			"browser": {
 				"name": "chrome",
