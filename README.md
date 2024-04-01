@@ -61,3 +61,12 @@ function Counter() {
 	return html`<button @click=${onClick}>Current value: ${counter}</button>`;
 }
 ```
+
+## JSX
+
+Womp supports JSX. If you use it with Typescript, write this in your `tsconfig.json` file:
+
+```json
+"jsx": "react-jsx",
+"jsxImportSource": "womp",
+```
