@@ -445,7 +445,7 @@ class DynamicNode {
 	 */
 	public clearValue() {
 		let currentNode = this.startNode.nextSibling;
-		while (currentNode !== this.endNode) {
+		while (currentNode && currentNode !== this.endNode) {
 			currentNode.remove();
 			currentNode = this.startNode.nextSibling;
 		}
@@ -458,7 +458,7 @@ class DynamicNode {
 	public dispose() {
 		this.clearValue();
 		this.startNode.remove();
-		this.endNode.remove();
+		if (this.endNode) this.endNode.remove();
 	}
 }
 
@@ -1035,6 +1035,7 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 				let newNodeIndex = 0;
 				let index = 0;
 				if (currentValue._$wompChildren) {
+					if (oldValue && !oldValue?._$wompChildren) currentDependency.clearValue();
 					const childrenNodes = (currentValue as WompChildren).nodes;
 					while (index < childrenNodes.length) {
 						if (!currentNode || index === 0) currentNode = startNode;
