@@ -1130,19 +1130,8 @@ const _$wompo = <Props, E>(
 	options: WompoComponentOptions
 ): WompoElementClass<Props, E> => {
 	const { generatedCSS, styles } = Component.options;
-	let style: HTMLElement;
-	const styleClassName = `${options.name}__styles`;
-	if (!(window as any).wompoHydrationData) {
-		style = document.createElement('style');
-		if (generatedCSS) {
-			style.classList.add(styleClassName);
-			style.textContent = generatedCSS;
-		}
-	} else {
-		style = document.createElement('link');
-		(style as HTMLLinkElement).rel = 'stylesheet';
-		(style as HTMLLinkElement).href = `/${options.name}.css`;
-	}
+	const sheet = new CSSStyleSheet();
+	sheet.replaceSync(generatedCSS);
 	/**
 	 * The dynamic class created to make it possible to create a custom web-component
 	 */
@@ -1271,9 +1260,14 @@ const _$wompo = <Props, E>(
 			if (options.shadow && !this.shadowRoot) this.__ROOT = this.attachShadow({ mode: 'open' });
 
 			// Attach styles in every case.
-			if (generatedCSS) {
-				const clonedStyles = style.cloneNode(true);
-				this.__ROOT.appendChild(clonedStyles);
+			if (options.shadow) {
+				(this.__ROOT as ShadowRoot).adoptedStyleSheets = [sheet];
+			} else {
+				const root = this.getRootNode();
+				(root as ShadowRoot).adoptedStyleSheets = [
+					...(root as ShadowRoot).adoptedStyleSheets,
+					sheet,
+				];
 			}
 
 			// Render
