@@ -1,7 +1,7 @@
 {
 	"name": "wompo",
 	"description": "Wompo is a React-like Web-Components library",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"type": "module",
 	"module": "./dist/wompo.js",
 	"main": "./dist/wompo.js",

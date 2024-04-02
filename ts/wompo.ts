@@ -518,7 +518,6 @@ class DynamicAttribute {
 		const isPrimitive = newValue !== Object(newValue);
 		if (newValue === false) this.node.removeAttribute(this.name);
 		else if (isPrimitive && (!this.name.match(/[A-Z]/) || this.node.nodeName === 'svg'))
-			// TODO Check which elements allow uppercase attributes
 			this.node.setAttribute(this.name, newValue);
 		else if (this.name === 'style') {
 			let styleString = '';
@@ -2381,7 +2380,6 @@ defineWompo(Suspense, {
 	name: 'wompo-suspense',
 });
 
-// TODO State should be immutable. In DEV_MODE, rise errors when state is updated manually.
 // TODO Test events on custom components
 // TODO Test inputs (value attribute, specifically)
 // TODO Add ErrorBoundary component
