@@ -16,12 +16,12 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/Saderyal/Wompo.git"
+		"url": "https://github.com/Saderyal/wompo.git"
 	},
 	"bugs": {
-		"url": "https://github.com/Saderyal/Wompo/issues"
+		"url": "https://github.com/Saderyal/wompo/issues"
 	},
-	"homepage": "https://github.com/Saderyal/Wompo",
+	"homepage": "https://github.com/Saderyal/wompo",
 	"exports": {
 		".": {
 			"types": "./ts/wompo.d.ts",
