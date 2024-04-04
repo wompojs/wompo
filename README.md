@@ -6,12 +6,12 @@ Wompo has the following benefits:
 
 - _React-like_ - no need to learn a completely new library. If you know React,
   you already know also Wompo. Or at least the 90% of it.
-- _Easy_ -  If you don't, Wompo has a super fast learning curve: no need to learn
+- _Easy_ - If you don't, Wompo has a super fast learning curve: no need to learn
   Typescript, understanding Javascript classes, and the **this** keyword. All you
   need to know is basic Javascript, basic HTML, and basic CSS.
 - _Performant_ - Faster than React, Preact, and Atomico, and only slightly slower
   than Lit.
-- _Lightweight_ - Wompo only weight 5Kb compressed and gzipped!
+- _Lightweight_ - Wompo weights less than 5Kb compressed and gzipped!
 - _Built-in CSS modules_ - With Wompo there is no need to worry about styles
   collisions: your class names will be automatically replaced with a unique class
   name.
@@ -39,7 +39,7 @@ a template function that will contain your HTML structure.
 import { defineWompo, html } from 'wompo';
 
 export default function GreetingsComponent() {
-  return html`<div>Hello, World!</div>`;
+	return html`<div>Hello, World!</div>`;
 }
 
 defineWompo(GreetingsComponent);
@@ -60,9 +60,9 @@ Simple example for creating a counter component:
 import { defineWompo, html, useState } from 'wompo';
 
 function Counter() {
-  const [counter, setCounter] = useState(0);
-  const onClick = () => setCounter(counter + 1);
-  return html`<button @click=${onClick}>Current value: ${counter}</button>`;
+	const [counter, setCounter] = useState(0);
+	const onClick = () => setCounter(counter + 1);
+	return html`<button @click=${onClick}>Current value: ${counter}</button>`;
 }
 
 defineWompo(Counter, { name: 'simple-counter' });
@@ -86,15 +86,15 @@ Instead, you can style your components through Built-in CSS modules.
 You can style your components by adding a `.css` property in your functional
 component. The class names found in there will automatically be replaced with
 a more unique class. For example, the "container" class for the "CoolComponent"
-will be replaced with "cool-component__container". Of course, you don't need to
-know the name of the replaced class: they will be put into the _styles_ prop
+will be replaced with "cool-component\__container". Of course, you don't need to
+know the name of the replaced class: they will be put into the \_styles_ prop
 object of your component, like below:
 
 ```javascript
-function CoolComponent({ styles: s }){
-  return html`<div class=${s.container}>
-    I have No shadow DOM, but I still won't affect other components' styles!
-  </div>`
+function CoolComponent({ styles: s }) {
+	return html`<div class=${s.container}>
+		I have No shadow DOM, but I still won't affect other components' styles!
+	</div>`;
 }
 CoolComponent.css = `
   .container {
@@ -102,7 +102,7 @@ CoolComponent.css = `
     background-color: blue;
     border-radius:
   }
-`
+`;
 ```
 
 ## JSX
