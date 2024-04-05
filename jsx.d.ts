@@ -20,4 +20,10 @@ export namespace JSX {
 	interface IntrinsicElements {
 		[elemName: string]: DOMGenericProperties & DOMEvents;
 	}
+	interface ElementAttributesProperty {
+		props: any; // specify the property name to use
+	}
+	interface ElementChildrenAttribute {
+		children: {}; // specify children name to use
+	}
 }

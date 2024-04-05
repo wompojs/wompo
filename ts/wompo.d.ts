@@ -26,6 +26,8 @@ export interface WompoProps {
     id?: string;
     /** The classes of the element */
     class?: string;
+    /** JSX events */
+    [event: `on${string}`]: (ev: Event) => void;
 }
 /**
  * The options that a component can have when instantiating.
@@ -776,7 +778,7 @@ export declare const registeredComponents: {
  * @param options The options of the component.
  * @returns The generated class for the component.
  */
-export declare function defineWompo<Props, E = {}>(Component: WompoComponent<Props & WompoProps>, options?: WompoComponentOptions): WompoComponent<Props & WompoProps>;
+export declare function defineWompo<Props extends WompoProps, E = {}>(Component: WompoComponent<Props & WompoProps>, options?: WompoComponentOptions): WompoComponent<Props & WompoProps>;
 export type LazyCallbackResult = Promise<{
     default: WompoComponent;
 }>;

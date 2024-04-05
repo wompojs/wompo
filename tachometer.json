@@ -3,7 +3,7 @@
 	"benchmarks": [
 		{
 			"name": "wompo",
-			"url": "app/index.html",
+			"url": "app/perf.html",
 			"browser": {
 				"name": "chrome",
 				"headless": true

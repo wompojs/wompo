@@ -35,6 +35,8 @@ export interface WompoProps {
 	id?: string;
 	/** The classes of the element */
 	class?: string;
+	/** JSX events */
+	[event: `on${string}`]: (ev: Event) => void;
 }
 
 /**
@@ -1124,7 +1126,7 @@ WOMPO COMPONENT DEFINITION
  * @param options The options of the component.
  * @returns A new dynamic class that will be used to create the custom web-component
  */
-const _$wompo = <Props, E>(
+const _$wompo = <Props extends WompoProps, E>(
 	Component: WompoComponent,
 	options: WompoComponentOptions
 ): WompoElementClass<Props, E> => {
@@ -1191,7 +1193,7 @@ const _$wompo = <Props, E>(
 		/** @override component has been connected to the DOM */
 		connectedCallback() {
 			this.__isInDOM = true;
-			if (!this.__connected && this.isConnected) this.initElement();
+			if (!this.__connected && this.isConnected) this.__initElement();
 		}
 
 		/** @override component has been disconnected from the DOM */
@@ -1226,13 +1228,14 @@ const _$wompo = <Props, E>(
 		/**
 		 * Initializes the component with the state, props, and styles.
 		 */
-		private initElement() {
+		private __initElement() {
 			this.__ROOT = this; // Shadow DOM is eventually attached later
 			this.props = {
 				...this.props,
 				...this._$initialProps,
 				styles: styles,
 			} as any;
+
 			const componentAttributes = this.getAttributeNames();
 			for (const attrName of componentAttributes) {
 				if (!this.props.hasOwnProperty(attrName)) {
@@ -1240,6 +1243,16 @@ const _$wompo = <Props, E>(
 					(this.props as any)[attrName] = attrValue === '' ? true : attrValue;
 				}
 			}
+
+			// Set initialProps as attributes
+			const initialPropsKeys = Object.keys(this._$initialProps);
+			for (const key of initialPropsKeys) {
+				const prop = this._$initialProps[key as keyof typeof this._$initialProps];
+				if (prop !== Object(prop) && prop !== false) {
+					this.setAttribute(key, prop.toString());
+				}
+			}
+
 			if (DEV_MODE && this.props['wc-perf']) this._$measurePerf = true;
 
 			if (DEV_MODE && this._$measurePerf) console.time('First render ' + options.name);
@@ -1258,15 +1271,11 @@ const _$wompo = <Props, E>(
 			// Create shadow DOM
 			if (options.shadow && !this.shadowRoot) this.__ROOT = this.attachShadow({ mode: 'open' });
 
-			// Attach styles in every case.
 			if (options.shadow) {
 				(this.__ROOT as ShadowRoot).adoptedStyleSheets = [sheet];
 			} else {
 				const root = this.getRootNode();
-				(root as ShadowRoot).adoptedStyleSheets = [
-					...(root as ShadowRoot).adoptedStyleSheets,
-					sheet,
-				];
+				(root as Document | ShadowRoot).adoptedStyleSheets.push(sheet);
 			}
 
 			// Render
@@ -1274,6 +1283,14 @@ const _$wompo = <Props, E>(
 
 			this.__isInitializing = false;
 			this.__connected = true;
+
+			// Observe attributes mutations
+			new MutationObserver((mutationRecords) => {
+				mutationRecords.forEach((record) => {
+					this.updateProp(record.attributeName, this.getAttribute(record.attributeName));
+				});
+			}).observe(this, { attributes: true });
+
 			if (DEV_MODE && this._$measurePerf) console.timeEnd('First render ' + options.name);
 		}
 
@@ -2171,7 +2188,7 @@ export const registeredComponents: { [key: string]: WompoComponent } = {};
  * @param options The options of the component.
  * @returns The generated class for the component.
  */
-export function defineWompo<Props, E = {}>(
+export function defineWompo<Props extends WompoProps, E = {}>(
 	Component: WompoComponent<Props & WompoProps>,
 	options?: WompoComponentOptions
 ) {

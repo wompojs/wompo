@@ -1,58 +1,58 @@
 {
-  "name": "wompo",
-  "description": "Wompo is a React-like Web-Components library",
-  "version": "1.0.1",
-  "type": "module",
-  "module": "./dist/wompo.js",
-  "main": "./dist/wompo.js",
-  "types": "./ts/wompo.d.ts",
-  "author": "Lorenzo Lannino <lanninolore@gmail.com>",
-  "license": "MIT",
-  "scripts": {
-    "dev": "esbuild ts/wompo.ts ts/ssr/index.ts --sourcemap --watch --outdir=dist --allow-overwrite",
-    "build": "tsc & esbuild ts/wompo.ts ts/ssr/index.ts --minify --outdir=dist --allow-overwrite",
-    "jsx": "esbuild jsx-runtime.ts --minify --outfile=jsx-runtime.js --allow-overwrite",
-    "perf": "tach --config tachometer.json"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/wompojs/wompo.git"
-  },
-  "bugs": {
-    "url": "https://github.com/wompojs/wompo/issues"
-  },
-  "homepage": "https://github.com/wompojs/wompo",
-  "exports": {
-    ".": {
-      "types": "./ts/wompo.d.ts",
-      "default": "./dist/wompo.js"
-    },
-    "./ssr": {
-      "types": "./ts/ssr/index.d.ts",
-      "default": "./dist/ssr/index.js"
-    },
-    "./jsx-runtime": {
-      "types": "./jsx.d.ts",
-      "default": "./jsx-runtime.js"
-    },
-    "./jsx-dev-runtime": {
-      "types": "./jsx.d.ts",
-      "default": "./jsx-runtime.js"
-    }
-  },
-  "typesVersions": {
-    "*": {
-      "jsx-runtime": [
-        "jsx.d.ts"
-      ],
-      "jsx-dev-runtime": [
-        "jsx.d.ts"
-      ]
-    }
-  },
-  "devDependencies": {
-    "esbuild": "0.20.1",
-    "tachometer": "^0.7.0",
-    "ts-loader": "^9.4.3"
-  }
+	"name": "wompo",
+	"description": "Wompo is a performant React-like JS library to create Web-Components that are re-usable, shareable, and beginner-friendly.",
+	"version": "1.0.3",
+	"type": "module",
+	"module": "./dist/wompo.js",
+	"main": "./dist/wompo.js",
+	"types": "./ts/wompo.d.ts",
+	"author": "Lorenzo Lannino <lanninolore@gmail.com>",
+	"license": "MIT",
+	"scripts": {
+		"dev": "esbuild ts/wompo.ts ts/ssr/index.ts --sourcemap --watch --outdir=dist --allow-overwrite",
+		"build": "tsc & esbuild ts/wompo.ts ts/ssr/index.ts --minify --outdir=dist --allow-overwrite",
+		"jsx": "esbuild jsx-runtime.ts --minify --outfile=jsx-runtime.js --allow-overwrite",
+		"perf": "npx tachometer --config tachometer.json"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/wompojs/wompo.git"
+	},
+	"bugs": {
+		"url": "https://github.com/wompojs/wompo/issues"
+	},
+	"homepage": "https://github.com/wompojs/wompo",
+	"exports": {
+		".": {
+			"types": "./ts/wompo.d.ts",
+			"default": "./dist/wompo.js"
+		},
+		"./ssr": {
+			"types": "./ts/ssr/index.d.ts",
+			"default": "./dist/ssr/index.js"
+		},
+		"./jsx-runtime": {
+			"types": "./jsx.d.ts",
+			"default": "./jsx-runtime.js"
+		},
+		"./jsx-dev-runtime": {
+			"types": "./jsx.d.ts",
+			"default": "./jsx-runtime.js"
+		}
+	},
+	"typesVersions": {
+		"*": {
+			"jsx-runtime": [
+				"jsx.d.ts"
+			],
+			"jsx-dev-runtime": [
+				"jsx.d.ts"
+			]
+		}
+	},
+	"devDependencies": {
+		"esbuild": "0.20.1",
+		"tachometer": "^0.7.0",
+		"ts-loader": "^9.4.3"
+	}
 }
