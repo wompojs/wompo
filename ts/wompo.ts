@@ -949,11 +949,18 @@ const __handleDynamicTag = (
 		while (currentDynamic?.node === node) {
 			// Update node pointer of dynamics pointing to the old one.
 			currentDynamic.node = customElement;
-			currentDynamic = dynamics[++index] as DynamicAttribute;
-			// Set initial props of the correct type, so a number doesn't become a string
-			if (currentDynamic?.name && currentDynamic?.name !== 'ref')
-				((customElement as WompoElement)._$initialProps as any)[currentDynamic.name] =
-					values[index];
+			if (index === valueIndex) {
+				// Skip first value, which is the dynamic node itself.
+				index++;
+				currentDynamic = dynamics[index] as DynamicAttribute;
+			} else {
+				// Set initial props of the correct type, so a number doesn't become a string
+				if (currentDynamic?.name && currentDynamic?.name !== 'ref')
+					((customElement as WompoElement)._$initialProps as any)[currentDynamic.name] =
+						values[index];
+				index++;
+				currentDynamic = dynamics[index] as DynamicAttribute;
+			}
 		}
 		node.replaceWith(customElement);
 		return customElement;
@@ -1006,7 +1013,15 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 						currentNode = currentNode.nextSibling;
 					}
 				} else {
-					const [_, dynamics] = (oldValue as HtmlProcessedValue).template;
+					let oldTemplateValue = oldValue as HtmlProcessedValue;
+					if (!oldValue.template) {
+						const cachedTemplate = __createTemplate(currentValue);
+						const template = cachedTemplate.clone();
+						const [fragment, dynamics] = template;
+						newValues[i] = new HtmlProcessedValue(currentValue, template);
+						oldTemplateValue = newValues[i];
+					}
+					const [_, dynamics] = oldTemplateValue.template;
 					const processedValues = __setValues(
 						dynamics,
 						currentValue.values,
@@ -1248,7 +1263,7 @@ const _$wompo = <Props extends WompoProps, E>(
 			const initialPropsKeys = Object.keys(this._$initialProps);
 			for (const key of initialPropsKeys) {
 				const prop = this._$initialProps[key as keyof typeof this._$initialProps];
-				if (prop !== Object(prop) && prop !== false) {
+				if (prop !== Object(prop) && (prop || (prop as any) === 0) && key !== 'title') {
 					this.setAttribute(key, prop.toString());
 				}
 			}
@@ -1286,9 +1301,11 @@ const _$wompo = <Props extends WompoProps, E>(
 
 			// Observe attributes mutations
 			new MutationObserver((mutationRecords) => {
-				mutationRecords.forEach((record) => {
-					this.updateProp(record.attributeName, this.getAttribute(record.attributeName));
-				});
+				if (!this.__updating) {
+					mutationRecords.forEach((record) => {
+						this.updateProp(record.attributeName, this.getAttribute(record.attributeName));
+					});
+				}
 			}).observe(this, { attributes: true });
 
 			if (DEV_MODE && this._$measurePerf) console.timeEnd('First render ' + options.name);
