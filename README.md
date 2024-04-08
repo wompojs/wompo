@@ -1,5 +1,7 @@
 # Wompo
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/X7X8WMZ45)
+
 Wompo is a React-like library to create reusable, shareable, and fast Web-Components.
 
 Wompo has the following benefits:

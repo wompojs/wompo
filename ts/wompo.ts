@@ -518,7 +518,8 @@ class DynamicAttribute {
 		const isWompoElement = (this.node as WompoElement)._$wompo;
 		if (isWompoElement) (this.node as WompoElement).updateProp(this.name, newValue);
 		const isPrimitive = newValue !== Object(newValue);
-		if (newValue === false) this.node.removeAttribute(this.name);
+		if (newValue === false || newValue === null || newValue === undefined)
+			this.node.removeAttribute(this.name);
 		else if (isPrimitive && (!this.name.match(/[A-Z]/) || this.node.nodeName === 'svg'))
 			this.node.setAttribute(this.name, newValue);
 		else if (this.name === 'style') {
