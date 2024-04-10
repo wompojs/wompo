@@ -3,7 +3,7 @@ import {
 	type WompoComponent,
 	type WompoProps,
 	registeredComponents,
-} from '../wompo';
+} from '../wompo.js';
 
 /* 
 ================================================

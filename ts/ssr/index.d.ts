@@ -1,4 +1,4 @@
-import { type WompoComponent, type WompoProps } from '../wompo';
+import { type WompoComponent, type WompoProps } from '../wompo.js';
 export declare const ssr: (Component: WompoComponent, props: WompoProps) => {
     html: string;
     css: {
