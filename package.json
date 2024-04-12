@@ -22,7 +22,7 @@
 	"bugs": {
 		"url": "https://github.com/wompojs/wompo/issues"
 	},
-	"homepage": "https://github.com/wompojs/wompo",
+	"homepage": "https://wompo.dev",
 	"exports": {
 		".": {
 			"types": "./ts/wompo.d.ts",
