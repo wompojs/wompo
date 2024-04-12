@@ -1,17 +1,16 @@
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-dark.png" alt="Wompo" width="300" height="141">
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-dark.svg" alt="Wompo" width="300" height="141">
   </source>
-  <source media="(prefers-color-scheme: light)" srcset="./assets/logo.png" alt="Wompo" width="300" height="141">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/logo.svg" alt="Wompo" width="300" height="141">
   </source>
-  <img src="./assets/logo.png" alt="Wompo" width="300" height="141">
+  <img src="./assets/logo.svg" alt="Wompo" width="300" height="141">
 </picture>
 
 ### Wompo<br/> Fast, React-like, Web-Components.
 
 
 [![Published on npm](https://img.shields.io/npm/v/wompo.svg?logo=npm)](https://www.npmjs.com/package/wompo)
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/wompo)
 
 </div>
 
@@ -19,6 +18,8 @@
 ### Documentation
 
 Check the full documentation for Wompo at [wompo.dev](https://wompo.dev).
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/wompo)
 
 ### Quick Example: Counter
 
