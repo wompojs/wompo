@@ -7,7 +7,7 @@
   <img src="./assets/logo.svg" alt="Wompo" width="300" height="141">
 </picture>
 
-### Wompo<br/> Fast, React-like, Web-Components.
+### Fast, React-like, Web-Components.
 
 
 [![Published on npm](https://img.shields.io/npm/v/wompo.svg?logo=npm)](https://www.npmjs.com/package/wompo)
