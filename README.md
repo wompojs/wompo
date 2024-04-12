@@ -1,14 +1,26 @@
-# Wompo
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-dark.png" alt="Wompo" width="300" height="141">
+  </source>
+  <source media="(prefers-color-scheme: light)" srcset="./assets/logo.png" alt="Wompo" width="300" height="141">
+  </source>
+  <img src="./assets/logo.png" alt="Wompo" width="300" height="141">
+</picture>
 
+### Wompo<br/> Fast, React-like, Web-Components.
+
+
+[![Published on npm](https://img.shields.io/npm/v/wompo.svg?logo=npm)](https://www.npmjs.com/package/wompo)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/wompo)
 
-Wompo is a React-like library to create reusable, shareable, and fast Web-Components.
+</div>
 
-## Documentation
+
+### Documentation
 
 Check the full documentation for Wompo at [wompo.dev](https://wompo.dev).
 
-## Quick Example: Counter
+### Quick Example: Counter
 
 Creating a custom Counter component is very easy with Wompo, and works exactly like React!
 
@@ -43,7 +55,7 @@ Then, you can simply render it in you HTML:
 <!-- Will render: <button>Current value: 0!</button> -->
 ```
 
-## JSX
+### JSX
 
 Wompo supports JSX. If you use it with Typescript, write this in your `tsconfig.json` file:
 
