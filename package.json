@@ -17,7 +17,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/wompojs/wompo.git"
+		"url": "git+https://github.com/wompojs/wompo.git"
 	},
 	"bugs": {
 		"url": "https://github.com/wompojs/wompo/issues"
