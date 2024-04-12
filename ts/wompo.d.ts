@@ -661,7 +661,7 @@ export declare const useExposed: <E = {}>(toExpose: E) => void;
  * @param promise The promise to resolve.
  * @returns The result of the promise or null if it's pending or rejected.
  */
-export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[]) => S;
+export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[]) => null | S;
 /**
  * The Context interface
  */
