@@ -1,0 +1,6 @@
+<script type="module">
+	import * as bench from '/bench.js';
+	bench.start();
+	await import('./render.js');
+	bench.stop();
+</script>

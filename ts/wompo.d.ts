@@ -18,6 +18,7 @@ export interface WompoProps {
     };
     /** In DEV_MODE, will write on the console performance informations. */
     ['wc-perf']?: boolean;
+    wcPerf?: boolean;
     /** The style of a component to customize it through the style attribute in the DOM. */
     style?: string | Partial<CSSStyleDeclaration> | object;
     /** A potential reference to the element. */
@@ -661,7 +662,7 @@ export declare const useExposed: <E = {}>(toExpose: E) => void;
  * @param promise The promise to resolve.
  * @returns The result of the promise or null if it's pending or rejected.
  */
-export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[]) => null | S;
+export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[]) => S;
 /**
  * The Context interface
  */

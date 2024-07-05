@@ -1,5 +1,5 @@
 /**
- * False to get smalles build file possible.
+ * False to get smallest build file possible.
  */
 const DEV_MODE = false;
 
@@ -27,6 +27,7 @@ export interface WompoProps {
 	styles?: { [key: string]: string };
 	/** In DEV_MODE, will write on the console performance informations. */
 	['wc-perf']?: boolean;
+	wcPerf?: boolean;
 	/** The style of a component to customize it through the style attribute in the DOM. */
 	style?: string | Partial<CSSStyleDeclaration> | object;
 	/** A potential reference to the element. */
@@ -320,6 +321,8 @@ const treeWalker = doc.createTreeWalker(
 	129 // NodeFilter.SHOW_{ELEMENT|COMMENT}
 );
 
+const mutationAttributesExclusions = ['class', 'style', 'id'];
+
 /* 
 ================================================
 CLASSES
@@ -514,7 +517,8 @@ class DynamicAttribute {
 			}
 			return;
 		}
-		if (DEV_MODE && this.name === 'wc-perf') (this.node as WompoElement)._$measurePerf = true;
+		if (DEV_MODE && (this.name === 'wc-perf' || this.name == 'wcPerf'))
+			(this.node as WompoElement)._$measurePerf = true;
 		const isWompoElement = (this.node as WompoElement)._$wompo;
 		if (isWompoElement) (this.node as WompoElement).updateProp(this.name, newValue);
 		const isPrimitive = newValue !== Object(newValue);
@@ -529,7 +533,8 @@ class DynamicAttribute {
 				let styleValue = newValue[key];
 				let styleKey = key.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
 				if (typeof styleValue === 'number') styleValue = `${styleValue}px`;
-				styleString += `${styleKey}:${styleValue};`;
+				if (styleValue !== undefined && styleValue !== null && styleValue !== false)
+					styleString += `${styleKey}:${styleValue};`;
 			}
 			this.node.setAttribute(this.name, styleString);
 		}
@@ -603,6 +608,8 @@ class WompoArrayDependency {
 
 	/** The array containing the old values, for comparisons. */
 	private __oldValues: any[];
+	/** The array containing the old values, not modified by the __setValues function. */
+	private __oldPureValues: any[];
 	/** The parent dynamic node dependency. */
 	private __parentDependency: DynamicNode;
 
@@ -613,29 +620,29 @@ class WompoArrayDependency {
 	 */
 	constructor(values: any[], dependency: DynamicNode) {
 		this.dynamics = [];
+		this.__oldValues = [];
 		this.__parentDependency = dependency;
-		this.addDependenciesFrom(dependency.startNode as HTMLElement, values.length);
-		this.__oldValues = __setValues(this.dynamics, values, []);
+		dependency.startNode.after(document.createComment('?wc-end'));
+		this.addDependenciesFrom(dependency.startNode as HTMLElement, values);
+		this.__oldPureValues = values;
+		// this.__oldValues = __setValues(this.dynamics, values, []);
 	}
 
 	/**
 	 * This function will add markers (HTML comments) and generate dynamic nodes dependecies used to
 	 * efficiently udpate the values inside of the array.
 	 * @param startNode The start node on which insert the new "single-item" dependencies.
-	 * @param toAdd The number of dependencies to generate.
+	 * @param toAdd The values to add
 	 */
-	private addDependenciesFrom(startNode: HTMLElement, toAdd: number) {
+	private addDependenciesFrom(startNode: HTMLElement, toAdd: any[]) {
 		let currentNode = startNode;
-		let toAddNumber = toAdd;
-		while (toAddNumber) {
-			const startComment = document.createComment(`?START`);
-			const endComment = document.createComment(`?END`);
-			currentNode.after(startComment);
-			startComment.after(endComment);
-			const dependency = new DynamicNode(startComment, endComment);
-			currentNode = endComment as unknown as HTMLElement;
+		for (let i = 0; i < toAdd.length; i++) {
+			const value = toAdd[i];
+			currentNode.after('');
+			const dependency = new DynamicNode(currentNode, currentNode.nextSibling);
+			currentNode = currentNode.nextSibling as HTMLElement;
 			this.dynamics.push(dependency);
-			toAddNumber--;
+			this.__oldValues.push(__setValues([dependency], [value], [])[0]);
 		}
 	}
 
@@ -646,19 +653,35 @@ class WompoArrayDependency {
 	 * @returns This instance.
 	 */
 	public checkUpdates(newValues: any[]) {
+		if (newValues === this.__oldPureValues) return this;
 		let diff = newValues.length - this.__oldValues.length;
-		if (diff > 0) {
-			let startNode = this.dynamics[this.dynamics.length - 1]?.endNode;
-			if (!startNode) startNode = this.__parentDependency.startNode;
-			this.addDependenciesFrom(startNode as HTMLElement, diff);
-		} else if (diff < 0) {
+		if (diff < 0) {
 			while (diff) {
 				const toClean = this.dynamics.pop();
+				this.__oldValues.pop();
 				toClean.dispose();
 				diff++;
 			}
 		}
-		this.__oldValues = __setValues(this.dynamics, newValues, this.__oldValues);
+		for (let i = 0; i < this.dynamics.length; i++) {
+			const newValue = newValues[i];
+			const dependency = this.dynamics[i];
+			const oldValue = this.__oldValues[i];
+			this.__oldValues[i] = __setValues([dependency], [newValue], [oldValue])[0];
+		}
+		if (diff > 0) {
+			let currentNode = this.dynamics[this.dynamics.length - 1]?.endNode;
+			if (!currentNode) currentNode = this.__parentDependency.startNode;
+			for (let i = 0; i < diff; i++) {
+				const value = newValues[this.__oldValues.length + i];
+				currentNode.after('');
+				const dependency = new DynamicNode(currentNode, currentNode.nextSibling);
+				currentNode = currentNode.nextSibling as HTMLElement;
+				this.dynamics.push(dependency);
+				this.__oldValues.push(__setValues([dependency], [value], []));
+			}
+		}
+		this.__oldPureValues = newValues;
 		return this;
 	}
 }
@@ -770,6 +793,11 @@ const __createHtml = (parts: TemplateStringsArray): [string, string[]] => {
 	html = html.replace(selfClosingRegex, (match, firstPart, componentName) => {
 		if (match.endsWith('/>')) return `${firstPart}></${componentName}>`;
 		return match;
+	});
+	html = html.replace(/<[a-z]*-[a-z]*\s?.*?>/gms, (match) => {
+		return match.replace(/\s([a-z]*[A-Z][a-z]*)[=\s]/gms, (attr) =>
+			attr.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+		);
 	});
 	return [html, attributes];
 };
@@ -930,7 +958,9 @@ const __handleDynamicTag = (
 			for (const attrName of oldAttributes) {
 				// attributes on the dom will be set when creating the element
 				const attrValue = (node as HTMLElement).getAttribute(attrName);
-				initialProps[attrName] = attrValue === '' ? true : attrValue;
+				let propName = attrName;
+				if (propName.includes('-')) propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
+				initialProps[propName] = attrValue === '' ? true : attrValue;
 			}
 			customElement = new currentValue.class() as WompoElement;
 			(customElement as WompoElement)._$initialProps = initialProps;
@@ -983,6 +1013,9 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 		const currentDependency = dynamics[i];
 		const currentValue = newValues[i];
 		const oldValue = oldValues[i];
+		// Update References
+		if (currentValue?.__wcRef && currentDependency.isAttr && currentDependency.name === 'ref')
+			currentValue.current = currentDependency.node;
 		if (!__shouldUpdate(currentValue, oldValue, currentDependency))
 			// Skip update: values are the same
 			continue;
@@ -1000,15 +1033,14 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					const template = cachedTemplate.clone();
 					const [fragment, dynamics] = template;
 					newValues[i] = new HtmlProcessedValue(currentValue, template);
-					__setValues(dynamics, currentValue.values, oldValue?.values ?? oldValue ?? []);
-					const endNode = (currentDependency as DynamicNode).endNode;
+					newValues[i].values = __setValues(
+						dynamics,
+						currentValue.values,
+						oldValue?.values ?? oldValue ?? []
+					);
 					const startNode = (currentDependency as DynamicNode).startNode;
-					let currentNode = startNode.nextSibling;
-					while (currentNode !== endNode) {
-						currentNode.remove();
-						currentNode = startNode.nextSibling;
-					}
-					currentNode = startNode;
+					currentDependency.clearValue();
+					let currentNode = startNode;
 					while (fragment.childNodes.length) {
 						currentNode.after(fragment.childNodes[0]);
 						currentNode = currentNode.nextSibling;
@@ -1018,7 +1050,6 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					if (!oldValue.template) {
 						const cachedTemplate = __createTemplate(currentValue);
 						const template = cachedTemplate.clone();
-						const [fragment, dynamics] = template;
 						newValues[i] = new HtmlProcessedValue(currentValue, template);
 						oldTemplateValue = newValues[i];
 					}
@@ -1196,6 +1227,8 @@ const _$wompo = <Props extends WompoProps, E>(
 		private __isInitializing: boolean = true;
 		/** It's true if the component is connected to the DOM. */
 		private __connected: boolean = false;
+		/** It's true if the component has been disconnected from the DOM. */
+		private __disconnected: boolean = false;
 		/**
 		 * Used to know if a component has been completely removed from the DOM or only temporarely to
 		 * move it from a node to another.
@@ -1208,6 +1241,13 @@ const _$wompo = <Props extends WompoProps, E>(
 
 		/** @override component has been connected to the DOM */
 		connectedCallback() {
+			// If the element is disconnected and connected again, then execute again all effects.
+			if (this.__disconnected && this.isConnected) {
+				this.__disconnected = false;
+				for (const hook of this.hooks) {
+					if ((hook as EffectHook)?.callback) (hook as EffectHook).callback();
+				}
+			}
 			this.__isInDOM = true;
 			if (!this.__connected && this.isConnected) this.__initElement();
 		}
@@ -1223,6 +1263,7 @@ const _$wompo = <Props extends WompoProps, E>(
 					// If the connectedCallback is called again, isInTheDOM will be true
 					if (!this.__isInDOM) {
 						this.onDisconnected();
+						this.__disconnected = true;
 						for (const hook of this.hooks) {
 							if ((hook as EffectHook)?.cleanupFunction) (hook as any).cleanupFunction();
 						}
@@ -1254,9 +1295,11 @@ const _$wompo = <Props extends WompoProps, E>(
 
 			const componentAttributes = this.getAttributeNames();
 			for (const attrName of componentAttributes) {
-				if (!this.props.hasOwnProperty(attrName)) {
+				let propName = attrName;
+				if (propName.includes('-')) propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
+				if (!this.props.hasOwnProperty(propName)) {
 					const attrValue = this.getAttribute(attrName);
-					(this.props as any)[attrName] = attrValue === '' ? true : attrValue;
+					(this.props as any)[propName] = attrValue === '' ? true : attrValue;
 				}
 			}
 
@@ -1265,11 +1308,14 @@ const _$wompo = <Props extends WompoProps, E>(
 			for (const key of initialPropsKeys) {
 				const prop = this._$initialProps[key as keyof typeof this._$initialProps];
 				if (prop !== Object(prop) && (prop || (prop as any) === 0) && key !== 'title') {
-					this.setAttribute(key, prop.toString());
+					this.setAttribute(
+						key.replace(/[A-Z]/g, (l) => `-${l.toLowerCase()}`),
+						prop.toString()
+					);
 				}
 			}
 
-			if (DEV_MODE && this.props['wc-perf']) this._$measurePerf = true;
+			if (DEV_MODE && this.props.wcPerf) this._$measurePerf = true;
 
 			if (DEV_MODE && this._$measurePerf) console.time('First render ' + options.name);
 			// The children are saved in a WompoChildren instance, so that
@@ -1304,7 +1350,12 @@ const _$wompo = <Props extends WompoProps, E>(
 			new MutationObserver((mutationRecords) => {
 				if (!this.__updating) {
 					mutationRecords.forEach((record) => {
-						this.updateProp(record.attributeName, this.getAttribute(record.attributeName));
+						if (!mutationAttributesExclusions.includes(record.attributeName)) {
+							let propName = record.attributeName;
+							if (propName.includes('-'))
+								propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
+							this.updateProp(propName, this.getAttribute(record.attributeName));
+						}
 					});
 				}
 			}).observe(this, { attributes: true });
@@ -1910,7 +1961,7 @@ const executeUseAsyncCallback = <S>(
 	promise
 		.then((data) => {
 			component.requestRender();
-			suspense.removeSuspense(component);
+			suspense?.removeSuspense(component);
 			(component.hooks[hookIndex] as AsyncHook<S>).value = data;
 		})
 		.catch((err) => console.error(err));
