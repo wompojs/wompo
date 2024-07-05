@@ -220,7 +220,7 @@ const handleSsValue = (part: string, value: any, ssrData: SsrDataObject) => {
 	return html;
 };
 
-//! Find weak points (e.g. if you put a ">" in the attributes).
-//! Dynamic composed attr doesnt work on custom elements (e.g. title="N. ${counter}")
-//! Deeply test ALL Regexes: putting line breaks, and stuff.
-//! Maybe review the CSS Generation. Is it OK?
+// TODO Find weak points (e.g. if you put a ">" in the attributes).
+// TODO Dynamic composed attr doesnt work on custom elements (e.g. title="N. ${counter}")
+// TODO Deeply test ALL Regexes: putting line breaks, and stuff.
+// TODO Maybe review the CSS Generation. Is it OK?
