@@ -508,13 +508,6 @@ class DynamicAttribute {
 	public updateValue(newValue: any) {
 		if (this.name === 'ref' && newValue.__wcRef) {
 			newValue.current = this.node;
-			if ((this.node as WompoElement)._$wompo) {
-				const oldDisconnectedCallback = (this.node as WompoElement).onDisconnected;
-				(this.node as WompoElement).onDisconnected = () => {
-					newValue.current = null;
-					oldDisconnectedCallback();
-				};
-			}
 			return;
 		}
 		if (DEV_MODE && (this.name === 'wc-perf' || this.name == 'wcPerf'))
@@ -638,9 +631,13 @@ class WompoArrayDependency {
 		let currentNode = startNode;
 		for (let i = 0; i < toAdd.length; i++) {
 			const value = toAdd[i];
-			currentNode.after('');
-			const dependency = new DynamicNode(currentNode, currentNode.nextSibling);
-			currentNode = currentNode.nextSibling as HTMLElement;
+			currentNode.after(document.createTextNode(''));
+			currentNode.after(document.createTextNode(''));
+			const dependency = new DynamicNode(
+				currentNode.nextSibling,
+				currentNode.nextSibling.nextSibling
+			);
+			currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
 			this.dynamics.push(dependency);
 			this.__oldValues.push(__setValues([dependency], [value], [])[0]);
 		}
@@ -674,9 +671,13 @@ class WompoArrayDependency {
 			if (!currentNode) currentNode = this.__parentDependency.startNode;
 			for (let i = 0; i < diff; i++) {
 				const value = newValues[this.__oldValues.length + i];
-				currentNode.after('');
-				const dependency = new DynamicNode(currentNode, currentNode.nextSibling);
-				currentNode = currentNode.nextSibling as HTMLElement;
+				currentNode.after(document.createTextNode(''));
+				currentNode.after(document.createTextNode(''));
+				const dependency = new DynamicNode(
+					currentNode.nextSibling,
+					currentNode.nextSibling.nextSibling
+				);
+				currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
 				this.dynamics.push(dependency);
 				this.__oldValues.push(__setValues([dependency], [value], []));
 			}
@@ -964,6 +965,7 @@ const __handleDynamicTag = (
 			}
 			customElement = new currentValue.class() as WompoElement;
 			(customElement as WompoElement)._$initialProps = initialProps;
+			(customElement as WompoElement).props = initialProps;
 			const childNodes = node.childNodes;
 			while (childNodes.length) {
 				customElement.appendChild(childNodes[0]);
@@ -986,9 +988,11 @@ const __handleDynamicTag = (
 				currentDynamic = dynamics[index] as DynamicAttribute;
 			} else {
 				// Set initial props of the correct type, so a number doesn't become a string
-				if (currentDynamic?.name && currentDynamic?.name !== 'ref')
+				if (currentDynamic?.name && currentDynamic?.name !== 'ref') {
 					((customElement as WompoElement)._$initialProps as any)[currentDynamic.name] =
 						values[index];
+					((customElement as WompoElement).props as any)[currentDynamic.name] = values[index];
+				}
 				index++;
 				currentDynamic = dynamics[index] as DynamicAttribute;
 			}
@@ -1245,7 +1249,12 @@ const _$wompo = <Props extends WompoProps, E>(
 			if (this.__disconnected && this.isConnected) {
 				this.__disconnected = false;
 				for (const hook of this.hooks) {
-					if ((hook as EffectHook)?.callback) (hook as EffectHook).callback();
+					if ((hook as EffectHook)?.callback) {
+						// Effect hooks are executed again since the component has been connected again.
+						Promise.resolve().then(() => {
+							(hook as EffectHook).callback();
+						});
+					}
 				}
 			}
 			this.__isInDOM = true;
