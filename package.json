@@ -12,8 +12,7 @@
 		"dev": "esbuild ts/wompo.ts ts/ssr/index.ts --sourcemap --watch --outdir=dist --allow-overwrite",
 		"build": "tsc & esbuild ts/wompo.ts ts/ssr/index.ts --minify --outdir=dist --allow-overwrite",
 		"jsx": "esbuild jsx-runtime.ts --minify --outfile=jsx-runtime.js --allow-overwrite",
-		"perf": "npx tachometer --config tachometer.json",
-		"publish": "npm run build & npm publish"
+		"perf": "npx tachometer --config tachometer.json"
 	},
 	"repository": {
 		"type": "git",
