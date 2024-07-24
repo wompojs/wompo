@@ -651,7 +651,8 @@ class WompoArrayDependency {
 	 */
 	public checkUpdates(newValues: any[]) {
 		if (newValues === this.__oldPureValues) return this;
-		let diff = newValues.length - this.__oldValues.length;
+		const oldValuesLength = this.__oldValues.length;
+		let diff = newValues.length - oldValuesLength;
 		if (diff < 0) {
 			while (diff) {
 				const toClean = this.dynamics.pop();
@@ -669,8 +670,9 @@ class WompoArrayDependency {
 		if (diff > 0) {
 			let currentNode = this.dynamics[this.dynamics.length - 1]?.endNode;
 			if (!currentNode) currentNode = this.__parentDependency.startNode;
+
 			for (let i = 0; i < diff; i++) {
-				const value = newValues[this.__oldValues.length + i];
+				const value = newValues[oldValuesLength + i];
 				currentNode.after(document.createTextNode(''));
 				currentNode.after(document.createTextNode(''));
 				const dependency = new DynamicNode(
