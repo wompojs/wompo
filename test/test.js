@@ -9,12 +9,11 @@ export default function Test() {
 	const [list, setList] = useState([1, 2, 3]);
 
 	const objects = list.map((el) => {
-		return html`<${SecondComponent} title=${`Element ${el}`} />`;
+		return html`<${SecondComponent} title="Element Super cool" />`;
 	});
 
 	return html`<div>
-		<h1>Elements:</h1>
-		${objects}
+		<h1 class="mmmh ${false} aa ${false} ${null}">Elements:</h1>
 	</div>`;
 }
 
