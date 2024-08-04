@@ -303,7 +303,7 @@ let currentHookIndex: number = 0;
 const WC_MARKER = '$wc$';
 const DYNAMIC_TAG_MARKER = 'wc-wc';
 const isDynamicTagRegex = /<\/?$/g;
-const isAttrRegex = /\s+([^\s]*?)="?$/g;
+const isAttrRegex = /\s+([^\s]*?)=(["'][^"']*?)?$/g;
 const selfClosingRegex = /(<([a-z]*-[a-z]*).*?)\/?>/gs;
 const isInsideTextTag = /<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi;
 const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
@@ -768,12 +768,15 @@ const __createHtml = (parts: TemplateStringsArray): [string, string[]] => {
 			if (isAttr) {
 				const [match, attrName] = isAttr;
 				const beforeLastChar = match[match.length - 1];
-				attrDelimiter = beforeLastChar === '"' || beforeLastChar === "'" ? beforeLastChar : '';
-				part = part.substring(0, part.length - attrDelimiter.length - 1);
-				let toAdd = `${part}${WC_MARKER}=`;
-				if (attrDelimiter) toAdd += `${attrDelimiter}${WC_MARKER}`;
-				else toAdd += '"0"';
-				html += toAdd;
+				const delimiter = match.lastIndexOf('"') > match.lastIndexOf("'") ? '"' : "'";
+				if (!attrDelimiter) {
+					attrDelimiter = beforeLastChar === '=' ? '' : delimiter;
+					part = part.replace(/=([^=]*)$/g, (el) => `${WC_MARKER}=${el.substring(1)}`);
+					let toAdd = part;
+					if (attrDelimiter) toAdd += WC_MARKER;
+					else toAdd += '"0"';
+					html += toAdd;
+				}
 				attributes.push(attrName);
 			} else {
 				if (part.match(isDynamicTagRegex)) {
@@ -798,7 +801,7 @@ const __createHtml = (parts: TemplateStringsArray): [string, string[]] => {
 		return match;
 	});
 	html = html.replace(/<[a-z]*-[a-z]*\s?.*?>/gms, (match) => {
-		return match.replace(/\s([a-z]*[A-Z][a-z]*)[=\s]/gms, (attr) =>
+		return match.replace(/(?<=\s)([a-z]+([A-Z][a-z]*)+)[=\s]/gms, (attr) =>
 			attr.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
 		);
 	});
@@ -1123,7 +1126,11 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					const parts = attrStructure.split(WC_MARKER);
 					let dynamicValue = currentValue;
 					for (let j = 0; j < parts.length - 1; j++) {
-						parts[j] = `${parts[j]}${dynamicValue}`;
+						const value =
+							dynamicValue !== undefined && dynamicValue !== null && dynamicValue !== false
+								? dynamicValue
+								: '';
+						parts[j] = `${parts[j]}${value}`;
 						i++; // Go to the next dynamic value
 						dynamicValue = newValues[i];
 					}
