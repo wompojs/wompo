@@ -1,21 +1,29 @@
-import { html, defineWompo, useState } from '../dist/wompo.js';
+import { html, defineWompo, useState, useContext, createContext } from '../dist/wompo.js';
+
+const Context = createContext(null);
 
 function SecondComponent({ title }) {
 	console.log(title);
-	return html`<div>${title}</div>`;
+	return html`<${ThirdComponent} title=${title}></${ThirdComponent}>`;
+}
+
+function ThirdComponent({ title }) {
+	console.log(title);
+	return html`<h1>${title}</h1>`;
 }
 
 export default function Test() {
-	const [list, setList] = useState([1, 2, 3]);
+	const ctx = useContext(Context);
+	const [counter, setCounter] = useState(0);
 
-	const objects = list.map((el) => {
-		return html`<${SecondComponent} title="Element Super cool" />`;
-	});
+	const inc = () => [setCounter(counter + 1)];
 
 	return html`<div>
-		<h1 class="mmmh ${false} aa ${false} ${null}">Elements:</h1>
+		<${SecondComponent} title="Element Super ${counter}" />
+		<button @click=${inc}>${counter}</button>
 	</div>`;
 }
 
+defineWompo(ThirdComponent);
 defineWompo(SecondComponent);
 defineWompo(Test);
