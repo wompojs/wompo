@@ -2074,11 +2074,13 @@ const createContextMemo = () => {
 		const name = providerName ?? `wompo-context-provider-${contextIdentifier}`;
 		contextIdentifier++;
 		const ProviderFunction = defineWompo<ContextProviderProps, ContextProviderExposed>(
-			({ children }: ContextProviderProps) => {
+			({ children, value }: ContextProviderProps) => {
 				const initialSubscribers = new Set<WompoElement>();
 				const subscribers = useRef(initialSubscribers);
 				useExposed({ subscribers: subscribers });
-				subscribers.current.forEach((el) => el.requestRender());
+				subscribers.current.forEach((el) => {
+					if (el.isConnected) el.requestRender();
+				});
 				return html`${children}`;
 			},
 			{
@@ -2150,12 +2152,14 @@ export const useContext = <S>(Context: Context<S>): S => {
 		}
 		const oldParent = (component.hooks[hookIndex] as ContextHook)?.node;
 		if (parent && parent !== document.body) {
-			(parent as ContextProviderElement).subscribers.current.add(component);
-			const oldDisconnect = component.onDisconnected;
-			component.onDisconnected = () => {
-				(parent as ContextProviderElement).subscribers.current.delete(component);
-				oldDisconnect();
-			};
+			Promise.resolve().then(() => {
+				(parent as ContextProviderElement).subscribers.current.add(component);
+				const oldDisconnect = component.onDisconnected;
+				component.onDisconnected = () => {
+					(parent as ContextProviderElement).subscribers.current.delete(component);
+					oldDisconnect();
+				};
+			});
 		} else if (oldParent) {
 			if (DEV_MODE) {
 				console.warn(
