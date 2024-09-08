@@ -1,2 +1,1403 @@
-const oe=!1;let x=null,S=0;const y="$wc$",w="wc-wc",V=/<\/?$/g,H=/\s+([^\s]*?)=(["'][^"']*?)?$/g,I=/(<([a-z]*-[a-z]*).*?)\/?>/gs,D=/<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi,L=/^(?:script|style|textarea|title)$/i,E=0,C=1,$=2,v=typeof global<"u",T=v?{createTreeWalker(){}}:document,g=T.createTreeWalker(T,129),F=["class","style","id"];class z{constructor(e,o){this.template=e,this.dependencies=o}clone(){const e=this.template.content,o=this.dependencies,s=document.importNode(e,!0);g.currentNode=s;let t=g.nextNode(),a=0,n=0,i=o[0];const p=[];for(;i!==void 0;){if(a===i.index){let c;const l=i.type;l===E?c=new N(t,t.nextSibling):l===C?c=new j(t,i):l===$&&(c=new U(t)),p.push(c),i=o[++n]}a!==i?.index&&(t=g.nextNode(),a++)}return g.currentNode=document,[s,p]}}class W{constructor(e,o){this.values=e.values,this.parts=e.parts,this.template=o}}class N{constructor(e,o){this.isNode=!0;this.isAttr=!1;this.isTag=!1;this.startNode=e,this.endNode=o}clearValue(){let e=this.startNode.nextSibling;for(;e&&e!==this.endNode;)e.remove(),e=this.startNode.nextSibling}dispose(){this.clearValue(),this.startNode.remove(),this.endNode&&this.endNode.remove()}}class j{constructor(e,o){this.isNode=!1;this.isAttr=!0;this.isTag=!1;this.__eventInitialized=!1;this.node=e,this.name=o.name,this.attrStructure=o.attrDynamics}updateValue(e){if(this.name==="ref"&&e.__wcRef){e.current=this.node;return}const o=this.node._$wompo;o&&this.node.updateProp(this.name,e);const s=e!==Object(e);if(e===!1||e===null||e===void 0)this.node.removeAttribute(this.name);else if(s&&(!this.name.match(/[A-Z]/)||this.node.nodeName==="svg")&&this.name!=="title")this.node.setAttribute(this.name,e);else if(this.name==="style"){let t="";const a=Object.keys(e);for(const n of a){let i=e[n],p=n.replace(/[A-Z]/g,c=>"-"+c.toLowerCase());typeof i=="number"&&(i=`${i}px`),i!=null&&i!==!1&&(t+=`${p}:${i};`)}this.node.setAttribute(this.name,t)}this.name==="title"&&o&&this.node.removeAttribute(this.name)}set callback(e){if(!this.__eventInitialized){const o=this.name.substring(1);this.node.addEventListener(o,this.__listener.bind(this)),this.__eventInitialized=!0}this.__callback=e}__listener(e){this.__callback&&this.__callback(e)}}class U{constructor(e){this.isNode=!1;this.isAttr=!1;this.isTag=!0;this.node=e}}class q{constructor(e){this._$wompoChildren=!0;this.nodes=e}}class Z{constructor(e,o){this.isArrayDependency=!0;this.dynamics=[],this.__oldValues=[],this.__parentDependency=o,o.startNode.after(document.createComment("?wc-end")),this.addDependenciesFrom(o.startNode,e),this.__oldPureValues=e}addDependenciesFrom(e,o){let s=e;for(let t=0;t<o.length;t++){const a=o[t];s.after(document.createTextNode("")),s.after(document.createTextNode(""));const n=new N(s.nextSibling,s.nextSibling.nextSibling);s=s.nextSibling.nextSibling,this.dynamics.push(n),this.__oldValues.push(b([n],[a],[])[0])}}checkUpdates(e){if(e===this.__oldPureValues)return this;const o=this.__oldValues.length;let s=e.length-o;if(s<0)for(;s;){const t=this.dynamics.pop();this.__oldValues.pop(),t.dispose(),s++}for(let t=0;t<this.dynamics.length;t++){const a=e[t],n=this.dynamics[t],i=this.__oldValues[t];this.__oldValues[t]=b([n],[a],[i])[0]}if(s>0){let t=this.dynamics[this.dynamics.length-1]?.endNode;t||(t=this.__parentDependency.startNode);for(let a=0;a<s;a++){const n=e[o+a];t.after(document.createTextNode("")),t.after(document.createTextNode(""));const i=new N(t.nextSibling,t.nextSibling.nextSibling);t=t.nextSibling.nextSibling,this.dynamics.push(i),this.__oldValues.push(b([i],[n],[]))}}return this.__oldPureValues=e,this}}const B=(r,e)=>{const{css:o}=r,{shadow:s,name:t,cssModule:a}=e,n=t,i={};let p=o;return a&&(o.includes(":host")||(p=`${s?":host":n} {display:block;} ${o}`),s||(p=p.replace(/:host/g,n)),p=p.replace(/\.(?!\d)([_a-zA-Z0-9-]+)/gm,(c,l)=>{const d=`${n}__${l}`;return i[l]=d,`.${d}`})),[p,i]},K=r=>{let e="";const o=[],s=r.length-1;let t="",a="";for(let n=0;n<s;n++){let i=r[n];if(t&&i.includes(t)&&(t=""),a&&new RegExp(`</${a}>`)&&(a=""),t||a)e+=i+y;else{H.lastIndex=0;const p=H.exec(i);if(p){const[c,l]=p,d=c[c.length-1],u=c.lastIndexOf('"')>c.lastIndexOf("'")?'"':"'";if(!t){t=d==="="?"":u,i=i.replace(/=([^=]*)$/g,h=>`${y}=${h.substring(1)}`);let m=i;t?m+=y:m+='"0"',e+=m}o.push(l)}else{if(i.match(V)){e+=i+w;continue}D.lastIndex=0;const c=D.exec(i);c?(a=c[1],e+=i+y):e+=i+`<?${y}>`}}}return e+=r[r.length-1],e=e.replace(I,(n,i,p)=>n.endsWith("/>")?`${i}></${p}>`:n),e=e.replace(/<[a-z]*-[a-z]*\s?.*?>/gms,n=>n.replace(/(?<=\s)([a-z]+([A-Z][a-z]*)+)[=\s]/gms,i=>i.replace(/[A-Z]/g,p=>`-${p.toLowerCase()}`))),[e,o]},G=(r,e,o)=>{const s=[];g.currentNode=r.content;let t,a=0,n=0;const i=e.length;for(;(t=g.nextNode())!==null&&s.length<i;){if(t.nodeType===1){if(t.nodeName===w.toUpperCase()){const p={type:$,index:n};s.push(p)}if(t.hasAttributes()){const p=t.getAttributeNames();for(const c of p)if(c.endsWith(y)){const l=o[a++],d=t.getAttribute(c);if(d!=="0"){const u=d.split(y);for(let m=0;m<u.length-1;m++){const h={type:C,index:n,attrDynamics:d,name:l};s.push(h)}}else{const u={type:C,index:n,name:l};s.push(u)}t.removeAttribute(c)}}if(L.test(t.tagName)){const p=t.textContent.split(y),c=p.length-1;if(c>0){t.textContent="";for(let l=0;l<c;l++)t.append(p[l],document.createComment("")),g.nextNode(),s.push({type:E,index:++n});t.append(p[c],document.createComment(""))}}}else t.nodeType===8&&t.data===`?${y}`&&s.push({type:E,index:n});n++}return s},P=r=>{const[e,o]=K(r.parts),s=document.createElement("template");s.innerHTML=e;const t=G(s,r.parts,o);return new z(s,t)},Y=(r,e)=>{if(!r||!e)return!1;const o=r.parts,s=e.parts;if(o.length!==s?.length)return!1;const t=r.values,a=e.values;for(let n=0;n<o.length;n++)if(o[n]!==s[n]||t[n]?._$wompoF&&(!a[n]?._$wompoF||t[n].componentName!==a[n].componentName))return!1;return!0},J=(r,e,o)=>{const s=r!==e,t=!!o.attrStructure,n=r?._$wompoChildren&&o.startNode.nextSibling!==r.nodes[0];return s||t||n},R=(r,e,o,s,t)=>{const a=e.node;let n=null;const i=r._$wompoF,p=i?r.componentName:r;if(a.nodeName!==p.toUpperCase()){const c=a.getAttributeNames();if(i){const u={};for(const h of c){const f=a.getAttribute(h);let _=h;_.includes("-")&&(_=_.replace(/-(.)/g,(k,M)=>M.toUpperCase())),u[_]=f===""?!0:f}n=new r.class,n._$initialProps=u,n.props=u;const m=a.childNodes;for(;m.length;)n.appendChild(m[0])}else{n=document.createElement(p);for(const u of c)n.setAttribute(u,a.getAttribute(u))}let l=o,d=s[l];for(;d?.node===a;)d.node=n,l===o?(l++,d=s[l]):(d?.name&&d?.name!=="ref"&&(n._$initialProps[d.name]=t[l],n.props[d.name]=t[l]),l++,d=s[l]);return a.replaceWith(n),n}},b=(r,e,o)=>{const s=[...e];for(let t=0;t<r.length;t++){const a=r[t],n=s[t],i=o[t];if(n?.__wcRef&&a.isAttr&&a.name==="ref"&&(n.current=a.node),!!J(n,i,a)){if(a.isNode){if(n===!1||n===void 0||n===null){a.clearValue();continue}if(n?._$wompoHtml){const d=Y(n,i);if(i===void 0||!d){const m=P(n).clone(),[h,f]=m;s[t]=new W(n,m),s[t].values=b(f,n.values,i?.values??i??[]);const _=a.startNode;a.clearValue();let k=_;for(;h.childNodes.length;)k.after(h.childNodes[0]),k=k.nextSibling}else{let u=i;if(!i.template){const k=P(n).clone();s[t]=new W(n,k),u=s[t]}const[m,h]=u.template,f=b(h,n.values,i.values);i.values=f,s[t]=i}continue}const p=n!==Object(n),c=i!==Object(i)&&i!==void 0,l=a.startNode;if(p)c?l.nextSibling?l.nextSibling.textContent=n:l.after(n):(a.clearValue(),l.after(n));else{let d=l.nextSibling,u=0,m=0;if(n._$wompoChildren){i&&!i?._$wompoChildren&&a.clearValue();const h=n.nodes;for(;m<h.length;){(!d||m===0)&&(d=l);const f=h[u];u++,d.after(f),d=d.nextSibling,m++}}else Array.isArray(n)&&(i?.isArrayDependency?s[t]=i.checkUpdates(n):(a.clearValue(),s[t]=new Z(n,a)))}}else if(a.isAttr)if(a.name.startsWith("@"))a.callback=n;else{const c=a.attrStructure;if(c){const l=c.split(y);let d=n;for(let u=0;u<l.length-1;u++){const m=d!=null&&d!==!1?d:"";l[u]=`${l[u]}${m}`,t++,d=s[t]}t--,a.updateValue(l.join("").trim())}else a.updateValue(n)}else if(a.isTag)if(n._$wompoLazy){const c=a.node,l=O(c);l&&(l.addSuspense?l.addSuspense(c):(l.loadingComponents=new Set,l.loadingComponents.add(c)),c.suspense=l),n().then(d=>{const u=R(d,a,t,r,e);l&&l.removeSuspense(c,u)});continue}else R(n,a,t,r,e)}}return s},Q=(r,e)=>{const{generatedCSS:o,styles:s}=r.options,t=new CSSStyleSheet;return t.replaceSync(o),class extends HTMLElement{constructor(){super();this._$wompo=!0;this.props={};this.hooks=[];this._$measurePerf=!1;this._$initialProps={};this._$usesContext=!1;this._$hasBeenMoved=!1;this._$layoutEffects=[];this.__updating=!1;this.__oldValues=[];this.__isInitializing=!0;this.__connected=!1;this.__disconnected=!1;this.__isInDOM=!1}static{this._$wompo=!0}static{this.componentName=e.name}static _$getOrCreateTemplate(i){return this._$cachedTemplate||(this._$cachedTemplate=P(i)),this._$cachedTemplate}connectedCallback(){if(this.__disconnected&&this.isConnected){this.__disconnected=!1;for(const i of this.hooks)i?.callback&&Promise.resolve().then(()=>{i.callback()})}this.__isInDOM=!0,!this.__connected&&this.isConnected&&this.__initElement()}disconnectedCallback(){this.__connected&&(this.__isInDOM=!1,Promise.resolve().then(()=>{if(this.__isInDOM)this._$hasBeenMoved=!0,this._$usesContext&&this.requestRender();else{this.onDisconnected(),this.__disconnected=!0;for(const i of this.hooks)i?.cleanupFunction&&i.cleanupFunction()}}))}onDisconnected(){}__initElement(){this.__ROOT=this,this.props={...this.props,...this._$initialProps,styles:s};const i=this.getAttributeNames();for(const u of i){let m=u;if(m.includes("-")&&(m=m.replace(/-(.)/g,(h,f)=>f.toUpperCase())),!this.props.hasOwnProperty(m)){const h=this.getAttribute(u);this.props[m]=h===""?!0:h}}const p=Object.keys(this._$initialProps);for(const u of p){const m=this._$initialProps[u];m!==Object(m)&&(m||m===0)&&u!=="title"&&this.setAttribute(u.replace(/[A-Z]/g,h=>`-${h.toLowerCase()}`),m.toString())}const c=this.__ROOT.childNodes,l=[];for(;c.length;)l.push(c[0]),c[0].remove();const d=new q(l);this.props.children=d,e.shadow&&!this.shadowRoot&&(this.__ROOT=this.attachShadow({mode:"open"})),e.shadow?this.__ROOT.adoptedStyleSheets=[t]:this.getRootNode().adoptedStyleSheets.push(t),this.__render(),this.__isInitializing=!1,this.__connected=!0,new MutationObserver(u=>{this.__updating||u.forEach(m=>{if(!F.includes(m.attributeName)){let h=m.attributeName;h.includes("-")&&(h=h.replace(/-(.)/g,(f,_)=>_.toUpperCase())),this.updateProp(h,this.getAttribute(m.attributeName))}})}).observe(this,{attributes:!0})}__callComponent(){x=this,S=0;const i=r.call(this,this.props);let p=i;return(typeof i=="string"||i instanceof HTMLElement)&&(p=html`${i}`),p}__render(){try{const i=this.__callComponent();if(i==null){this.__dynamics=[],this.__oldValues=[],this.remove();return}const p=this.constructor;if(this.__isInitializing){const c=p._$getOrCreateTemplate(i),[l,d]=c.clone();this.__dynamics=d;const u=b(this.__dynamics,i.values,this.__oldValues);for(this.__oldValues=u,this.__isInitializing||(this.__ROOT.innerHTML="");l.childNodes.length;)this.__ROOT.appendChild(l.childNodes[0])}else{const c=b(this.__dynamics,i.values,this.__oldValues);this.__oldValues=c}for(;this._$layoutEffects.length;){const c=this._$layoutEffects.pop();c.cleanupFunction=c.callback()}}catch(i){console.error(i)}}requestRender(){this.__updating||(this.__updating=!0,Promise.resolve().then(()=>{this.__render(),this.__updating=!1,this._$hasBeenMoved=!1}))}updateProp(i,p){this.props[i]!==p&&(this.props[i]=p,this.__isInitializing||this.requestRender())}}};export const useHook=()=>{const o=[x,S];return S++,o},useState=r=>{const[e,o]=useHook();if(!e)return typeof r=="function"?[r(),()=>{}]:[r,()=>{}];if(!e.hooks.hasOwnProperty(o)){const t=o;e.hooks[t]=[typeof r=="function"?r():r,a=>{let n=a;const i=e.hooks[t];typeof a=="function"&&(n=a(i[0])),n!==i[0]&&(i[0]=n,e.requestRender())}]}return e.hooks[o]},useEffect=(r,e=null)=>{const[o,s]=useHook();if(o.hooks.hasOwnProperty(s)){const t=o.hooks[s];if(e!==null){for(let a=0;a<e.length;a++)if(t.dependencies[a]!==e[a]){typeof t.cleanupFunction=="function"&&t.cleanupFunction(),Promise.resolve().then(()=>{t.cleanupFunction=r(),t.dependencies=e});break}}else Promise.resolve().then(()=>{t.cleanupFunction=r(),t.dependencies=e})}else{const t={dependencies:e,callback:r,cleanupFunction:null};o.hooks[s]=t,Promise.resolve().then(()=>{t.cleanupFunction=r()})}},useLayoutEffect=(r,e=null)=>{const[o,s]=useHook();if(o.hooks.hasOwnProperty(s)){const t=o.hooks[s];if(e!==null){for(let a=0;a<e.length;a++)if(t.dependencies[a]!==e[a]){typeof t.cleanupFunction=="function"&&t.cleanupFunction(),t.dependencies=e,t.callback=r,o._$layoutEffects.push(t);break}}else o._$layoutEffects.push(t)}else{const t={dependencies:e,callback:r,cleanupFunction:null};o.hooks[s]=t,o._$layoutEffects.push(t)}},useRef=(r=null)=>{const[e,o]=useHook();return e.hooks.hasOwnProperty(o)||(e.hooks[o]={current:r,__wcRef:!0}),e.hooks[o]},useCallback=(r,e=[])=>{const[o,s]=useHook();if(!o.hooks.hasOwnProperty(s))o.hooks[s]={dependencies:e,value:r};else{const a=o.hooks[s];for(let n=0;n<e.length;n++)if(a.dependencies[n]!==e[n]){a.dependencies=e,a.value=r;break}}return o.hooks[s].value};const X=()=>{let r=0;return()=>{const[e,o]=useHook();return e.hooks.hasOwnProperty(o)||(e.hooks[o]=`:w${r}:`,r++),e.hooks[o]}};export const useId=X(),useMemo=(r,e)=>{const[o,s]=useHook();if(!o.hooks.hasOwnProperty(s))o.hooks[s]={value:r(),dependencies:e};else{const a=o.hooks[s];for(let n=0;n<e.length;n++)if(a.dependencies[n]!==e[n]){a.dependencies=e,a.value=r();break}}return o.hooks[s].value},useReducer=(r,e)=>{const[o,s]=useHook(),t=s;if(!o.hooks.hasOwnProperty(t)){const i=[e,p=>{const c=o.hooks[t][0],l=r(c,p);let d=l;typeof c=="object"&&!Array.isArray(c)&&c!==null&&(d={...c,...l}),o.hooks[s][0]=d,d!==c&&o.requestRender()}];o.hooks[s]=i}return o.hooks[s]},useExposed=r=>{const e=x,o=Object.keys(r);for(const s of o)e[s]=r[s]};const A=(r,e,o)=>{const[s,t]=r;e&&e.addSuspense(s),s.hooks[t].value=null,o().then(n=>{s.requestRender(),e?.removeSuspense(s),s.hooks[t].value=n}).catch(n=>console.error(n))};export const useAsync=(r,e)=>{const[o,s]=useHook(),t=O(o);if(!o.hooks.hasOwnProperty(s))o.hooks[s]={dependencies:e,value:null},A([o,s],t,r);else{const a=o.hooks[s];let n=!1;for(let i=0;i<e.length;i++)if(a.dependencies[i]!==e[i]){a.dependencies=e,n=!0;break}n&&A([o,s],t,r)}return o.hooks[s].value};const ee=()=>{let r=0;return(e,o)=>{const s=o??`wompo-context-provider-${r}`;r++;const t=defineWompo(({children:n,value:i})=>{const c=useRef(new Set);return useExposed({subscribers:c}),c.current.forEach(l=>{l.isConnected&&l.requestRender()}),html`${n}`},{name:s,cssModule:!1});return{name:s,Provider:t,default:e,subscribers:new Set}}};export const createContext=ee(),useContext=r=>{const[e,o]=useHook();if(e._$usesContext=!0,!e.hooks.hasOwnProperty(o)||e._$hasBeenMoved){let t=e;const a=r.name.toUpperCase();for(;t&&t.nodeName!==a&&t!==document.body;)t instanceof ShadowRoot?t=t.host:t=t.parentNode;const n=e.hooks[o]?.node;t&&t!==document.body?Promise.resolve().then(()=>{t.subscribers.current.add(e);const i=e.onDisconnected;e.onDisconnected=()=>{t.subscribers.current.delete(e),i()}}):n?(t=null,n.subscribers.current.delete(e)):e.isConnected&&(console.warn(`The element ${e.tagName} doens't have access to the Context ${r.name}. The default value will be returned instead.`),t=null),e.hooks[o]={node:t}}const s=e.hooks[o].node;return s?s.props.value:r.default};export function html(r,...e){const o=[],s=r.length-1;if(v)o.push(...e);else for(let t=0;t<s;t++)r[t].endsWith("</")||o.push(e[t]);return{parts:r,values:o,_$wompoHtml:!0}}export const wompoDefaultOptions={shadow:!1,name:"",cssModule:!0},registeredComponents={};export function defineWompo(r,e){r.css||(r.css="");const o={...wompoDefaultOptions,...e||{}};if(!o.name){let a=r.name.replace(/.[A-Z]/g,n=>`${n[0]}-${n[1].toLowerCase()}`).toLowerCase();a.includes("-")||(a+="-wompo"),o.name=a}r.componentName=o.name,r._$wompoF=!0;const[s,t]=B(r,o);if(r.css=s,r.options={generatedCSS:s,styles:t,shadow:o.shadow},!v){const a=Q(r,o);r.class=a,customElements.define(o.name,a)}return registeredComponents[o.name]=r,r}export const lazy=r=>{let e=null;async function o(){if(!e)try{return e=(await r()).default,e}catch(s){return console.error(s),te}return e}return o._$wompoLazy=!0,o};const O=r=>{let e=r;for(;e&&e.nodeName!==Suspense.componentName.toUpperCase();)e.parentNode===null&&e.host?e=e.host:e=e?.parentNode;return e};let te;export function Suspense({children:r,fallback:e}){return this.loadingComponents||(this.loadingComponents=useRef(new Set).current),this.addSuspense=o=>{this.loadingComponents.size||this.requestRender(),this.loadingComponents.add(o)},this.removeSuspense=(o,s=null)=>{if(this.loadingComponents.delete(o),s){for(let t=0;t<r.nodes.length;t++)if(r.nodes[t]===o){r.nodes[t]=s;break}}this.loadingComponents.size||this.requestRender()},this.loadingComponents.size?html`${e}`:html`${r}`}defineWompo(Suspense,{name:"wompo-suspense"});
+const DEV_MODE = false;
+let currentRenderingComponent = null;
+let currentHookIndex = 0;
+const WC_MARKER = "$wc$";
+const DYNAMIC_TAG_MARKER = "wc-wc";
+const isDynamicTagRegex = /<\/?$/g;
+const isAttrRegex = /\s+([^\s]*?)=(["'][^"']*?)?$/g;
+const selfClosingRegex = /(<([a-z]*-[a-z]*).*?)\/?>/gs;
+const isInsideTextTag = /<(?<tag>script|style|textarea|title])(?!.*?<\/\k<tag>)/gi;
+const onlyTextChildrenElementsRegex = /^(?:script|style|textarea|title)$/i;
+const NODE = 0;
+const ATTR = 1;
+const TAG = 2;
+const IS_SERVER = typeof global !== "undefined";
+const doc = IS_SERVER ? { createTreeWalker() {
+} } : document;
+const treeWalker = doc.createTreeWalker(
+  doc,
+  129
+  // NodeFilter.SHOW_{ELEMENT|COMMENT}
+);
+const mutationAttributesExclusions = ["class", "style", "id"];
+class CachedTemplate {
+  /**
+   * Create a new CachedTemplate instance.
+   * @param template The HTML Template already elaborated to handle the dynamic parts.
+   * @param dependencies The metadata dependencies for the template.
+   */
+  constructor(template, dependencies) {
+    this.template = template;
+    this.dependencies = dependencies;
+  }
+  /**
+   * This function will clone the template content and build the dynamcis metadata - an array
+   * containing all the information to efficiently put values in the DOM, without checking if each
+   * node is equal to a virtual one. The DOM update is not done through this function, but thanks to
+   * the `__setValues` function.
+   * @returns An array containing 2 values: The DOM fragment cloned from the content of the
+   * template, and the dynamics metadata.
+   */
+  clone() {
+    const content = this.template.content;
+    const dependencies = this.dependencies;
+    const fragment = document.importNode(content, true);
+    treeWalker.currentNode = fragment;
+    let node = treeWalker.nextNode();
+    let nodeIndex = 0;
+    let dynamicIndex = 0;
+    let templateDependency = dependencies[0];
+    const dynamics = [];
+    while (templateDependency !== void 0) {
+      if (nodeIndex === templateDependency.index) {
+        let dynamic;
+        const type = templateDependency.type;
+        if (type === NODE) {
+          dynamic = new DynamicNode(node, node.nextSibling);
+        } else if (type === ATTR) {
+          dynamic = new DynamicAttribute(node, templateDependency);
+        } else if (type === TAG) {
+          dynamic = new DynamicTag(node);
+        }
+        dynamics.push(dynamic);
+        templateDependency = dependencies[++dynamicIndex];
+      }
+      if (nodeIndex !== templateDependency?.index) {
+        node = treeWalker.nextNode();
+        nodeIndex++;
+      }
+    }
+    treeWalker.currentNode = document;
+    return [fragment, dynamics];
+  }
+}
+class HtmlProcessedValue {
+  constructor(render, template) {
+    this.values = render.values;
+    this.parts = render.parts;
+    this.template = template;
+  }
+}
+class DynamicNode {
+  // For faster access
+  /**
+   * Creates a new DynamicNode instance.
+   * @param startNode The start node.
+   * @param endNode The end node.
+   */
+  constructor(startNode, endNode) {
+    this.isNode = true;
+    // For faster access
+    this.isAttr = false;
+    // For faster access
+    this.isTag = false;
+    this.startNode = startNode;
+    this.endNode = endNode;
+  }
+  /**
+   * Removes all the nodes between the start and the end nodes.
+   */
+  clearValue() {
+    let currentNode = this.startNode.nextSibling;
+    while (currentNode && currentNode !== this.endNode) {
+      currentNode.remove();
+      currentNode = this.startNode.nextSibling;
+    }
+  }
+  /**
+   * First removes all the nodes between the start and the end nodes, then it also removes the
+   * start node and the end node.
+   */
+  dispose() {
+    this.clearValue();
+    this.startNode.remove();
+    if (this.endNode)
+      this.endNode.remove();
+  }
+}
+class DynamicAttribute {
+  /**
+   * Creates a new DynamicAttribute instance.
+   * @param node The node that owns the attribute.
+   * @param dependency The dependency metadata.
+   */
+  constructor(node, dependency) {
+    this.isNode = false;
+    // For faster access
+    this.isAttr = true;
+    // For faster access
+    this.isTag = false;
+    /** True if an event has already been initialized. */
+    this.__eventInitialized = false;
+    this.node = node;
+    this.name = dependency.name;
+    this.attrStructure = dependency.attrDynamics;
+  }
+  /**
+   * Update an attribute value.
+   * @param newValue The new value of the attribute
+   */
+  updateValue(newValue) {
+    if (this.name === "ref" && newValue.__wcRef) {
+      newValue.current = this.node;
+      return;
+    }
+    if (DEV_MODE && (this.name === "wc-perf" || this.name == "wcPerf"))
+      this.node._$measurePerf = true;
+    const isWompoElement = this.node._$wompo;
+    if (isWompoElement)
+      this.node.updateProp(this.name, newValue);
+    const isPrimitive = newValue !== Object(newValue);
+    if (newValue === false || newValue === null || newValue === void 0) {
+      this.node.removeAttribute(this.name);
+    } else if (isPrimitive && (!this.name.match(/[A-Z]/) || this.node.nodeName === "svg") && this.name !== "title") {
+      this.node.setAttribute(this.name, newValue);
+    } else if (this.name === "style") {
+      let styleString = "";
+      const styles = Object.keys(newValue);
+      for (const key of styles) {
+        let styleValue = newValue[key];
+        let styleKey = key.replace(/[A-Z]/g, (letter) => "-" + letter.toLowerCase());
+        if (typeof styleValue === "number")
+          styleValue = `${styleValue}px`;
+        if (styleValue !== void 0 && styleValue !== null && styleValue !== false)
+          styleString += `${styleKey}:${styleValue};`;
+      }
+      this.node.setAttribute(this.name, styleString);
+    }
+    if (this.name === "title" && isWompoElement)
+      this.node.removeAttribute(this.name);
+  }
+  /**
+   * Set the callback function to be executed when an event is fired. If the event has not been
+   * initialized, the event listener will be added.
+   */
+  set callback(callback) {
+    if (!this.__eventInitialized) {
+      const eventName = this.name.substring(1);
+      this.node.addEventListener(eventName, this.__listener.bind(this));
+      this.__eventInitialized = true;
+    }
+    this.__callback = callback;
+  }
+  /**
+   * The listener that will execute the __callback function (if defined).
+   * @param event The event object
+   */
+  __listener(event) {
+    if (this.__callback)
+      this.__callback(event);
+  }
+}
+class DynamicTag {
+  // For faster access
+  /**
+   * Creates a new DynamicTag instance.
+   * @param node The node instance.
+   */
+  constructor(node) {
+    this.isNode = false;
+    // For faster access
+    this.isAttr = false;
+    // For faster access
+    this.isTag = true;
+    this.node = node;
+  }
+}
+class WompoChildren {
+  constructor(nodes) {
+    this._$wompoChildren = true;
+    this.nodes = nodes;
+  }
+}
+class WompoArrayDependency {
+  /**
+   * Creates a new WompoArrayDependency instance.
+   * @param values The array of values to put in the DOM
+   * @param dependency The dynamic node dependency on which the array should be rendered.
+   */
+  constructor(values, dependency) {
+    this.isArrayDependency = true;
+    this.dynamics = [];
+    this.__oldValues = [];
+    this.__parentDependency = dependency;
+    dependency.startNode.after(document.createComment("?wc-end"));
+    this.addDependenciesFrom(dependency.startNode, values);
+    this.__oldPureValues = values;
+  }
+  /**
+   * This function will add markers (HTML comments) and generate dynamic nodes dependecies used to
+   * efficiently udpate the values inside of the array.
+   * @param startNode The start node on which insert the new "single-item" dependencies.
+   * @param toAdd The values to add
+   */
+  addDependenciesFrom(startNode, toAdd) {
+    let currentNode = startNode;
+    for (let i = 0; i < toAdd.length; i++) {
+      const value = toAdd[i];
+      currentNode.after(document.createTextNode(""));
+      currentNode.after(document.createTextNode(""));
+      const dependency = new DynamicNode(
+        currentNode.nextSibling,
+        currentNode.nextSibling.nextSibling
+      );
+      currentNode = currentNode.nextSibling.nextSibling;
+      this.dynamics.push(dependency);
+      this.__oldValues.push(__setValues([dependency], [value], [])[0]);
+    }
+  }
+  /**
+   * Check if there are dependencies to add/remove, and then set the new values to the old nodes.
+   * Setting the new values will start an eventual recursive check for eventual nested arrays.
+   * @param newValues The new values to check with the old ones fot updates.
+   * @returns This instance.
+   */
+  checkUpdates(newValues) {
+    if (newValues === this.__oldPureValues)
+      return this;
+    const oldValuesLength = this.__oldValues.length;
+    let diff = newValues.length - oldValuesLength;
+    if (diff < 0) {
+      while (diff) {
+        const toClean = this.dynamics.pop();
+        this.__oldValues.pop();
+        toClean.dispose();
+        diff++;
+      }
+    }
+    for (let i = 0; i < this.dynamics.length; i++) {
+      const newValue = newValues[i];
+      const dependency = this.dynamics[i];
+      const oldValue = this.__oldValues[i];
+      this.__oldValues[i] = __setValues([dependency], [newValue], [oldValue])[0];
+    }
+    if (diff > 0) {
+      let currentNode = this.dynamics[this.dynamics.length - 1]?.endNode;
+      if (!currentNode)
+        currentNode = this.__parentDependency.startNode;
+      for (let i = 0; i < diff; i++) {
+        const value = newValues[oldValuesLength + i];
+        currentNode.after(document.createTextNode(""));
+        currentNode.after(document.createTextNode(""));
+        const dependency = new DynamicNode(
+          currentNode.nextSibling,
+          currentNode.nextSibling.nextSibling
+        );
+        currentNode = currentNode.nextSibling.nextSibling;
+        this.dynamics.push(dependency);
+        this.__oldValues.push(__setValues([dependency], [value], []));
+      }
+    }
+    this.__oldPureValues = newValues;
+    return this;
+  }
+}
+const __generateSpecifcStyles = (component, options) => {
+  const { css } = component;
+  const { shadow, name, cssModule } = options;
+  const componentName = name;
+  const classes = {};
+  let generatedCss = css;
+  if (cssModule) {
+    if (!css.includes(":host"))
+      generatedCss = `${shadow ? ":host" : componentName} {display:block;} ${css}`;
+    if (DEV_MODE) {
+      const invalidSelectors = [];
+      [...generatedCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
+        const cssSelector = selector[1].trim();
+        if (!cssSelector.match(/\.|:host|@/))
+          invalidSelectors.push(cssSelector);
+      });
+      invalidSelectors.forEach((selector) => {
+        console.warn(
+          `The CSS selector "${selector} {...}" in the component "${componentName}" is not enough specific: include at least one class or deactive the "cssModule" option on the component.`
+        );
+      });
+    }
+    if (!shadow)
+      generatedCss = generatedCss.replace(/:host/g, componentName);
+    generatedCss = generatedCss.replace(/\.(?!\d)([_a-zA-Z0-9-]+)/gm, (_, className) => {
+      const uniqueClassName = `${componentName}__${className}`;
+      classes[className] = uniqueClassName;
+      return `.${uniqueClassName}`;
+    });
+  }
+  return [generatedCss, classes];
+};
+const __createHtml = (parts) => {
+  let html2 = "";
+  const attributes = [];
+  const length = parts.length - 1;
+  let attrDelimiter = "";
+  let textTagName = "";
+  for (let i = 0; i < length; i++) {
+    let part = parts[i];
+    if (attrDelimiter && part.includes(attrDelimiter))
+      attrDelimiter = "";
+    if (textTagName && new RegExp(`</${textTagName}>`))
+      textTagName = "";
+    if (attrDelimiter || textTagName) {
+      html2 += part + WC_MARKER;
+    } else {
+      isAttrRegex.lastIndex = 0;
+      const isAttr = isAttrRegex.exec(part);
+      if (isAttr) {
+        const [match, attrName] = isAttr;
+        const beforeLastChar = match[match.length - 1];
+        const delimiter = match.lastIndexOf('"') > match.lastIndexOf("'") ? '"' : "'";
+        if (!attrDelimiter) {
+          attrDelimiter = beforeLastChar === "=" ? "" : delimiter;
+          part = part.replace(/=([^=]*)$/g, (el) => `${WC_MARKER}=${el.substring(1)}`);
+          let toAdd = part;
+          if (attrDelimiter)
+            toAdd += WC_MARKER;
+          else
+            toAdd += '"0"';
+          html2 += toAdd;
+        }
+        attributes.push(attrName);
+      } else {
+        if (part.match(isDynamicTagRegex)) {
+          html2 += part + DYNAMIC_TAG_MARKER;
+          continue;
+        }
+        isInsideTextTag.lastIndex = 0;
+        const insideTextTag = isInsideTextTag.exec(part);
+        if (insideTextTag) {
+          textTagName = insideTextTag[1];
+          html2 += part + WC_MARKER;
+        } else {
+          html2 += part + `<?${WC_MARKER}>`;
+        }
+      }
+    }
+  }
+  html2 += parts[parts.length - 1];
+  html2 = html2.replace(selfClosingRegex, (match, firstPart, componentName) => {
+    if (match.endsWith("/>"))
+      return `${firstPart}></${componentName}>`;
+    return match;
+  });
+  html2 = html2.replace(/<[a-z]*-[a-z]*\s?.*?>/gms, (match) => {
+    return match.replace(
+      /(?<=\s)([a-z]+([A-Z][a-z]*)+)[=\s]/gms,
+      (attr) => attr.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+    );
+  });
+  return [html2, attributes];
+};
+const __createDependencies = (template, parts, attributes) => {
+  const dependencies = [];
+  treeWalker.currentNode = template.content;
+  let node;
+  let dependencyIndex = 0;
+  let nodeIndex = 0;
+  const partsLength = parts.length;
+  while ((node = treeWalker.nextNode()) !== null && dependencies.length < partsLength) {
+    if (node.nodeType === 1) {
+      if (node.nodeName === DYNAMIC_TAG_MARKER.toUpperCase()) {
+        const dependency = {
+          type: TAG,
+          index: nodeIndex
+        };
+        dependencies.push(dependency);
+      }
+      if (node.hasAttributes()) {
+        const attributeNames = node.getAttributeNames();
+        for (const attrName of attributeNames) {
+          if (attrName.endsWith(WC_MARKER)) {
+            const realName = attributes[dependencyIndex++];
+            const attrValue = node.getAttribute(attrName);
+            if (attrValue !== "0") {
+              const dynamicParts = attrValue.split(WC_MARKER);
+              for (let i = 0; i < dynamicParts.length - 1; i++) {
+                const dependency = {
+                  type: ATTR,
+                  index: nodeIndex,
+                  attrDynamics: attrValue,
+                  name: realName
+                };
+                dependencies.push(dependency);
+              }
+            } else {
+              const dependency = {
+                type: ATTR,
+                index: nodeIndex,
+                name: realName
+              };
+              dependencies.push(dependency);
+            }
+            node.removeAttribute(attrName);
+          }
+        }
+      }
+      if (onlyTextChildrenElementsRegex.test(node.tagName)) {
+        const strings = node.textContent.split(WC_MARKER);
+        const lastIndex = strings.length - 1;
+        if (lastIndex > 0) {
+          node.textContent = "";
+          for (let i = 0; i < lastIndex; i++) {
+            node.append(strings[i], document.createComment(""));
+            treeWalker.nextNode();
+            dependencies.push({ type: NODE, index: ++nodeIndex });
+          }
+          node.append(strings[lastIndex], document.createComment(""));
+        }
+      }
+    } else if (node.nodeType === 8) {
+      const data = node.data;
+      if (data === `?${WC_MARKER}`)
+        dependencies.push({ type: NODE, index: nodeIndex });
+    }
+    nodeIndex++;
+  }
+  return dependencies;
+};
+const __createTemplate = (html2) => {
+  const [dom, attributes] = __createHtml(html2.parts);
+  const template = document.createElement("template");
+  template.innerHTML = dom;
+  const dependencies = __createDependencies(template, html2.parts, attributes);
+  return new CachedTemplate(template, dependencies);
+};
+const __areSameTemplates = (newTemplate, oldTemplate) => {
+  if (!newTemplate || !oldTemplate)
+    return false;
+  const newParts = newTemplate.parts;
+  const oldParts = oldTemplate.parts;
+  if (newParts.length !== oldParts?.length)
+    return false;
+  const newValues = newTemplate.values;
+  const oldValues = oldTemplate.values;
+  for (let i = 0; i < newParts.length; i++) {
+    if (newParts[i] !== oldParts[i])
+      return false;
+    if (newValues[i]?._$wompoF) {
+      if (!oldValues[i]?._$wompoF)
+        return false;
+      if (newValues[i].componentName !== oldValues[i].componentName)
+        return false;
+    }
+  }
+  return true;
+};
+const __shouldUpdate = (currentValue, oldValue, dependency) => {
+  const valuesDiffers = currentValue !== oldValue;
+  const isComposedAttribute = !!dependency.attrStructure;
+  const isWompoChildren = currentValue?._$wompoChildren;
+  const childrenNeedUpdate = isWompoChildren && dependency.startNode.nextSibling !== currentValue.nodes[0];
+  return valuesDiffers || isComposedAttribute || childrenNeedUpdate;
+};
+const __handleDynamicTag = (currentValue, currentDependency, valueIndex, dynamics, values) => {
+  const node = currentDependency.node;
+  let customElement = null;
+  const isCustomComponent = currentValue._$wompoF;
+  const newNodeName = isCustomComponent ? currentValue.componentName : currentValue;
+  if (node.nodeName !== newNodeName.toUpperCase()) {
+    const oldAttributes = node.getAttributeNames();
+    if (isCustomComponent) {
+      const initialProps = {};
+      for (const attrName of oldAttributes) {
+        const attrValue = node.getAttribute(attrName);
+        let propName = attrName;
+        if (propName.includes("-"))
+          propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
+        initialProps[propName] = attrValue === "" ? true : attrValue;
+      }
+      customElement = new currentValue.class();
+      customElement._$initialProps = initialProps;
+      customElement.props = initialProps;
+      const childNodes = node.childNodes;
+      while (childNodes.length) {
+        customElement.appendChild(childNodes[0]);
+      }
+    } else {
+      customElement = document.createElement(newNodeName);
+      for (const attrName of oldAttributes) {
+        customElement.setAttribute(attrName, node.getAttribute(attrName));
+      }
+    }
+    let index = valueIndex;
+    let currentDynamic = dynamics[index];
+    while (currentDynamic?.node === node) {
+      currentDynamic.node = customElement;
+      if (index === valueIndex) {
+        index++;
+        currentDynamic = dynamics[index];
+      } else {
+        if (currentDynamic?.name && currentDynamic?.name !== "ref") {
+          customElement._$initialProps[currentDynamic.name] = values[index];
+          customElement.props[currentDynamic.name] = values[index];
+        }
+        index++;
+        currentDynamic = dynamics[index];
+      }
+    }
+    node.replaceWith(customElement);
+    return customElement;
+  }
+};
+const __setValues = (dynamics, values, oldValues) => {
+  const newValues = [...values];
+  for (let i = 0; i < dynamics.length; i++) {
+    const currentDependency = dynamics[i];
+    const currentValue = newValues[i];
+    const oldValue = oldValues[i];
+    if (currentValue?.__wcRef && currentDependency.isAttr && currentDependency.name === "ref")
+      currentValue.current = currentDependency.node;
+    if (!__shouldUpdate(currentValue, oldValue, currentDependency))
+      continue;
+    if (currentDependency.isNode) {
+      if (currentValue === false || currentValue === void 0 || currentValue === null) {
+        currentDependency.clearValue();
+        continue;
+      }
+      if (currentValue?._$wompoHtml) {
+        const areTheSame = __areSameTemplates(currentValue, oldValue);
+        if (oldValue === void 0 || !areTheSame) {
+          const cachedTemplate = __createTemplate(currentValue);
+          const template = cachedTemplate.clone();
+          const [fragment, dynamics2] = template;
+          newValues[i] = new HtmlProcessedValue(currentValue, template);
+          newValues[i].values = __setValues(
+            dynamics2,
+            currentValue.values,
+            oldValue?.values ?? oldValue ?? []
+          );
+          const startNode2 = currentDependency.startNode;
+          currentDependency.clearValue();
+          let currentNode = startNode2;
+          while (fragment.childNodes.length) {
+            currentNode.after(fragment.childNodes[0]);
+            currentNode = currentNode.nextSibling;
+          }
+        } else {
+          let oldTemplateValue = oldValue;
+          if (!oldValue.template) {
+            const cachedTemplate = __createTemplate(currentValue);
+            const template = cachedTemplate.clone();
+            newValues[i] = new HtmlProcessedValue(currentValue, template);
+            oldTemplateValue = newValues[i];
+          }
+          const [_, dynamics2] = oldTemplateValue.template;
+          const processedValues = __setValues(
+            dynamics2,
+            currentValue.values,
+            oldValue.values
+          );
+          oldValue.values = processedValues;
+          newValues[i] = oldValue;
+        }
+        continue;
+      }
+      const isPrimitive = currentValue !== Object(currentValue);
+      const oldIsPrimitive = oldValue !== Object(oldValue) && oldValue !== void 0;
+      const startNode = currentDependency.startNode;
+      if (isPrimitive) {
+        if (oldIsPrimitive) {
+          if (startNode.nextSibling)
+            startNode.nextSibling.textContent = currentValue;
+          else
+            startNode.after(currentValue);
+        } else {
+          currentDependency.clearValue();
+          startNode.after(currentValue);
+        }
+      } else {
+        let currentNode = startNode.nextSibling;
+        let newNodeIndex = 0;
+        let index = 0;
+        if (currentValue._$wompoChildren) {
+          if (oldValue && !oldValue?._$wompoChildren)
+            currentDependency.clearValue();
+          const childrenNodes = currentValue.nodes;
+          while (index < childrenNodes.length) {
+            if (!currentNode || index === 0)
+              currentNode = startNode;
+            const newNode = childrenNodes[newNodeIndex];
+            newNodeIndex++;
+            currentNode.after(newNode);
+            currentNode = currentNode.nextSibling;
+            index++;
+          }
+        } else {
+          if (Array.isArray(currentValue)) {
+            if (!oldValue?.isArrayDependency) {
+              currentDependency.clearValue();
+              newValues[i] = new WompoArrayDependency(currentValue, currentDependency);
+            } else
+              newValues[i] = oldValue.checkUpdates(currentValue);
+          } else if (DEV_MODE) {
+            throw new Error(
+              "Rendering objects is not supported. Please stringify or remove the object."
+            );
+          }
+        }
+      }
+    } else if (currentDependency.isAttr) {
+      const attrName = currentDependency.name;
+      if (attrName.startsWith("@")) {
+        currentDependency.callback = currentValue;
+      } else {
+        const attrStructure = currentDependency.attrStructure;
+        if (attrStructure) {
+          const parts = attrStructure.split(WC_MARKER);
+          let dynamicValue = currentValue;
+          for (let j = 0; j < parts.length - 1; j++) {
+            const value = dynamicValue !== void 0 && dynamicValue !== null && dynamicValue !== false ? dynamicValue : "";
+            parts[j] = `${parts[j]}${value}`;
+            i++;
+            dynamicValue = newValues[i];
+          }
+          i--;
+          currentDependency.updateValue(parts.join("").trim());
+        } else {
+          currentDependency.updateValue(currentValue);
+        }
+      }
+    } else if (currentDependency.isTag) {
+      const isLazy = currentValue._$wompoLazy;
+      if (isLazy) {
+        const node = currentDependency.node;
+        const suspenseNode = findSuspense(node);
+        if (suspenseNode) {
+          if (suspenseNode.addSuspense) {
+            suspenseNode.addSuspense(node);
+          } else {
+            suspenseNode.loadingComponents = /* @__PURE__ */ new Set();
+            suspenseNode.loadingComponents.add(node);
+          }
+          node.suspense = suspenseNode;
+        }
+        currentValue().then((Component) => {
+          const customElement = __handleDynamicTag(
+            Component,
+            currentDependency,
+            i,
+            dynamics,
+            values
+          );
+          if (suspenseNode)
+            suspenseNode.removeSuspense(node, customElement);
+        });
+        continue;
+      } else {
+        __handleDynamicTag(currentValue, currentDependency, i, dynamics, values);
+      }
+    }
+  }
+  return newValues;
+};
+const _$wompo = (Component, options) => {
+  const { generatedCSS, styles } = Component.options;
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(generatedCSS);
+  const WompoComponent = class extends HTMLElement {
+    constructor() {
+      super();
+      this._$wompo = true;
+      // For faster access
+      this.props = {};
+      this.hooks = [];
+      this._$measurePerf = false;
+      this._$initialProps = {};
+      this._$usesContext = false;
+      this._$hasBeenMoved = false;
+      this._$layoutEffects = [];
+      /** It'll be true if the component has already processing an update. */
+      this.__updating = false;
+      /** The array containing the dynamic values of the last render. */
+      this.__oldValues = [];
+      /** It'll be true if the component is currently initializing. */
+      this.__isInitializing = true;
+      /** It's true if the component is connected to the DOM. */
+      this.__connected = false;
+      /** It's true if the component has been disconnected from the DOM. */
+      this.__disconnected = false;
+      /**
+       * Used to know if a component has been completely removed from the DOM or only temporarely to
+       * move it from a node to another.
+       */
+      this.__isInDOM = false;
+    }
+    static {
+      this._$wompo = true;
+    }
+    static {
+      // For faster access
+      /** The component name, used in the DOM */
+      this.componentName = options.name;
+    }
+    /**
+     * Get the already present cached template, or create a new one if the component is rendering
+     * for the first time.
+     * @param parts The template parts from the html function.
+     * @returns The cached template.
+     */
+    static _$getOrCreateTemplate(html2) {
+      if (!this._$cachedTemplate)
+        this._$cachedTemplate = __createTemplate(html2);
+      return this._$cachedTemplate;
+    }
+    /** @override component has been connected to the DOM */
+    connectedCallback() {
+      if (this.__disconnected && this.isConnected) {
+        this.__disconnected = false;
+        for (const hook of this.hooks) {
+          if (hook?.callback) {
+            Promise.resolve().then(() => {
+              hook.callback();
+            });
+          }
+        }
+      }
+      this.__isInDOM = true;
+      if (!this.__connected && this.isConnected)
+        this.__initElement();
+    }
+    /** @override component has been disconnected from the DOM */
+    disconnectedCallback() {
+      if (this.__connected) {
+        this.__isInDOM = false;
+        Promise.resolve().then(() => {
+          if (!this.__isInDOM) {
+            this.onDisconnected();
+            this.__disconnected = true;
+            for (const hook of this.hooks) {
+              if (hook?.cleanupFunction)
+                hook.cleanupFunction();
+            }
+          } else {
+            this._$hasBeenMoved = true;
+            if (this._$usesContext)
+              this.requestRender();
+          }
+        });
+      }
+    }
+    /**
+     * This public callback will be used when a component is removed permanently from the DOM.
+     * It allows other code to hook into the component and unmount listeners or similar when the
+     * component is disconnected from the DOM.
+     */
+    onDisconnected() {
+    }
+    /**
+     * Initializes the component with the state, props, and styles.
+     */
+    __initElement() {
+      this.__ROOT = this;
+      this.props = {
+        ...this.props,
+        ...this._$initialProps,
+        styles
+      };
+      const componentAttributes = this.getAttributeNames();
+      for (const attrName of componentAttributes) {
+        let propName = attrName;
+        if (propName.includes("-"))
+          propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
+        if (!this.props.hasOwnProperty(propName)) {
+          const attrValue = this.getAttribute(attrName);
+          this.props[propName] = attrValue === "" ? true : attrValue;
+        }
+      }
+      const initialPropsKeys = Object.keys(this._$initialProps);
+      for (const key of initialPropsKeys) {
+        const prop = this._$initialProps[key];
+        if (prop !== Object(prop) && (prop || prop === 0) && key !== "title") {
+          this.setAttribute(
+            key.replace(/[A-Z]/g, (l) => `-${l.toLowerCase()}`),
+            prop.toString()
+          );
+        }
+      }
+      if (DEV_MODE && this.props.wcPerf)
+        this._$measurePerf = true;
+      if (DEV_MODE && this._$measurePerf)
+        console.time("First render " + options.name);
+      const childNodes = this.__ROOT.childNodes;
+      const childrenArray = [];
+      while (childNodes.length) {
+        childrenArray.push(childNodes[0]);
+        childNodes[0].remove();
+      }
+      const children = new WompoChildren(childrenArray);
+      this.props.children = children;
+      if (options.shadow && !this.shadowRoot)
+        this.__ROOT = this.attachShadow({ mode: "open" });
+      if (options.shadow) {
+        this.__ROOT.adoptedStyleSheets = [sheet];
+      } else {
+        const root = this.getRootNode();
+        root.adoptedStyleSheets.push(sheet);
+      }
+      this.__render();
+      this.__isInitializing = false;
+      this.__connected = true;
+      new MutationObserver((mutationRecords) => {
+        if (!this.__updating) {
+          mutationRecords.forEach((record) => {
+            if (!mutationAttributesExclusions.includes(record.attributeName)) {
+              let propName = record.attributeName;
+              if (propName.includes("-"))
+                propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
+              this.updateProp(propName, this.getAttribute(record.attributeName));
+            }
+          });
+        }
+      }).observe(this, { attributes: true });
+      if (DEV_MODE && this._$measurePerf)
+        console.timeEnd("First render " + options.name);
+    }
+    /**
+     * Calls the functional component by first setting correct values to the
+     * [currentRenderingComponent] and [currentHookIndex] variables.
+     * @returns The result of the call.
+     */
+    __callComponent() {
+      currentRenderingComponent = this;
+      currentHookIndex = 0;
+      const result = Component.call(this, this.props);
+      let renderHtml = result;
+      if (typeof result === "string" || result instanceof HTMLElement)
+        renderHtml = html`${result}`;
+      return renderHtml;
+    }
+    /**
+     * Calls the component and executes the operations to update the DOM.
+     */
+    __render() {
+      try {
+        const renderHtml = this.__callComponent();
+        if (renderHtml === null || renderHtml === void 0) {
+          this.__dynamics = [];
+          this.__oldValues = [];
+          this.remove();
+          return;
+        }
+        const constructor = this.constructor;
+        if (this.__isInitializing) {
+          const template = constructor._$getOrCreateTemplate(renderHtml);
+          const [fragment, dynamics] = template.clone();
+          this.__dynamics = dynamics;
+          const elaboratedValues = __setValues(
+            this.__dynamics,
+            renderHtml.values,
+            this.__oldValues
+          );
+          this.__oldValues = elaboratedValues;
+          if (!this.__isInitializing)
+            this.__ROOT.innerHTML = "";
+          while (fragment.childNodes.length) {
+            this.__ROOT.appendChild(fragment.childNodes[0]);
+          }
+        } else {
+          const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
+          this.__oldValues = oldValues;
+        }
+        while (this._$layoutEffects.length) {
+          const layoutEffectHook = this._$layoutEffects.pop();
+          layoutEffectHook.cleanupFunction = layoutEffectHook.callback();
+        }
+      } catch (err) {
+        console.error(err);
+        if (DEV_MODE) {
+          const error = new WompoError.class();
+          error.props.error = err;
+          error.props.element = this;
+          this.__ROOT.innerHTML = "";
+          this.__ROOT.appendChild(error);
+        }
+      }
+    }
+    /**
+     * It requests a render to the component. If the component has already received a render
+     * request, the request will be rejected. This is to avoid multiple re-renders when it's not
+     * necessary. The following function will cause a single re-render:
+     * ```javascript
+     * const incBy2 = () => {
+     *   setState((oldState) => oldState + 1)
+     *   setState((oldState) => oldState + 1)
+     * }
+     * ```
+     */
+    requestRender() {
+      if (!this.__updating) {
+        this.__updating = true;
+        Promise.resolve().then(() => {
+          if (DEV_MODE && this._$measurePerf)
+            console.time("Re-render " + options.name);
+          this.__render();
+          this.__updating = false;
+          this._$hasBeenMoved = false;
+          if (DEV_MODE && this._$measurePerf)
+            console.timeEnd("Re-render " + options.name);
+        });
+      }
+    }
+    /**
+     * It'll set a new value to a specific prop of the component, and a re-render will be requested.
+     * @param prop The prop name.
+     * @param value The new value to set.
+     */
+    updateProp(prop, value) {
+      if (this.props[prop] !== value) {
+        this.props[prop] = value;
+        if (!this.__isInitializing) {
+          this.requestRender();
+        }
+      }
+    }
+  };
+  return WompoComponent;
+};
+export const useHook = () => {
+  const currentComponent = currentRenderingComponent;
+  const currentIndex = currentHookIndex;
+  const res = [currentComponent, currentIndex];
+  currentHookIndex++;
+  return res;
+};
+export const useState = (initialState) => {
+  const [component, hookIndex] = useHook();
+  if (!component) {
+    if (typeof initialState === "function")
+      return [initialState(), () => {
+      }];
+    return [initialState, () => {
+    }];
+  }
+  if (!component.hooks.hasOwnProperty(hookIndex)) {
+    const index = hookIndex;
+    component.hooks[index] = [
+      typeof initialState === "function" ? initialState() : initialState,
+      (newValue) => {
+        let computedValue = newValue;
+        const stateHook = component.hooks[index];
+        if (typeof newValue === "function") {
+          computedValue = newValue(stateHook[0]);
+        }
+        if (computedValue !== stateHook[0]) {
+          stateHook[0] = computedValue;
+          component.requestRender();
+        }
+      }
+    ];
+  }
+  const state = component.hooks[hookIndex];
+  return state;
+};
+export const useEffect = (callback, dependencies = null) => {
+  const [component, hookIndex] = useHook();
+  if (!component.hooks.hasOwnProperty(hookIndex)) {
+    const effectHook = {
+      dependencies,
+      callback,
+      cleanupFunction: null
+    };
+    component.hooks[hookIndex] = effectHook;
+    Promise.resolve().then(() => {
+      effectHook.cleanupFunction = callback();
+    });
+  } else {
+    const componentEffect = component.hooks[hookIndex];
+    if (dependencies !== null) {
+      for (let i = 0; i < dependencies.length; i++) {
+        const oldDep = componentEffect.dependencies[i];
+        if (oldDep !== dependencies[i]) {
+          if (typeof componentEffect.cleanupFunction === "function")
+            componentEffect.cleanupFunction();
+          Promise.resolve().then(() => {
+            componentEffect.cleanupFunction = callback();
+            componentEffect.dependencies = dependencies;
+          });
+          break;
+        }
+      }
+    } else {
+      Promise.resolve().then(() => {
+        componentEffect.cleanupFunction = callback();
+        componentEffect.dependencies = dependencies;
+      });
+    }
+  }
+};
+export const useLayoutEffect = (callback, dependencies = null) => {
+  const [component, hookIndex] = useHook();
+  if (!component.hooks.hasOwnProperty(hookIndex)) {
+    const effectHook = {
+      dependencies,
+      callback,
+      cleanupFunction: null
+    };
+    component.hooks[hookIndex] = effectHook;
+    component._$layoutEffects.push(effectHook);
+  } else {
+    const effectHook = component.hooks[hookIndex];
+    if (dependencies !== null) {
+      for (let i = 0; i < dependencies.length; i++) {
+        const oldDep = effectHook.dependencies[i];
+        if (oldDep !== dependencies[i]) {
+          if (typeof effectHook.cleanupFunction === "function")
+            effectHook.cleanupFunction();
+          effectHook.dependencies = dependencies;
+          effectHook.callback = callback;
+          component._$layoutEffects.push(effectHook);
+          break;
+        }
+      }
+    } else {
+      component._$layoutEffects.push(effectHook);
+    }
+  }
+};
+export const useRef = (initialValue = null) => {
+  const [component, hookIndex] = useHook();
+  if (!component.hooks.hasOwnProperty(hookIndex)) {
+    component.hooks[hookIndex] = {
+      current: initialValue,
+      __wcRef: true
+    };
+  }
+  const ref = component.hooks[hookIndex];
+  return ref;
+};
+export const useCallback = (callbackFn, dependencies = []) => {
+  const [component, hookIndex] = useHook();
+  if (!component.hooks.hasOwnProperty(hookIndex)) {
+    component.hooks[hookIndex] = {
+      dependencies,
+      value: callbackFn
+    };
+  } else {
+    const callbackHook = component.hooks[hookIndex];
+    for (let i = 0; i < dependencies.length; i++) {
+      const oldDep = callbackHook.dependencies[i];
+      if (oldDep !== dependencies[i]) {
+        callbackHook.dependencies = dependencies;
+        callbackHook.value = callbackFn;
+        break;
+      }
+    }
+  }
+  const callback = component.hooks[hookIndex];
+  return callback.value;
+};
+const useIdMemo = () => {
+  let counter = 0;
+  return () => {
+    const [component, hookIndex] = useHook();
+    if (!component.hooks.hasOwnProperty(hookIndex)) {
+      component.hooks[hookIndex] = `:w${counter}:`;
+      counter++;
+    }
+    const callback = component.hooks[hookIndex];
+    return callback;
+  };
+};
+export const useId = useIdMemo();
+export const useMemo = (callbackFn, dependencies) => {
+  const [component, hookIndex] = useHook();
+  if (!component.hooks.hasOwnProperty(hookIndex)) {
+    component.hooks[hookIndex] = {
+      value: callbackFn(),
+      dependencies
+    };
+  } else {
+    const oldMemo = component.hooks[hookIndex];
+    for (let i = 0; i < dependencies.length; i++) {
+      const oldDep = oldMemo.dependencies[i];
+      if (oldDep !== dependencies[i]) {
+        oldMemo.dependencies = dependencies;
+        oldMemo.value = callbackFn();
+        break;
+      }
+    }
+  }
+  const memoizedResult = component.hooks[hookIndex];
+  return memoizedResult.value;
+};
+export const useReducer = (reducer, initialState) => {
+  const [component, hookIndex] = useHook();
+  const index = hookIndex;
+  if (!component.hooks.hasOwnProperty(index)) {
+    const dispatch = (action) => {
+      const currentState = component.hooks[index][0];
+      const partialState = reducer(currentState, action);
+      let newState = partialState;
+      if (typeof currentState === "object" && !Array.isArray(currentState) && currentState !== null) {
+        newState = {
+          ...currentState,
+          ...partialState
+        };
+      }
+      component.hooks[hookIndex][0] = newState;
+      if (newState !== currentState)
+        component.requestRender();
+    };
+    const reducerHook = [initialState, dispatch];
+    component.hooks[hookIndex] = reducerHook;
+  }
+  const stateAndReducer = component.hooks[hookIndex];
+  return stateAndReducer;
+};
+export const useExposed = (toExpose) => {
+  const component = currentRenderingComponent;
+  const keys = Object.keys(toExpose);
+  for (const key of keys) {
+    component[key] = toExpose[key];
+  }
+};
+const executeUseAsyncCallback = (hook, suspense, callback) => {
+  const [component, hookIndex] = hook;
+  if (suspense) {
+    suspense.addSuspense(component);
+  }
+  component.hooks[hookIndex].value = null;
+  const promise = callback();
+  promise.then((data) => {
+    component.requestRender();
+    suspense?.removeSuspense(component);
+    component.hooks[hookIndex].value = data;
+  }).catch((err) => console.error(err));
+};
+export const useAsync = (callback, dependencies) => {
+  const [component, hookIndex] = useHook();
+  const suspense = findSuspense(component);
+  if (!component.hooks.hasOwnProperty(hookIndex)) {
+    component.hooks[hookIndex] = {
+      dependencies,
+      value: null
+    };
+    executeUseAsyncCallback([component, hookIndex], suspense, callback);
+  } else {
+    const oldAsync = component.hooks[hookIndex];
+    let newCall = false;
+    for (let i = 0; i < dependencies.length; i++) {
+      const oldDep = oldAsync.dependencies[i];
+      if (oldDep !== dependencies[i]) {
+        oldAsync.dependencies = dependencies;
+        newCall = true;
+        break;
+      }
+    }
+    if (newCall) {
+      executeUseAsyncCallback([component, hookIndex], suspense, callback);
+    }
+  }
+  return component.hooks[hookIndex].value;
+};
+const createContextMemo = () => {
+  let contextIdentifier = 0;
+  return (initialValue, providerName) => {
+    const name = providerName ?? `wompo-context-provider-${contextIdentifier}`;
+    contextIdentifier++;
+    const ProviderFunction = defineWompo(
+      ({ children, value }) => {
+        const initialSubscribers = /* @__PURE__ */ new Set();
+        const subscribers = useRef(initialSubscribers);
+        useExposed({ subscribers });
+        subscribers.current.forEach((el) => {
+          if (el.isConnected)
+            el.requestRender();
+        });
+        return html`${children}`;
+      },
+      {
+        name,
+        cssModule: false
+      }
+    );
+    const Context = {
+      name,
+      Provider: ProviderFunction,
+      default: initialValue,
+      subscribers: /* @__PURE__ */ new Set()
+    };
+    return Context;
+  };
+};
+export const createContext = createContextMemo();
+export const useContext = (Context) => {
+  const [component, hookIndex] = useHook();
+  component._$usesContext = true;
+  if (!component.hooks.hasOwnProperty(hookIndex) || component._$hasBeenMoved) {
+    let parent = component;
+    const toFind = Context.name.toUpperCase();
+    while (parent && parent.nodeName !== toFind && parent !== document.body) {
+      if (parent instanceof ShadowRoot)
+        parent = parent.host;
+      else
+        parent = parent.parentNode;
+    }
+    const oldParent = component.hooks[hookIndex]?.node;
+    if (parent && parent !== document.body) {
+      Promise.resolve().then(() => {
+        parent.subscribers.current.add(component);
+        const oldDisconnect = component.onDisconnected;
+        component.onDisconnected = () => {
+          parent.subscribers.current.delete(component);
+          oldDisconnect();
+        };
+      });
+    } else if (oldParent) {
+      if (DEV_MODE) {
+        console.warn(
+          `The element ${component.tagName} doens't have access to the Context ${Context.name} because is no longer a child of it.`
+        );
+      }
+      parent = null;
+      oldParent.subscribers.current.delete(component);
+    } else if (component.isConnected) {
+      console.warn(
+        `The element ${component.tagName} doens't have access to the Context ${Context.name}. The default value will be returned instead.`
+      );
+      parent = null;
+    }
+    component.hooks[hookIndex] = {
+      node: parent
+    };
+  }
+  const contextNode = component.hooks[hookIndex].node;
+  return contextNode ? contextNode.props.value : Context.default;
+};
+export function html(templateParts, ...values) {
+  const cleanValues = [];
+  const length = templateParts.length - 1;
+  if (!IS_SERVER) {
+    for (let i = 0; i < length; i++) {
+      if (!templateParts[i].endsWith("</"))
+        cleanValues.push(values[i]);
+    }
+  } else {
+    cleanValues.push(...values);
+  }
+  return {
+    parts: templateParts,
+    values: cleanValues,
+    _$wompoHtml: true
+  };
+}
+export const wompoDefaultOptions = {
+  shadow: false,
+  name: "",
+  cssModule: true
+};
+export const registeredComponents = {};
+export function defineWompo(Component, options) {
+  if (!Component.css)
+    Component.css = "";
+  const componentOptions = {
+    ...wompoDefaultOptions,
+    ...options || {}
+  };
+  if (!componentOptions.name) {
+    let newName = Component.name.replace(/.[A-Z]/g, (letter) => `${letter[0]}-${letter[1].toLowerCase()}`).toLowerCase();
+    if (!newName.includes("-"))
+      newName += "-wompo";
+    componentOptions.name = newName;
+  }
+  Component.componentName = componentOptions.name;
+  Component._$wompoF = true;
+  const [generatedCSS, styles] = __generateSpecifcStyles(Component, componentOptions);
+  Component.css = generatedCSS;
+  Component.options = {
+    generatedCSS,
+    styles,
+    shadow: componentOptions.shadow
+  };
+  if (!IS_SERVER) {
+    const ComponentClass = _$wompo(Component, componentOptions);
+    Component.class = ComponentClass;
+    customElements.define(componentOptions.name, ComponentClass);
+  }
+  registeredComponents[componentOptions.name] = Component;
+  return Component;
+}
+export const lazy = (load) => {
+  let loaded = null;
+  async function LazyComponent() {
+    if (!loaded) {
+      try {
+        const importedModule = await load();
+        loaded = importedModule.default;
+        return loaded;
+      } catch (err) {
+        console.error(err);
+        return WompoError;
+      }
+    }
+    return loaded;
+  }
+  LazyComponent._$wompoLazy = true;
+  return LazyComponent;
+};
+const findSuspense = (startNode) => {
+  let suspense = startNode;
+  while (suspense && suspense.nodeName !== Suspense.componentName.toUpperCase()) {
+    if (suspense.parentNode === null && suspense.host)
+      suspense = suspense.host;
+    else
+      suspense = suspense?.parentNode;
+  }
+  return suspense;
+};
+let WompoError;
+if (DEV_MODE) {
+  WompoError = function({ styles: s, error, element }) {
+    let content;
+    if (element && error) {
+      content = html`<div>
+				<p>An error rised while rendering the element "${element.nodeName.toLowerCase()}".</p>
+				<p>${error.stack.split("\n").map((row) => html`${row}<br />`)}</p>
+			</div>`;
+    } else {
+      content = html`<div>
+				<p>An error rised while rendering. Check the developer console for more details.</p>
+			</div>`;
+    }
+    return html`${content}`;
+  };
+  WompoError.css = `
+		:host {
+			display: block;
+			padding: 20px;
+			background-color: #ffd0cf;
+			color: #a44040;
+			margin: 20px;
+			border-left: 3px solid #a44040;
+		}
+	`;
+  defineWompo(WompoError, { name: "wompo-error", shadow: true });
+}
+export function Suspense({ children, fallback }) {
+  if (!this.loadingComponents) {
+    this.loadingComponents = useRef(/* @__PURE__ */ new Set()).current;
+  }
+  this.addSuspense = (node) => {
+    if (!this.loadingComponents.size)
+      this.requestRender();
+    this.loadingComponents.add(node);
+  };
+  this.removeSuspense = (node, newNode = null) => {
+    this.loadingComponents.delete(node);
+    if (newNode) {
+      for (let i = 0; i < children.nodes.length; i++) {
+        if (children.nodes[i] === node) {
+          children.nodes[i] = newNode;
+          break;
+        }
+      }
+    }
+    if (!this.loadingComponents.size)
+      this.requestRender();
+  };
+  if (this.loadingComponents.size)
+    return html`${fallback}`;
+  return html`${children}`;
+}
+defineWompo(Suspense, {
+  name: "wompo-suspense"
+});
 //# sourceMappingURL=wompo.js.map

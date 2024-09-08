@@ -22,14 +22,14 @@ type SsrDataObject = {
 	[key: string]: any;
 };
 
-export const ssr = (Component: WompoComponent, props: WompoProps) => {
+export const ssr = (Component: WompoComponent, props: WompoProps, cssLinks?: boolean) => {
 	const ssrData: SsrDataObject = {
 		count: 0,
 		cCounter: 0,
 		components: {},
 		props: {},
 	};
-	let htmlString = ssRenderComponent(Component, props, ssrData);
+	let htmlString = ssRenderComponent(Component, props, ssrData, cssLinks);
 	htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, '');
 	const css: { [key: string]: string } = {};
 	const components = ssrData.components;
@@ -48,7 +48,8 @@ export const ssr = (Component: WompoComponent, props: WompoProps) => {
 const ssRenderComponent = (
 	Component: WompoComponent,
 	props: WompoProps,
-	ssrData: SsrDataObject
+	ssrData: SsrDataObject,
+	cssLinks?: boolean
 ) => {
 	let html = '';
 	const { generatedCSS, styles, shadow } = Component.options;
@@ -65,7 +66,7 @@ const ssRenderComponent = (
 	// Add shadow
 	if (shadow) html += `<template shadowrootmode="open">`;
 	// Append styles
-	if (generatedCSS) html += `<link rel="stylesheet" href="/${componentName}.css" />`;
+	if (generatedCSS && cssLinks) html += `<link rel="stylesheet" href="/${componentName}.css" />`;
 	ssrData.components[componentName] = Component;
 	const template = Component(props);
 	delete props.children; //! Maybe remove when implementing hydration
