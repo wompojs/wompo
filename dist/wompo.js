@@ -1303,9 +1303,22 @@ export function defineWompo(Component, options) {
     styles,
     shadow: componentOptions.shadow
   };
-  const ComponentClass = _$wompo(Component, componentOptions);
-  Component.class = ComponentClass;
-  customElements.define(componentOptions.name, ComponentClass);
+  if (!IS_SERVER) {
+    const ComponentClass = _$wompo(Component, componentOptions);
+    Component.class = ComponentClass;
+    customElements.define(componentOptions.name, ComponentClass);
+  } else {
+    Component.class = class {
+      constructor(props) {
+        this.props = props;
+        if (this.props.childNodes) {
+          this.childNodes = this.props.childNodes;
+        } else {
+          this.childNodes = [];
+        }
+      }
+    };
+  }
   registeredComponents[componentOptions.name] = Component;
   return Component;
 }

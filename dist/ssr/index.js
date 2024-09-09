@@ -45,6 +45,22 @@ const ssRenderComponent = (Component, props, ssrData, root) => {
     ssrData.components[componentName] = Component;
   }
   const template = Component(props);
+  const pendingClosing = [];
+  const templateValues = [];
+  for (let i = 0; i < template.parts.length; i++) {
+    const part = template.parts[i];
+    const value = template.values[i];
+    const indexOfSelfClosing = part.indexOf("/>");
+    if (indexOfSelfClosing !== -1 && indexOfSelfClosing < part.indexOf("<"))
+      pendingClosing.pop();
+    if (part.endsWith("<"))
+      pendingClosing.push(value);
+    if (part.endsWith("</"))
+      templateValues.push(pendingClosing.pop());
+    if (i < template.values.length)
+      templateValues.push(value);
+  }
+  template.values = templateValues;
   delete props.children;
   //! Maybe remove when implementing hydration
   if (!root)

@@ -2307,9 +2307,24 @@ export function defineWompo<Props extends WompoProps, E = {}>(
 		styles: styles,
 		shadow: componentOptions.shadow,
 	};
-	const ComponentClass = _$wompo<Props, E>(Component, componentOptions);
-	Component.class = ComponentClass;
-	customElements.define(componentOptions.name, ComponentClass);
+	if (!IS_SERVER) {
+		const ComponentClass = _$wompo<Props, E>(Component, componentOptions);
+		Component.class = ComponentClass;
+		customElements.define(componentOptions.name, ComponentClass);
+	} else {
+		Component.class = class {
+			props: any;
+			childNodes: any[];
+			constructor(props: any) {
+				this.props = props;
+				if (this.props.childNodes) {
+					this.childNodes = this.props.childNodes;
+				} else {
+					this.childNodes = [];
+				}
+			}
+		} as any;
+	}
 	registeredComponents[componentOptions.name] = Component;
 	return Component as WompoComponent<Props & WompoProps>;
 }
