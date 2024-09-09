@@ -22,14 +22,14 @@ type SsrDataObject = {
 	[key: string]: any;
 };
 
-export const ssr = (Component: WompoComponent, props: WompoProps, cssLinks?: boolean) => {
+export const ssr = (Component: WompoComponent, props: WompoProps, root?: boolean) => {
 	const ssrData: SsrDataObject = {
 		count: 0,
 		cCounter: 0,
 		components: {},
 		props: {},
 	};
-	let htmlString = ssRenderComponent(Component, props, ssrData, cssLinks);
+	let htmlString = ssRenderComponent(Component, props, ssrData, root);
 	htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, '');
 	const css: { [key: string]: string } = {};
 	const components = ssrData.components;
@@ -49,30 +49,31 @@ const ssRenderComponent = (
 	Component: WompoComponent,
 	props: WompoProps,
 	ssrData: SsrDataObject,
-	cssLinks?: boolean
+	root?: boolean
 ) => {
 	let html = '';
 	const { generatedCSS, styles, shadow } = Component.options;
 	props.styles = styles;
 	const componentName = Component.componentName;
-	if (!ssrData.props[componentName]) ssrData.props[componentName] = [];
-	html += `<${componentName} wompo-hydrate="${ssrData.props[componentName].length}"`;
-	for (const prop in props) {
-		const value = props[prop as keyof WompoProps];
-		const isPrimitive = value !== Object(value);
-		if (isPrimitive && prop !== 'title') html += ` ${prop}="${value}"`;
+	if (!root) {
+		if (!ssrData.props[componentName]) ssrData.props[componentName] = [];
+		html += `<${componentName} wompo-hydrate="${ssrData.props[componentName].length}"`;
+		for (const prop in props) {
+			const value = props[prop as keyof WompoProps];
+			const isPrimitive = value !== Object(value);
+			if (isPrimitive && prop !== 'title') html += ` ${prop}="${value}"`;
+		}
+		html += '>';
+		// Add shadow
+		if (shadow) html += `<template shadowrootmode="open">`;
+		ssrData.components[componentName] = Component;
 	}
-	html += '>';
-	// Add shadow
-	if (shadow) html += `<template shadowrootmode="open">`;
-	// Append styles
-	if (generatedCSS && cssLinks) html += `<link rel="stylesheet" href="/${componentName}.css" />`;
-	ssrData.components[componentName] = Component;
 	const template = Component(props);
 	delete props.children; //! Maybe remove when implementing hydration
-	ssrData.props[componentName].push(props);
+	if (!root) ssrData.props[componentName].push(props);
 	// Render component
 	let toRender = generateSsHtml(template, ssrData);
+	console.log(toRender);
 	// Replace self-closing tags
 	toRender = toRender.replace(/<([a-z]*-[a-z]*)(.*?)>/gs, (match, name, attrs) =>
 		match.endsWith('/>') ? `<${name}${attrs.substring(0, attrs.length - 1)}></${name}>` : match
@@ -84,6 +85,7 @@ const ssRenderComponent = (
 	const components: number[] = [];
 	toRender = toRender.replace(/<\/?([a-z]+?-[a-z]+?)\s?(?:\s.*?)?>/gs, (match, name) => {
 		const component = registeredComponents[name];
+		console.log(match);
 		if (!component) return match;
 		if (match[1] !== '/') {
 			if (name === pending) {
@@ -131,7 +133,7 @@ const ssRenderComponent = (
 					(componentProps as any)[attrName] = attrValue;
 				}
 			}
-			return ssRenderComponent(Component, componentProps, ssrData);
+			return ssRenderComponent(Component, componentProps, ssrData, false);
 		});
 	}
 	html += toRender;

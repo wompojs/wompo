@@ -1265,13 +1265,9 @@ export const useContext = (Context) => {
 export function html(templateParts, ...values) {
   const cleanValues = [];
   const length = templateParts.length - 1;
-  if (!IS_SERVER) {
-    for (let i = 0; i < length; i++) {
-      if (!templateParts[i].endsWith("</"))
-        cleanValues.push(values[i]);
-    }
-  } else {
-    cleanValues.push(...values);
+  for (let i = 0; i < length; i++) {
+    if (!templateParts[i].endsWith("</"))
+      cleanValues.push(values[i]);
   }
   return {
     parts: templateParts,
@@ -1307,11 +1303,9 @@ export function defineWompo(Component, options) {
     styles,
     shadow: componentOptions.shadow
   };
-  if (!IS_SERVER) {
-    const ComponentClass = _$wompo(Component, componentOptions);
-    Component.class = ComponentClass;
-    customElements.define(componentOptions.name, ComponentClass);
-  }
+  const ComponentClass = _$wompo(Component, componentOptions);
+  Component.class = ComponentClass;
+  customElements.define(componentOptions.name, ComponentClass);
   registeredComponents[componentOptions.name] = Component;
   return Component;
 }

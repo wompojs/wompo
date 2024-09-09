@@ -2207,13 +2207,9 @@ HTML
 export function html(templateParts: TemplateStringsArray, ...values: any[]): RenderHtml {
 	const cleanValues = [];
 	const length = templateParts.length - 1; // skip last element
-	if (!IS_SERVER) {
-		for (let i = 0; i < length; i++) {
-			// Don't include dynamic closing tags
-			if (!templateParts[i].endsWith('</')) cleanValues.push(values[i]);
-		}
-	} else {
-		cleanValues.push(...values);
+	for (let i = 0; i < length; i++) {
+		// Don't include dynamic closing tags
+		if (!templateParts[i].endsWith('</')) cleanValues.push(values[i]);
 	}
 	return {
 		parts: templateParts,
@@ -2311,11 +2307,9 @@ export function defineWompo<Props extends WompoProps, E = {}>(
 		styles: styles,
 		shadow: componentOptions.shadow,
 	};
-	if (!IS_SERVER) {
-		const ComponentClass = _$wompo<Props, E>(Component, componentOptions);
-		Component.class = ComponentClass;
-		customElements.define(componentOptions.name, ComponentClass);
-	}
+	const ComponentClass = _$wompo<Props, E>(Component, componentOptions);
+	Component.class = ComponentClass;
+	customElements.define(componentOptions.name, ComponentClass);
 	registeredComponents[componentOptions.name] = Component;
 	return Component as WompoComponent<Props & WompoProps>;
 }
