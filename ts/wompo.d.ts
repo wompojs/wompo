@@ -127,6 +127,10 @@ export type WompoElement<Props extends WompoProps = WompoProps, E = {}> = HTMLEl
      */
     _$hasBeenMoved: boolean;
     /**
+     * A list of effects to execute after the component has been rendered (asynchronously).
+     */
+    _$effects: EffectHook[];
+    /**
      * A list of layout effects to execute immediately after the component has been rendered (not
      * asynchronously).
      */
@@ -521,7 +525,7 @@ export declare const useCallback: (callbackFn: (...args: any[]) => any, dependen
  *
  * @returns The useId hook.
  */
-export declare const useId: () => string;
+export declare const useId: () => IdHook;
 /**
  * The useMemo hook is useful when you want to store a computed value which would be expensive to
  * re-compute for every single render. For example, filtering or sorting, an array. It accepts one
@@ -662,7 +666,7 @@ export declare const useExposed: <E = {}>(toExpose: E) => void;
  * @param promise The promise to resolve.
  * @returns The result of the promise or null if it's pending or rejected.
  */
-export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[]) => S;
+export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[]) => null | S;
 /**
  * The Context interface
  */

@@ -144,6 +144,11 @@ export type WompoElement<Props extends WompoProps = WompoProps, E = {}> = HTMLEl
 		_$hasBeenMoved: boolean;
 
 		/**
+		 * A list of effects to execute after the component has been rendered (asynchronously).
+		 */
+		_$effects: EffectHook[];
+
+		/**
 		 * A list of layout effects to execute immediately after the component has been rendered (not
 		 * asynchronously).
 		 */
@@ -1230,6 +1235,7 @@ const _$wompo = <Props extends WompoProps, E>(
 		public _$usesContext: boolean = false;
 		public _$hasBeenMoved: boolean = false;
 		public _$layoutEffects: EffectHook[] = [];
+		public _$effects: EffectHook[] = [];
 
 		/** The Root. It'll be the node itself, or it's ShadowRoot if shadow is set to true */
 		private __ROOT: this | ShadowRoot;
@@ -1429,10 +1435,16 @@ const _$wompo = <Props extends WompoProps, E>(
 					const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
 					this.__oldValues = oldValues;
 				}
-				while (this._$layoutEffects.length) {
-					const layoutEffectHook = this._$layoutEffects.pop();
+				for (const layoutEffectHook of this._$layoutEffects) {
 					layoutEffectHook.cleanupFunction = layoutEffectHook.callback();
 				}
+				this._$layoutEffects = [];
+				Promise.resolve().then(() => {
+					for (const effectHook of this._$effects) {
+						effectHook.cleanupFunction = effectHook.callback();
+					}
+					this._$effects = [];
+				});
 			} catch (err) {
 				console.error(err);
 				if (DEV_MODE) {
@@ -1603,29 +1615,22 @@ export const useEffect = (
 			cleanupFunction: null,
 		} as EffectHook;
 		component.hooks[hookIndex] = effectHook;
-		Promise.resolve().then(() => {
-			effectHook.cleanupFunction = callback();
-		});
+		component._$effects.push(effectHook);
 	} else {
-		const componentEffect = component.hooks[hookIndex] as EffectHook;
+		const effectHook = component.hooks[hookIndex] as EffectHook;
 		if (dependencies !== null) {
 			for (let i = 0; i < dependencies.length; i++) {
-				const oldDep = componentEffect.dependencies[i];
+				const oldDep = effectHook.dependencies[i];
 				if (oldDep !== dependencies[i]) {
-					if (typeof componentEffect.cleanupFunction === 'function')
-						componentEffect.cleanupFunction();
-					Promise.resolve().then(() => {
-						componentEffect.cleanupFunction = callback();
-						componentEffect.dependencies = dependencies;
-					});
+					if (typeof effectHook.cleanupFunction === 'function') effectHook.cleanupFunction();
+					effectHook.dependencies = dependencies;
+					effectHook.callback = callback;
+					component._$effects.push(effectHook);
 					break;
 				}
 			}
 		} else {
-			Promise.resolve().then(() => {
-				componentEffect.cleanupFunction = callback();
-				componentEffect.dependencies = dependencies;
-			});
+			component._$effects.push(effectHook);
 		}
 	}
 };
@@ -1976,18 +1981,22 @@ const executeUseAsyncCallback = <S>(
 	callback: () => Promise<S>
 ) => {
 	const [component, hookIndex] = hook;
-	if (suspense) {
-		suspense.addSuspense(component);
-	}
+	if (suspense) suspense.addSuspense(component);
 	(component.hooks[hookIndex] as AsyncHook<S>).value = null;
-	const promise = callback();
-	promise
-		.then((data) => {
-			component.requestRender();
+	Promise.resolve().then(() => {
+		if (component.isConnected) {
+			const promise = callback();
+			promise
+				.then((data) => {
+					if (component.isConnected) component.requestRender();
+					suspense?.removeSuspense(component);
+					(component.hooks[hookIndex] as AsyncHook<S>).value = data;
+				})
+				.catch((err) => console.error(err));
+		} else {
 			suspense?.removeSuspense(component);
-			(component.hooks[hookIndex] as AsyncHook<S>).value = data;
-		})
-		.catch((err) => console.error(err));
+		}
+	});
 };
 
 /**
@@ -2047,12 +2056,6 @@ export const useAsync = <S>(callback: () => Promise<S>, dependencies: any[]): nu
 	return (component.hooks[hookIndex] as AsyncHook<S>).value;
 };
 
-//? NO useDebugValue (because is for react-dev-tools)
-//? NO useDeferredValue
-//? NO useImperativeHandle
-//? NO useInsertionEffect
-//? NO useOptimistic
-
 /* 
 ================================================
 CONTEXT
@@ -2077,10 +2080,12 @@ const createContextMemo = () => {
 			({ children, value }: ContextProviderProps) => {
 				const initialSubscribers = new Set<WompoElement>();
 				const subscribers = useRef(initialSubscribers);
+				useEffect(() => {
+					subscribers.current.forEach((el) => {
+						if (el.isConnected) el.requestRender();
+					});
+				}, [value]);
 				useExposed({ subscribers: subscribers });
-				subscribers.current.forEach((el) => {
-					if (el.isConnected) el.requestRender();
-				});
 				return html`${children}`;
 			},
 			{
