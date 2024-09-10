@@ -1978,13 +1978,15 @@ export const useExposed = <E = {}>(toExpose: E) => {
 const executeUseAsyncCallback = <S>(
 	hook: [WompoElement, number],
 	suspense: SuspenseInstance,
-	callback: () => Promise<S>
+	callback: () => Promise<S>,
+	oldData: { oldAsync: AsyncHook<S>; dependencies: any[] }
 ) => {
 	const [component, hookIndex] = hook;
 	if (suspense) suspense.addSuspense(component);
 	(component.hooks[hookIndex] as AsyncHook<S>).value = null;
 	Promise.resolve().then(() => {
 		if (component.isConnected) {
+			oldData.oldAsync.dependencies = oldData.dependencies;
 			const promise = callback();
 			promise
 				.then((data) => {
@@ -2037,20 +2039,22 @@ export const useAsync = <S>(callback: () => Promise<S>, dependencies: any[]): nu
 			dependencies: dependencies,
 			value: null,
 		} as AsyncHook<S>;
-		executeUseAsyncCallback([component, hookIndex], suspense, callback);
+		executeUseAsyncCallback([component, hookIndex], suspense, callback, null);
 	} else {
 		const oldAsync = component.hooks[hookIndex] as AsyncHook<S>;
 		let newCall = false;
 		for (let i = 0; i < dependencies.length; i++) {
 			const oldDep = oldAsync.dependencies[i];
 			if (oldDep !== dependencies[i]) {
-				oldAsync.dependencies = dependencies;
 				newCall = true;
 				break;
 			}
 		}
 		if (newCall) {
-			executeUseAsyncCallback([component, hookIndex], suspense, callback);
+			executeUseAsyncCallback([component, hookIndex], suspense, callback, {
+				oldAsync,
+				dependencies,
+			});
 		}
 	}
 	return (component.hooks[hookIndex] as AsyncHook<S>).value;
