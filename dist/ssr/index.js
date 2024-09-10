@@ -66,7 +66,6 @@ const ssRenderComponent = (Component, props, ssrData, root) => {
   if (!root)
     ssrData.props[componentName].push(props);
   let toRender = generateSsHtml(template, ssrData);
-  console.log(toRender);
   toRender = toRender.replace(
     /<([a-z]*-[a-z]*)(.*?)>/gs,
     (match, name, attrs) => match.endsWith("/>") ? `<${name}${attrs.substring(0, attrs.length - 1)}></${name}>` : match
@@ -76,7 +75,6 @@ const ssRenderComponent = (Component, props, ssrData, root) => {
   const components = [];
   toRender = toRender.replace(/<\/?([a-z]+?-[a-z]+?)\s?(?:\s.*?)?>/gs, (match, name) => {
     const component = registeredComponents[name];
-    console.log(match);
     if (!component)
       return match;
     if (match[1] !== "/") {
