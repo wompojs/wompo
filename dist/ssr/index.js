@@ -1,3 +1,186 @@
-import{registeredComponents as b}from"../wompo.js";export const ssr=(s,t)=>{const o={count:0,cCounter:0,components:{},props:{}};let e=w(s,t,o);e=e.replace(/\s[a-z]+="\$wcREMOVE\$"/g,"");const l={},m=o.components;for(const r in m){const $=m[r].options.generatedCSS;$&&(l[r]=$.replace(/\s\s+/g," ").replace(/\t/g,"").replace(/\n/g,""))}return{html:e,css:l,props:o.props}};const w=(s,t,o)=>{let e="";const{generatedCSS:l,styles:m,shadow:r}=s.options;t.styles=m;const i=s.componentName;o.props[i]||(o.props[i]=[]),e+=`<${i} wompo-hydrate="${o.props[i].length}"`;for(const n in t){const c=t[n];c!==Object(c)&&n!=="title"&&(e+=` ${n}="${c}"`)}e+=">",r&&(e+='<template shadowrootmode="open">'),l&&(e+=`<link rel="stylesheet" href="/${i}.css" />`),o.components[i]=s;const $=s(t);delete t.children;//! Maybe remove when implementing hydration
-o.props[i].push(t);let p=S($,o);p=p.replace(/<([a-z]*-[a-z]*)(.*?)>/gs,(n,c,y)=>n.endsWith("/>")?`<${c}${y.substring(0,y.length-1)}></${c}>`:n);let g=0,f="";const d=[];p=p.replace(/<\/?([a-z]+?-[a-z]+?)\s?(?:\s.*?)?>/gs,(n,c)=>{if(!b[c])return n;if(n[1]!=="/"){if(c===f)g++;else if(!f){f=c;const u=n+`<?$CWC${d.length}>`;return g++,u}}else if(f&&c===f&&(g--,!g)){const u=`</?$CWC${d.length}>`+n;return f="",d.push(d.length),u}return n});for(const n of d){const c=new RegExp(`<([a-z]+-[a-z]+)([^>]*?)><\\?\\$CWC${n}>(.*?)<\\/\\?\\$CWC${n}>`,"gs");p=p.replace(c,(y,u,P,j)=>{const k=b[u],h={};h.children={_$wompoChildren:!0,nodes:j};const R=P.matchAll(/\s?(.*?)="(.*?)"/gs);let a;for(;!(a=R.next()).done;){const[_,W,C]=a.value;if(C.match(/\$wc(.*?)\$/)){const z=o[C];h[W]=z}else h[W]=C}return w(k,h,o)})}return e+=p,r&&(e+="</template>"),e+=`</${i}>`,e},S=(s,t)=>{let o="";for(let e=0;e<s.parts.length;e++){let l=s.parts[e];const m=s.values[e];o+=l,o+=O(l,m,t)}return o},O=(s,t,o)=>{let e="";const l=t===!1||t===void 0||t===null,m=t!==Object(t);if(s.endsWith("=")){if(l)return e+='"$wcREMOVE$"',e;if(m)e+=`"${t}"`;else if(s.endsWith(" style=")){let r="";const i=Object.keys(t);for(const $ of i){let p=t[$],g=$.replace(/[A-Z]/g,f=>"-"+f.toLowerCase());typeof p=="number"&&(p=`${p}px`),r+=`${g}:${p};`}e+=`"${r}"`}else{const r=`$wc${o.count}$`;e+=`"${r}"`,o[r]=t,o.count++}return e}if(l)return e;if(t._$wompoF)return e+=t.componentName,e;if(t._$wompoChildren)return e+=t.nodes,o.cCounter++,e;if(m)return e+=t,e;if(Array.isArray(t)){for(const r of t)e+=O(s,r,o);return e}return t._$wompoHtml?S(t,o):e};
+import {
+  registeredComponents
+} from "../wompo.js";
+export const ssr = (Component, props) => {
+  const ssrData = {
+    count: 0,
+    cCounter: 0,
+    components: {},
+    props: {}
+  };
+  let htmlString = ssRenderComponent(Component, props, ssrData);
+  htmlString = htmlString.replace(/\s[a-z]+="\$wcREMOVE\$"/g, "");
+  const css = {};
+  const components = ssrData.components;
+  for (const comp in components) {
+    const component = components[comp];
+    const compCss = component.options.generatedCSS;
+    if (compCss)
+      css[comp] = compCss.replace(/\s\s+/g, " ").replace(/\t/g, "").replace(/\n/g, "");
+  }
+  return {
+    html: htmlString,
+    css,
+    props: ssrData.props
+  };
+};
+const ssRenderComponent = (Component, props, ssrData) => {
+  let html = "";
+  const { generatedCSS, styles, shadow } = Component.options;
+  props.styles = styles;
+  const componentName = Component.componentName;
+  if (!ssrData.props[componentName])
+    ssrData.props[componentName] = [];
+  html += `<${componentName} wompo-hydrate="${ssrData.props[componentName].length}"`;
+  for (const prop in props) {
+    const value = props[prop];
+    const isPrimitive = value !== Object(value);
+    if (isPrimitive && prop !== "title")
+      html += ` ${prop}="${value}"`;
+  }
+  html += ">";
+  if (shadow)
+    html += `<template shadowrootmode="open">`;
+  if (generatedCSS)
+    html += `<link rel="stylesheet" href="/${componentName}.css" />`;
+  ssrData.components[componentName] = Component;
+  const template = Component(props);
+  delete props.children;
+  //! Maybe remove when implementing hydration
+  ssrData.props[componentName].push(props);
+  let toRender = generateSsHtml(template, ssrData);
+  toRender = toRender.replace(
+    /<([a-z]*-[a-z]*)(.*?)>/gs,
+    (match, name, attrs) => match.endsWith("/>") ? `<${name}${attrs.substring(0, attrs.length - 1)}></${name}>` : match
+  );
+  let counter = 0;
+  let pending = "";
+  const components = [];
+  toRender = toRender.replace(/<\/?([a-z]+?-[a-z]+?)\s?(?:\s.*?)?>/gs, (match, name) => {
+    const component = registeredComponents[name];
+    if (!component)
+      return match;
+    if (match[1] !== "/") {
+      if (name === pending) {
+        counter++;
+      } else if (!pending) {
+        pending = name;
+        const res = match + `<?$CWC${components.length}>`;
+        counter++;
+        return res;
+      }
+    } else if (pending) {
+      if (name === pending) {
+        counter--;
+        if (!counter) {
+          const res = `</?$CWC${components.length}>` + match;
+          pending = "";
+          components.push(components.length);
+          return res;
+        }
+      }
+    }
+    return match;
+  });
+  for (const id of components) {
+    const regex = new RegExp(
+      `<([a-z]+-[a-z]+)([^>]*?)><\\?\\$CWC${id}>(.*?)<\\/\\?\\$CWC${id}>`,
+      "gs"
+    );
+    toRender = toRender.replace(regex, (_, name, attrs, children) => {
+      const Component2 = registeredComponents[name];
+      const componentProps = {};
+      componentProps.children = {
+        _$wompoChildren: true,
+        nodes: children
+      };
+      const attributes = attrs.matchAll(/\s?(.*?)="(.*?)"/gs);
+      let attr;
+      while (!(attr = attributes.next()).done) {
+        const [_2, attrName, attrValue] = attr.value;
+        if (attrValue.match(/\$wc(.*?)\$/)) {
+          const value = ssrData[attrValue];
+          componentProps[attrName] = value;
+        } else {
+          componentProps[attrName] = attrValue;
+        }
+      }
+      return ssRenderComponent(Component2, componentProps, ssrData);
+    });
+  }
+  html += toRender;
+  if (shadow)
+    html += `</template>`;
+  html += `</${componentName}>`;
+  return html;
+};
+const generateSsHtml = (template, ssrData) => {
+  let html = "";
+  for (let i = 0; i < template.parts.length; i++) {
+    let part = template.parts[i];
+    const value = template.values[i];
+    html += part;
+    html += handleSsValue(part, value, ssrData);
+  }
+  return html;
+};
+const handleSsValue = (part, value, ssrData) => {
+  let html = "";
+  const shouldBeRemoved = value === false || value === void 0 || value === null;
+  const isPrimitive = value !== Object(value);
+  if (part.endsWith("=")) {
+    if (shouldBeRemoved) {
+      html += `"$wcREMOVE$"`;
+      return html;
+    }
+    if (isPrimitive) {
+      html += `"${value}"`;
+    } else {
+      if (part.endsWith(" style=")) {
+        let styleString = "";
+        const styles = Object.keys(value);
+        for (const key of styles) {
+          let styleValue = value[key];
+          let styleKey = key.replace(/[A-Z]/g, (letter) => "-" + letter.toLowerCase());
+          if (typeof styleValue === "number")
+            styleValue = `${styleValue}px`;
+          styleString += `${styleKey}:${styleValue};`;
+        }
+        html += `"${styleString}"`;
+      } else {
+        const identifier = `$wc${ssrData.count}$`;
+        html += `"${identifier}"`;
+        ssrData[identifier] = value;
+        ssrData.count++;
+      }
+    }
+    return html;
+  }
+  if (shouldBeRemoved) {
+    return html;
+  }
+  if (value._$wompoF) {
+    html += value.componentName;
+    return html;
+  }
+  if (value._$wompoChildren) {
+    html += value.nodes;
+    ssrData.cCounter++;
+    return html;
+  }
+  if (isPrimitive) {
+    html += value;
+    return html;
+  }
+  if (Array.isArray(value)) {
+    for (const val of value) {
+      html += handleSsValue(part, val, ssrData);
+    }
+    return html;
+  }
+  if (value._$wompoHtml) {
+    return generateSsHtml(value, ssrData);
+  }
+  return html;
+};
 //# sourceMappingURL=index.js.map

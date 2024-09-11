@@ -1,29 +1,51 @@
+import { Suspense, useAsync, useEffect } from 'wompo';
 import { html, defineWompo, useState, useContext, createContext } from '../dist/wompo.js';
 
 const Context = createContext(null);
 
-function SecondComponent({ title }) {
-	console.log(title);
-	return html`<${ThirdComponent} title=${title}></${ThirdComponent}>`;
-}
+const request = async () => {
+	console.log('requesting data...');
+	const res = await fetch('https://jsonplaceholder.typicode.com/todos');
+	const json = await res.json();
+	return json;
+};
 
-function ThirdComponent({ title }) {
-	console.log(title);
-	return html`<h1>${title}</h1>`;
-}
+const AsyncComp = () => {
+	const counter = useContext(Context);
+	const data = useAsync(request, [Math.floor(counter / 5)]);
+	useEffect(() => {
+		console.log('rendered');
+		return () => {
+			console.log('removed');
+		};
+	}, []);
+
+	return html`
+		<p>Counter: ${counter}</p>
+		<p>
+			Data:
+			<ul>
+				${data?.map((el) => html`<li>${el.id} - ${el.title}</li>`)}
+			</ul>
+		</p>
+	`;
+};
+
+defineWompo(AsyncComp);
 
 export default function Test() {
-	const ctx = useContext(Context);
 	const [counter, setCounter] = useState(0);
 
 	const inc = () => [setCounter(counter + 1)];
 
 	return html`<div>
-		<${SecondComponent} title="Element Super ${counter}" />
-		<button @click=${inc}>${counter}</button>
+		<${Context.Provider} value=${counter}>
+			<button @click=${inc}>${counter}</button>
+			<${Suspense} fallback=${html`Loading...`}>
+				<${AsyncComp} />
+			</${Suspense}>
+		</${Context.Provider}>
 	</div>`;
 }
 
-defineWompo(ThirdComponent);
-defineWompo(SecondComponent);
 defineWompo(Test);
