@@ -1986,7 +1986,7 @@ const executeUseAsyncCallback = <S>(
 	(component.hooks[hookIndex] as AsyncHook<S>).value = null;
 	Promise.resolve().then(() => {
 		if (component.isConnected) {
-			oldData.oldAsync.dependencies = oldData.dependencies;
+			if (oldData?.oldAsync) oldData.oldAsync.dependencies = oldData.dependencies;
 			const promise = callback();
 			promise
 				.then((data) => {
