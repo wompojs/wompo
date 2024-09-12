@@ -1500,8 +1500,8 @@ const _$wompo = <Props extends WompoProps, E>(
 								promises.push(promise);
 							}
 							Promise.all(promises).then(() => {
-								this.requestRender();
 								suspense?.removeSuspense(this);
+								this.requestRender();
 							});
 						}
 						this._$asyncCalls = [];
@@ -1537,7 +1537,7 @@ const _$wompo = <Props extends WompoProps, E>(
 				this.__updating = true;
 				Promise.resolve().then(() => {
 					if (DEV_MODE && this._$measurePerf) console.time('Re-render ' + options.name);
-					if (this.isConnected) this.__render();
+					this.__render();
 					this.__updating = false;
 					this._$hasBeenMoved = false;
 					if (DEV_MODE && this._$measurePerf) console.timeEnd('Re-render ' + options.name);

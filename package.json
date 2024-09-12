@@ -1,7 +1,7 @@
 {
 	"name": "wompo",
 	"description": "Wompo is a performant React-like JS library to create Web-Components that are re-usable, shareable, and beginner-friendly.",
-	"version": "1.0.17",
+	"version": "1.0.18",
 	"type": "module",
 	"module": "./dist/wompo.js",
 	"main": "./dist/wompo.js",
