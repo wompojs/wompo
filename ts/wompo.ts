@@ -1288,12 +1288,10 @@ const _$wompo = <Props extends WompoProps, E>(
 					}
 				}
 
-				console.log('Any suspended call?', this._$suspendedAsyncCalls);
 				if (this._$suspendedAsyncCalls.length) {
-					console.log('Yeah');
 					const suspense = findSuspense(this);
 					const promises: Promise<any>[] = [];
-					suspense.addSuspense(this);
+					suspense?.addSuspense(this);
 					for (const asyncHook of this._$suspendedAsyncCalls) {
 						promises.push(
 							asyncHook.asyncCallback().then((data) => {
@@ -1417,7 +1415,10 @@ const _$wompo = <Props extends WompoProps, E>(
 							let propName = record.attributeName;
 							if (propName.includes('-'))
 								propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
-							this.updateProp(propName, this.getAttribute(record.attributeName));
+							const newAttrVal = this.getAttribute(record.attributeName);
+							// So that 2 will not cause a re-render because of "2"
+							if (this.props[propName as keyof WompoProps] != newAttrVal)
+								this.updateProp(propName, this.getAttribute(record.attributeName));
 						}
 					});
 				}
@@ -1488,20 +1489,17 @@ const _$wompo = <Props extends WompoProps, E>(
 						if (this._$asyncCalls.length) {
 							const promises: Promise<any>[] = [];
 							const suspense = findSuspense(this);
-							suspense.addSuspense(this);
-							console.log('executing async calls', this._$asyncCalls);
+							suspense?.addSuspense(this);
 							for (const asyncHook of this._$asyncCalls) {
 								const promise = asyncHook
 									.asyncCallback()
 									.then((data) => {
-										console.log('Got data...');
 										asyncHook.value = data;
 									})
 									.catch((err) => console.error(err));
 								promises.push(promise);
 							}
 							Promise.all(promises).then(() => {
-								console.log('Solved all promises. Is connected?', this.isConnected);
 								this.requestRender();
 								suspense?.removeSuspense(this);
 							});
@@ -1539,7 +1537,7 @@ const _$wompo = <Props extends WompoProps, E>(
 				this.__updating = true;
 				Promise.resolve().then(() => {
 					if (DEV_MODE && this._$measurePerf) console.time('Re-render ' + options.name);
-					this.__render();
+					if (this.isConnected) this.__render();
 					this.__updating = false;
 					this._$hasBeenMoved = false;
 					if (DEV_MODE && this._$measurePerf) console.timeEnd('Re-render ' + options.name);
@@ -1696,6 +1694,7 @@ export const useEffect = (
 				}
 			}
 		} else {
+			effectHook.callback = callback;
 			component._$effects.push(effectHook);
 		}
 	}
@@ -1715,28 +1714,30 @@ export const useLayoutEffect = (
 ) => {
 	const [component, hookIndex] = useHook();
 	if (!component.hooks.hasOwnProperty(hookIndex)) {
-		const effectHook = {
+		const layoutEffectHook = {
 			dependencies: dependencies,
 			callback: callback,
 			cleanupFunction: null,
 		} as EffectHook;
-		component.hooks[hookIndex] = effectHook;
-		component._$layoutEffects.push(effectHook);
+		component.hooks[hookIndex] = layoutEffectHook;
+		component._$layoutEffects.push(layoutEffectHook);
 	} else {
-		const effectHook = component.hooks[hookIndex] as EffectHook;
+		const layoutEffectHook = component.hooks[hookIndex] as EffectHook;
 		if (dependencies !== null) {
 			for (let i = 0; i < dependencies.length; i++) {
-				const oldDep = effectHook.dependencies[i];
+				const oldDep = layoutEffectHook.dependencies[i];
 				if (oldDep !== dependencies[i]) {
-					if (typeof effectHook.cleanupFunction === 'function') effectHook.cleanupFunction();
-					effectHook.dependencies = dependencies;
-					effectHook.callback = callback;
-					component._$layoutEffects.push(effectHook);
+					if (typeof layoutEffectHook.cleanupFunction === 'function')
+						layoutEffectHook.cleanupFunction();
+					layoutEffectHook.dependencies = dependencies;
+					layoutEffectHook.callback = callback;
+					component._$layoutEffects.push(layoutEffectHook);
 					break;
 				}
 			}
 		} else {
-			component._$layoutEffects.push(effectHook);
+			layoutEffectHook.callback = callback;
+			component._$layoutEffects.push(layoutEffectHook);
 		}
 	}
 };
@@ -2046,7 +2047,6 @@ const executeUseAsyncCallback = <S>(
 	callback: () => Promise<S>,
 	newDependencies: any[]
 ) => {
-	console.log('executing async callback');
 	const [component, hookIndex] = hook;
 	const asyncHook = component.hooks[hookIndex] as AsyncHook<S>;
 	asyncHook.value = null;
@@ -2210,20 +2210,16 @@ export const useContext = <S>(Context: Context<S>): S => {
 			else parent = parent.parentNode;
 		}
 		const oldParent = (component.hooks[hookIndex] as ContextHook)?.node;
-		console.log('parent?', parent);
 		if (parent && parent !== document.body) {
-			Promise.resolve().then(() => {
-				(parent as ContextProviderElement).subscribers.current.add(component);
-				if (!component._$usesContext) {
-					const oldDisconnect = component.onDisconnected;
-					component.onDisconnected = () => {
-						console.log('Removed subscriber');
-						(parent as ContextProviderElement).subscribers.current.delete(component);
-						oldDisconnect();
-					};
-				}
-				component._$usesContext = true;
-			});
+			(parent as ContextProviderElement).subscribers.current.add(component);
+			if (!component._$usesContext) {
+				const oldDisconnect = component.onDisconnected;
+				component.onDisconnected = () => {
+					(parent as ContextProviderElement).subscribers.current.delete(component);
+					oldDisconnect();
+				};
+			}
+			component._$usesContext = true;
 		} else if (oldParent) {
 			if (DEV_MODE) {
 				console.warn(
