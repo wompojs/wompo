@@ -247,6 +247,7 @@ export interface AsyncHook<S> {
 	asyncCallback: () => Promise<S>;
 	dependencies: any[];
 	value: S;
+	activateSuspense: boolean;
 }
 
 /** The props type of a ContextProvider */
@@ -1028,6 +1029,7 @@ const __handleDynamicTag = (
 		node.replaceWith(customElement);
 		return customElement;
 	}
+	return node;
 };
 
 /**
@@ -1295,8 +1297,8 @@ const _$wompo = <Props extends WompoProps, E>(
 				if (this._$suspendedAsyncCalls.length) {
 					const suspense = findSuspense(this);
 					const promises: Promise<any>[] = [];
-					suspense?.addSuspense(this);
 					for (const asyncHook of this._$suspendedAsyncCalls) {
+						if (asyncHook.activateSuspense) suspense?.addSuspense(this);
 						promises.push(
 							asyncHook.asyncCallback().then((data) => {
 								asyncHook.value = data;
@@ -1493,8 +1495,8 @@ const _$wompo = <Props extends WompoProps, E>(
 						if (this._$asyncCalls.length) {
 							const promises: Promise<any>[] = [];
 							const suspense = findSuspense(this);
-							suspense?.addSuspense(this);
 							for (const asyncHook of this._$asyncCalls) {
+								if (asyncHook.activateSuspense) suspense?.addSuspense(this);
 								const promise = asyncHook
 									.asyncCallback()
 									.then((data) => {
@@ -2046,16 +2048,19 @@ export const useExposed = <E = {}>(toExpose: E) => {
 /**
  * Executes the callback function in the useAsync hook.
  * @param hook The hook data.
- * @param suspense The (maybe) parent suspense.
- * @param callback The callback function that returns the promise.
+ * @param callback The async callback.
+ * @param newDependencies The new array of dependencies.
+ * @param activateSuspense Whether to activate or not a parent Suspense element.
  */
 const executeUseAsyncCallback = <S>(
 	hook: [WompoElement, number],
 	callback: () => Promise<S>,
-	newDependencies: any[]
+	newDependencies: any[],
+	activateSuspense: boolean
 ) => {
 	const [component, hookIndex] = hook;
 	const asyncHook = component.hooks[hookIndex] as AsyncHook<S>;
+	asyncHook.activateSuspense = activateSuspense;
 	asyncHook.value = null;
 	asyncHook.asyncCallback = callback;
 	asyncHook.dependencies = newDependencies;
@@ -2071,6 +2076,10 @@ const executeUseAsyncCallback = <S>(
  *
  * It can be used with a parent `Suspanse` instance to show a loading indicator while the promise
  * is being resolved.
+ *
+ * The useAsync hook accepts a third parameter: **activateSuspense**. It is a boolean value that by
+ * default is `true`. If it's set to `false`, the useAsync hook will NOT trigger a parent `Suspense`
+ * element.
  *
  * @example
  * ```javascript
@@ -2092,15 +2101,20 @@ const executeUseAsyncCallback = <S>(
  * @param promise The promise to resolve.
  * @returns The result of the promise or null if it's pending or rejected.
  */
-export const useAsync = <S>(callback: () => Promise<S>, dependencies: any[]): null | S => {
+export const useAsync = <S>(
+	callback: () => Promise<S>,
+	dependencies: any[],
+	activateSuspense = true
+): null | S => {
 	const [component, hookIndex] = useHook();
 	if (!component.hooks.hasOwnProperty(hookIndex)) {
 		component.hooks[hookIndex] = {
 			asyncCallback: callback,
 			dependencies: dependencies,
 			value: null,
+			activateSuspense: activateSuspense,
 		} as AsyncHook<S>;
-		executeUseAsyncCallback([component, hookIndex], callback, dependencies);
+		executeUseAsyncCallback([component, hookIndex], callback, dependencies, activateSuspense);
 	} else {
 		const oldAsync = component.hooks[hookIndex] as AsyncHook<S>;
 		let newCall = false;
@@ -2112,7 +2126,7 @@ export const useAsync = <S>(callback: () => Promise<S>, dependencies: any[]): nu
 			}
 		}
 		if (newCall) {
-			executeUseAsyncCallback([component, hookIndex], callback, dependencies);
+			executeUseAsyncCallback([component, hookIndex], callback, dependencies, activateSuspense);
 		}
 	}
 	return (component.hooks[hookIndex] as AsyncHook<S>).value;
@@ -2555,7 +2569,7 @@ export function Suspense({ children, fallback }: SuspenseProps) {
 		}
 		if (!this.loadingComponents.size) this.requestRender();
 	};
-	if (this.loadingComponents.size) return html`${fallback}`;
+	if (this.loadingComponents.size && fallback) return html`${fallback}`;
 	return html`${children}`;
 }
 defineWompo(Suspense, {

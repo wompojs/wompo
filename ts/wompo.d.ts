@@ -205,6 +205,7 @@ export interface AsyncHook<S> {
     asyncCallback: () => Promise<S>;
     dependencies: any[];
     value: S;
+    activateSuspense: boolean;
 }
 /** The props type of a ContextProvider */
 interface ContextProviderProps extends WompoProps {
@@ -655,6 +656,10 @@ export declare const useExposed: <E = {}>(toExpose: E) => void;
  * It can be used with a parent `Suspanse` instance to show a loading indicator while the promise
  * is being resolved.
  *
+ * The useAsync hook accepts a third parameter: **activateSuspense**. It is a boolean value that by
+ * default is `true`. If it's set to `false`, the useAsync hook will NOT trigger a parent `Suspense`
+ * element.
+ *
  * @example
  * ```javascript
  * const callback = async () => {
@@ -675,7 +680,7 @@ export declare const useExposed: <E = {}>(toExpose: E) => void;
  * @param promise The promise to resolve.
  * @returns The result of the promise or null if it's pending or rejected.
  */
-export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[]) => S;
+export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[], activateSuspense?: boolean) => S;
 /**
  * The Context interface
  */
