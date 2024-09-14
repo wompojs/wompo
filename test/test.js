@@ -14,7 +14,7 @@ const AsyncComp = () => {
 	const counter = useContext(Context);
 	const data = useAsync(request, [Math.floor(counter / 5)]);
 	useEffect(() => {
-		console.log('rendered');
+		console.log('rendered AsyncComp');
 		return () => {
 			console.log('removed');
 		};
@@ -37,6 +37,10 @@ export default function Test() {
 	const [counter, setCounter] = useState(0);
 
 	const inc = () => [setCounter(counter + 1)];
+
+	useEffect(() => {
+		console.log('rendered Test');
+	}, []);
 
 	return html`<div>
 		<${Context.Provider} value=${counter}>

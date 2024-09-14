@@ -962,7 +962,11 @@ const __shouldUpdate = (currentValue: any, oldValue: any, dependency: Dynamics) 
 	const isWompoChildren = currentValue?._$wompoChildren;
 	const childrenNeedUpdate =
 		isWompoChildren && (dependency as DynamicNode).startNode.nextSibling !== currentValue.nodes[0];
-	return valuesDiffers || isComposedAttribute || childrenNeedUpdate;
+	const isDynamicNodeToUpdate =
+		currentValue === oldValue &&
+		dependency.isTag &&
+		dependency.node.nodeName === DYNAMIC_TAG_MARKER.toUpperCase();
+	return valuesDiffers || isComposedAttribute || childrenNeedUpdate || isDynamicNodeToUpdate;
 };
 
 const __handleDynamicTag = (
