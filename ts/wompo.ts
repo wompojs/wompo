@@ -340,6 +340,8 @@ const treeWalker = doc.createTreeWalker(
 
 const mutationAttributesExclusions = ['class', 'style', 'id'];
 
+const adoptedStyles: { [componentName: string]: Node[] } = {};
+
 /* 
 ================================================
 CLASSES
@@ -1400,11 +1402,20 @@ const _$wompo = <Props extends WompoProps, E>(
 			// Create shadow DOM
 			if (options.shadow && !this.shadowRoot) this.__ROOT = this.attachShadow({ mode: 'open' });
 
+			const componentName = this.nodeName.toLowerCase();
+			if (!adoptedStyles[componentName]) adoptedStyles[componentName] = [];
+
 			if (options.shadow) {
-				(this.__ROOT as ShadowRoot).adoptedStyleSheets = [sheet];
+				if (!adoptedStyles[componentName].includes(this.__ROOT)) {
+					adoptedStyles[componentName].push(this.__ROOT);
+					(this.__ROOT as ShadowRoot).adoptedStyleSheets = [sheet];
+				}
 			} else {
 				const root = this.getRootNode();
-				(root as Document | ShadowRoot).adoptedStyleSheets.push(sheet);
+				if (!adoptedStyles[componentName].includes(root)) {
+					adoptedStyles[componentName].push(root);
+					(root as Document | ShadowRoot).adoptedStyleSheets.push(sheet);
+				}
 			}
 
 			// Render
