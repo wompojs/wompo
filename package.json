@@ -1,7 +1,7 @@
 {
 	"name": "wompo",
 	"description": "Wompo is a performant React-like JS library to create Web-Components that are re-usable, shareable, and beginner-friendly.",
-	"version": "1.1.1",
+	"version": "1.1.2",
 	"type": "module",
 	"module": "./dist/wompo.js",
 	"main": "./dist/wompo.js",
@@ -10,7 +10,7 @@
 	"license": "MIT",
 	"scripts": {
 		"dev": "esbuild ts/wompo.ts ts/ssr/index.ts --sourcemap --watch --outdir=dist --allow-overwrite",
-		"build": "tsc & esbuild ts/wompo.ts ts/ssr/index.ts --minify --sourcemap --outdir=dist --allow-overwrite",
+		"build": "tsc & esbuild ts/wompo.ts ts/ssr/index.ts --minify --outdir=dist --allow-overwrite",
 		"jsx": "esbuild jsx-runtime.ts --minify --outfile=jsx-runtime.js --allow-overwrite",
 		"perf": "npx tachometer --config tachometer.json"
 	},

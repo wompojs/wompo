@@ -1344,6 +1344,31 @@ const _$wompo = <Props extends WompoProps, E>(
 			}
 		}
 
+		/** @override component has been moved in a new document (like iframe) */
+		public adoptedCallback() {
+			// Using adoptedStyleSheets in a different document is not permitted, so we need to create
+			// a <style> element.
+			const style = document.createElement('style');
+			style.textContent = generatedCSS;
+
+			const componentName = this.nodeName.toLowerCase();
+			if (!adoptedStyles[componentName]) adoptedStyles[componentName] = [];
+
+			if (options.shadow) {
+				if (!adoptedStyles[componentName].includes(this.__ROOT)) {
+					adoptedStyles[componentName].push(this.__ROOT);
+					(this.__ROOT as ShadowRoot).appendChild(style);
+				}
+			} else {
+				const root = this.getRootNode();
+				if (!adoptedStyles[componentName].includes(root)) {
+					adoptedStyles[componentName].push(root);
+					if ((root as Document).body) (root as Document).body.appendChild(style);
+					else (root as Document | ShadowRoot).appendChild(style);
+				}
+			}
+		}
+
 		/**
 		 * This public callback will be used when a component is removed permanently from the DOM.
 		 * It allows other code to hook into the component and unmount listeners or similar when the
