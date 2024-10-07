@@ -549,7 +549,12 @@ class DynamicAttribute {
 				let styleValue = newValue[key];
 				let styleKey = key.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
 				if (typeof styleValue === 'number') styleValue = `${styleValue}px`;
-				if (styleValue !== undefined && styleValue !== null && styleValue !== false)
+				if (
+					styleValue !== undefined &&
+					styleValue !== null &&
+					styleValue !== false &&
+					styleValue !== ''
+				)
 					styleString += `${styleKey}:${styleValue};`;
 			}
 			this.node.setAttribute(this.name, styleString);
@@ -1069,11 +1074,7 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					const template = cachedTemplate.clone();
 					const [fragment, dynamics] = template;
 					newValues[i] = new HtmlProcessedValue(currentValue, template);
-					newValues[i].values = __setValues(
-						dynamics,
-						currentValue.values,
-						oldValue?.values ?? oldValue ?? []
-					);
+					newValues[i].values = __setValues(dynamics, currentValue.values, []);
 					const startNode = (currentDependency as DynamicNode).startNode;
 					currentDependency.clearValue();
 					let currentNode = startNode;
