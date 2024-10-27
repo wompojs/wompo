@@ -643,8 +643,6 @@ class WompoArrayDependency {
 	/** The parent dynamic node dependency. */
 	private __parentDependency: DynamicNode;
 
-	private nodesPosition: { [rId: string | number]: number };
-
 	/**
 	 * Creates a new WompoArrayDependency instance.
 	 * @param values The array of values to put in the DOM
@@ -654,7 +652,6 @@ class WompoArrayDependency {
 		this.dynamics = [];
 		this.__oldValues = [];
 		this.__parentDependency = dependency;
-		this.nodesPosition = {};
 		dependency.startNode.after(document.createComment('?wc-end'));
 		this.addDependenciesFrom(dependency.startNode as HTMLElement, values);
 		this.__oldPureValues = values;
@@ -678,8 +675,6 @@ class WompoArrayDependency {
 			);
 			currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
 			this.dynamics.push(dependency);
-			if (value._$wompoHtml && value.id !== undefined && value.id !== null)
-				this.nodesPosition[value.id] = i;
 			this.__oldValues.push(__setValues([dependency], [value], [])[0]);
 		}
 	}
