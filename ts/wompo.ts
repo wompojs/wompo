@@ -1609,11 +1609,10 @@ const _$wompo = <Props extends WompoProps, E>(
 		public updateProp(prop: string, value: any) {
 			if ((this.props as any)[prop] !== value) {
 				const isPrimitive = value !== Object(value);
-				if (isPrimitive)
-					this.setAttribute(
-						prop.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase()),
-						value
-					);
+				const attrName = prop.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
+				if (isPrimitive && value !== undefined && value !== null && value !== false)
+					this.setAttribute(attrName, value);
+				else this.removeAttribute(attrName);
 				(this.props as any)[prop] = value;
 				if (!this.__isInitializing) {
 					this.requestRender();
