@@ -827,6 +827,13 @@ export type LazyResult = {
  * @returns A LazyComponent or the loaded compnent
  */
 export declare const lazy: (load: () => LazyCallbackResult) => LazyResult;
+/**
+ * By default, wompo escapes the string variables inside an html template. If you want to avoid
+ * the automatic escaping, use this function.
+ * @param html The html string to render
+ * @returns the html to render
+ */
+export declare const unsafelyRenderString: (html: string) => RenderHtml;
 interface SuspenseProps extends WompoProps {
     fallback: RenderHtml;
 }

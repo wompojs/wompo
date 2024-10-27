@@ -427,11 +427,17 @@ class HtmlProcessedValue {
 	public parts: TemplateStringsArray;
 	/** The Cached template data returned by the `clone` function. */
 	public template: [DocumentFragment, Dynamics[]];
+	/** The index of the template in the arrya of values */
+	public index: number;
+	/** The whole renderHtml structure */
+	public renderHtml: RenderHtml;
 
-	constructor(render: RenderHtml, template: [DocumentFragment, Dynamics[]]) {
+	constructor(render: RenderHtml, template: [DocumentFragment, Dynamics[]], index: number) {
 		this.values = render.values;
+		this.renderHtml = render;
 		this.parts = render.parts;
 		this.template = template;
+		this.index = index;
 	}
 }
 
@@ -569,7 +575,10 @@ class DynamicAttribute {
 	set callback(callback: (event: Event) => void) {
 		if (!this.__eventInitialized) {
 			const eventName = this.name.substring(1);
-			this.node.addEventListener(eventName, this.__listener.bind(this));
+			const passiveEvents = ['scroll', 'wheel', 'touchstart', 'touchmove', 'touchend'];
+			if (passiveEvents.includes(eventName))
+				this.node.addEventListener(eventName, this.__listener.bind(this), { passive: true });
+			else this.node.addEventListener(eventName, this.__listener.bind(this));
 			this.__eventInitialized = true;
 		}
 		this.__callback = callback;
@@ -634,6 +643,8 @@ class WompoArrayDependency {
 	/** The parent dynamic node dependency. */
 	private __parentDependency: DynamicNode;
 
+	private nodesPosition: { [rId: string | number]: number };
+
 	/**
 	 * Creates a new WompoArrayDependency instance.
 	 * @param values The array of values to put in the DOM
@@ -643,6 +654,7 @@ class WompoArrayDependency {
 		this.dynamics = [];
 		this.__oldValues = [];
 		this.__parentDependency = dependency;
+		this.nodesPosition = {};
 		dependency.startNode.after(document.createComment('?wc-end'));
 		this.addDependenciesFrom(dependency.startNode as HTMLElement, values);
 		this.__oldPureValues = values;
@@ -666,18 +678,13 @@ class WompoArrayDependency {
 			);
 			currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
 			this.dynamics.push(dependency);
+			if (value._$wompoHtml && value.id !== undefined && value.id !== null)
+				this.nodesPosition[value.id] = i;
 			this.__oldValues.push(__setValues([dependency], [value], [])[0]);
 		}
 	}
 
-	/**
-	 * Check if there are dependencies to add/remove, and then set the new values to the old nodes.
-	 * Setting the new values will start an eventual recursive check for eventual nested arrays.
-	 * @param newValues The new values to check with the old ones fot updates.
-	 * @returns This instance.
-	 */
-	public checkUpdates(newValues: any[]) {
-		if (newValues === this.__oldPureValues) return this;
+	private handleArray(newValues: any[]) {
 		const oldValuesLength = this.__oldValues.length;
 		let diff = newValues.length - oldValuesLength;
 		if (diff < 0) {
@@ -713,6 +720,17 @@ class WompoArrayDependency {
 		}
 		this.__oldPureValues = newValues;
 		return this;
+	}
+
+	/**
+	 * Check if there are dependencies to add/remove, and then set the new values to the old nodes.
+	 * Setting the new values will start an eventual recursive check for eventual nested arrays.
+	 * @param newValues The new values to check with the old ones fot updates.
+	 * @returns This instance.
+	 */
+	public checkUpdates(newValues: any[]) {
+		if (newValues === this.__oldPureValues) return this;
+		return this.handleArray(newValues);
 	}
 }
 
@@ -1073,7 +1091,7 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					const cachedTemplate = __createTemplate(currentValue);
 					const template = cachedTemplate.clone();
 					const [fragment, dynamics] = template;
-					newValues[i] = new HtmlProcessedValue(currentValue, template);
+					newValues[i] = new HtmlProcessedValue(currentValue, template, i);
 					newValues[i].values = __setValues(dynamics, currentValue.values, []);
 					const startNode = (currentDependency as DynamicNode).startNode;
 					currentDependency.clearValue();
@@ -1083,21 +1101,23 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 						currentNode = currentNode.nextSibling;
 					}
 				} else {
-					let oldTemplateValue = oldValue as HtmlProcessedValue;
 					if (!oldValue.template) {
 						const cachedTemplate = __createTemplate(currentValue);
 						const template = cachedTemplate.clone();
-						newValues[i] = new HtmlProcessedValue(currentValue, template);
-						oldTemplateValue = newValues[i];
+						newValues[i] = new HtmlProcessedValue(currentValue, template, i);
+						const newValue = newValues[i];
+						const processedValues = __setValues(newValue.template[1], currentValue.values, []);
+						newValue.values = processedValues;
+					} else {
+						const [_, dynamics] = oldValue.template;
+						const processedValues = __setValues(
+							dynamics,
+							currentValue.values,
+							(oldValue as HtmlProcessedValue).values
+						);
+						(oldValue as HtmlProcessedValue).values = processedValues;
+						newValues[i] = oldValue;
 					}
-					const [_, dynamics] = oldTemplateValue.template;
-					const processedValues = __setValues(
-						dynamics,
-						currentValue.values,
-						(oldValue as HtmlProcessedValue).values
-					);
-					(oldValue as HtmlProcessedValue).values = processedValues;
-					newValues[i] = oldValue;
 				}
 				continue;
 			}
@@ -1554,13 +1574,6 @@ const _$wompo = <Props extends WompoProps, E>(
 				});
 			} catch (err) {
 				console.error(err);
-				if (DEV_MODE) {
-					const error = new WompoError.class();
-					(error.props as WompoErrorProps).error = err;
-					(error.props as WompoErrorProps).element = this;
-					this.__ROOT.innerHTML = '';
-					this.__ROOT.appendChild(error);
-				}
 			}
 		}
 
@@ -1595,6 +1608,12 @@ const _$wompo = <Props extends WompoProps, E>(
 		 */
 		public updateProp(prop: string, value: any) {
 			if ((this.props as any)[prop] !== value) {
+				const isPrimitive = value !== Object(value);
+				if (isPrimitive)
+					this.setAttribute(
+						prop.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase()),
+						value
+					);
 				(this.props as any)[prop] = value;
 				if (!this.__isInitializing) {
 					this.requestRender();
@@ -2481,13 +2500,26 @@ export const lazy = (load: () => LazyCallbackResult): LazyResult => {
 				return loaded;
 			} catch (err) {
 				console.error(err);
-				return WompoError;
 			}
 		}
 		return loaded;
 	}
 	LazyComponent._$wompoLazy = true;
 	return LazyComponent;
+};
+
+/**
+ * By default, wompo escapes the string variables inside an html template. If you want to avoid
+ * the automatic escaping, use this function.
+ * @param html The html string to render
+ * @returns the html to render
+ */
+export const unsafelyRenderString = (html: string): RenderHtml => {
+	return {
+		_$wompoHtml: true,
+		parts: [html] as any,
+		values: [],
+	};
 };
 
 interface SuspenseProps extends WompoProps {
@@ -2527,45 +2559,6 @@ const findSuspense = (startNode: Node): SuspenseInstance | null => {
 	}
 	return suspense as SuspenseInstance | null;
 };
-
-/* 
-================================================
-COMPONENTS
-================================================
-*/
-interface WompoErrorProps extends WompoProps {
-	error: any;
-	element: WompoElement;
-}
-
-let WompoError: WompoComponent;
-if (DEV_MODE) {
-	WompoError = function ({ styles: s, error, element }: WompoErrorProps) {
-		let content;
-		if (element && error) {
-			content = html`<div>
-				<p>An error rised while rendering the element "${element.nodeName.toLowerCase()}".</p>
-				<p>${error.stack.split('\n').map((row: string) => html`${row}<br />`)}</p>
-			</div>`;
-		} else {
-			content = html`<div>
-				<p>An error rised while rendering. Check the developer console for more details.</p>
-			</div>`;
-		}
-		return html`${content}`;
-	} as any;
-	WompoError.css = `
-		:host {
-			display: block;
-			padding: 20px;
-			background-color: #ffd0cf;
-			color: #a44040;
-			margin: 20px;
-			border-left: 3px solid #a44040;
-		}
-	`;
-	defineWompo(WompoError, { name: 'wompo-error', shadow: true });
-}
 
 /**
  * The Suspense component is used to render a Loading UI while its children are still being rendered
