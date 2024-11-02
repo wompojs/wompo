@@ -1092,6 +1092,7 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					currentDependency.clearValue();
 					let currentNode = startNode;
 					while (fragment.childNodes.length) {
+						if (!currentNode) break;
 						currentNode.after(fragment.childNodes[0]);
 						currentNode = currentNode.nextSibling;
 					}
