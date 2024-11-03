@@ -5,6 +5,7 @@ export interface RenderHtml {
     parts: TemplateStringsArray;
     values: any[];
     _$wompoHtml: true;
+    _$portal?: HTMLElement;
 }
 /**
  * The props of any component.
@@ -682,6 +683,11 @@ export declare const useExposed: <E = {}>(toExpose: E) => void;
  */
 export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[], activateSuspense?: boolean) => S;
 /**
+ * This hook returns the HTML component itself
+ * @returns The HTML Element
+ */
+export declare const useSelf: <H = WompoElement<WompoProps, {}>>() => H;
+/**
  * The Context interface
  */
 export interface Context<S = any> {
@@ -834,6 +840,19 @@ export declare const lazy: (load: () => LazyCallbackResult) => LazyResult;
  * @returns the html to render
  */
 export declare const unsafelyRenderString: (html: string) => RenderHtml;
+/**
+ * If you want that an element inside of a Wompo component is appended in another part of the DOM
+ * (e.g. the body), you can use the `createPortal`. In the first parameter it goes the HTML template
+ * and in the second the DOM element on which the tempalte should be attached.
+ *
+ * Note: To work correctly, the createPortal function should always be used in the "first layer" of
+ * the element (it should NOT be nested inside of another html template) and always in the same
+ * position.
+ * @param html The html to render
+ * @param node The html node on which to render the template
+ * @returns the RenderHtml object.
+ */
+export declare const createPortal: (html: RenderHtml, node: HTMLElement) => RenderHtml;
 interface SuspenseProps extends WompoProps {
     fallback: RenderHtml;
 }

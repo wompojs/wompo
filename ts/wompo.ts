@@ -15,6 +15,7 @@ export interface RenderHtml {
 	parts: TemplateStringsArray;
 	values: any[];
 	_$wompoHtml: true;
+	_$portal?: HTMLElement;
 }
 
 /**
@@ -1283,6 +1284,8 @@ const _$wompo = <Props extends WompoProps, E>(
 		private __updating: boolean = false;
 		/** The array containing the dynamic values of the last render. */
 		private __oldValues: any[] = [];
+		/** The array containing the indexes of html values that are portals */
+		private __portals: boolean[] = [];
 		/** It'll be true if the component is currently initializing. */
 		private __isInitializing: boolean = true;
 		/** It's true if the component is connected to the DOM. */
@@ -1353,6 +1356,10 @@ const _$wompo = <Props extends WompoProps, E>(
 						for (const hook of this.hooks) {
 							if ((hook as EffectHook)?.cleanupFunction) (hook as any).cleanupFunction();
 						}
+						for (let i = 0; i < this.__portals.length; i++) {
+							const portal = this.__portals[i];
+							if (portal) (this.__dynamics[i] as DynamicNode).dispose();
+						}
 					} else {
 						this._$hasBeenMoved = true;
 						if (this._$usesContext) this.requestRender();
@@ -1363,6 +1370,8 @@ const _$wompo = <Props extends WompoProps, E>(
 
 		/** @override component has been moved in a new document (like iframe) */
 		public adoptedCallback() {
+			Object.setPrototypeOf(this, WompoComponent.prototype);
+
 			// Using adoptedStyleSheets in a different document is not permitted, so we need to create
 			// a <style> element.
 			const style = document.createElement('style');
@@ -1527,10 +1536,26 @@ const _$wompo = <Props extends WompoProps, E>(
 					while (fragment.childNodes.length) {
 						this.__ROOT.appendChild(fragment.childNodes[0]);
 					}
+					const portals = [];
+					for (let i = 0; i < this.__oldValues.length; i++) {
+						const val = this.__oldValues[i];
+						if (val?.renderHtml?._$portal) {
+							portals.push(true);
+							const dependency = this.__dynamics[i] as DynamicNode;
+							let currentNode = dependency.startNode;
+							while (currentNode !== dependency.endNode) {
+								const nextNode = currentNode.nextSibling;
+								val.renderHtml._$portal.appendChild(currentNode);
+								currentNode = nextNode;
+							}
+						} else portals.push(false);
+					}
+					this.__portals = portals;
 				} else {
 					const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
 					this.__oldValues = oldValues;
 				}
+
 				for (const layoutEffectHook of this._$layoutEffects) {
 					layoutEffectHook.cleanupFunction = layoutEffectHook.callback();
 				}
@@ -2183,6 +2208,14 @@ export const useAsync = <S>(
 	return (component.hooks[hookIndex] as AsyncHook<S>).value;
 };
 
+/**
+ * This hook returns the HTML component itself
+ * @returns The HTML Element
+ */
+export const useSelf = <H = WompoElement>() => {
+	return useHook()[0] as H;
+};
+
 /* 
 ================================================
 CONTEXT
@@ -2514,6 +2547,25 @@ export const unsafelyRenderString = (html: string): RenderHtml => {
 		_$wompoHtml: true,
 		parts: [html] as any,
 		values: [],
+	};
+};
+
+/**
+ * If you want that an element inside of a Wompo component is appended in another part of the DOM
+ * (e.g. the body), you can use the `createPortal`. In the first parameter it goes the HTML template
+ * and in the second the DOM element on which the tempalte should be attached.
+ *
+ * Note: To work correctly, the createPortal function should always be used in the "first layer" of
+ * the element (it should NOT be nested inside of another html template) and always in the same
+ * position.
+ * @param html The html to render
+ * @param node The html node on which to render the template
+ * @returns the RenderHtml object.
+ */
+export const createPortal = (html: RenderHtml, node: HTMLElement): RenderHtml => {
+	return {
+		...html,
+		_$portal: node,
 	};
 };
 
