@@ -126,6 +126,11 @@ export type WompoElement<Props extends WompoProps = WompoProps, E = {}> = HTMLEl
 		_$initialProps: WompoProps;
 
 		/**
+		 * The list of protals that the element has.
+		 */
+		_$portals: DynamicNode[];
+
+		/**
 		 * True if the component wants to log the rendering time in the console. Only
 		 * available in DEV_MODE.
 		 * This property is set to true only when a component has the attribute or
@@ -309,7 +314,7 @@ VARIABLES
 */
 /**
  * The current rendering component instance. This is used when creating hooks.
- * This variable is exposed only in the `useHook` hook.
+ * This variable is exposed only in the `useHook` hook or in the `useSelf` Hook.
  */
 let currentRenderingComponent: WompoElement = null;
 /**
@@ -1053,6 +1058,16 @@ const __handleDynamicTag = (
 	return node;
 };
 
+const __setPortal = (portal: HTMLElement) => {
+	const startNode = document.createTextNode('');
+	const endNode = document.createTextNode('');
+	portal.appendChild(startNode);
+	startNode.after(endNode);
+	const dependency = new DynamicNode(startNode, endNode);
+	currentRenderingComponent._$portals.push(dependency);
+	return dependency;
+};
+
 /**
  * This function will compare the values of the previous render with the current one, and update the
  * DOM accordingly.
@@ -1081,16 +1096,27 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 				continue;
 			}
 			if (currentValue?._$wompoHtml) {
+				const renderHtml = currentValue as RenderHtml;
+				const oldProcessedValue = oldValue as HtmlProcessedValue;
 				// handle template elements
-				const areTheSame = __areSameTemplates(currentValue, oldValue);
-				if (oldValue === undefined || !areTheSame) {
-					const cachedTemplate = __createTemplate(currentValue);
+				if (
+					oldProcessedValue === undefined ||
+					!__areSameTemplates(renderHtml, oldProcessedValue?.renderHtml)
+				) {
+					const cachedTemplate = __createTemplate(renderHtml);
 					const template = cachedTemplate.clone();
-					const [fragment, dynamics] = template;
-					newValues[i] = new HtmlProcessedValue(currentValue, template, i);
-					newValues[i].values = __setValues(dynamics, currentValue.values, []);
-					const startNode = (currentDependency as DynamicNode).startNode;
-					currentDependency.clearValue();
+					const [fragment, templateDynamics] = template;
+					newValues[i] = new HtmlProcessedValue(renderHtml, template, i);
+					newValues[i].values = __setValues(templateDynamics, renderHtml.values, []);
+					let dependency = currentDependency as DynamicNode;
+					if (oldProcessedValue?.renderHtml?._$portal) dependency.dispose();
+					else dependency.clearValue();
+					if (renderHtml._$portal) {
+						const newDependency = __setPortal(renderHtml._$portal);
+						dependency = newDependency;
+						dynamics[i] = dependency;
+					}
+					const startNode = dependency.startNode;
 					let currentNode = startNode;
 					while (fragment.childNodes.length) {
 						if (!currentNode) break;
@@ -1098,21 +1124,26 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 						currentNode = currentNode.nextSibling;
 					}
 				} else {
-					if (!oldValue.template) {
-						const cachedTemplate = __createTemplate(currentValue);
+					if (!oldProcessedValue.template) {
+						const cachedTemplate = __createTemplate(renderHtml);
 						const template = cachedTemplate.clone();
-						newValues[i] = new HtmlProcessedValue(currentValue, template, i);
+						newValues[i] = new HtmlProcessedValue(renderHtml, template, i);
 						const newValue = newValues[i];
-						const processedValues = __setValues(newValue.template[1], currentValue.values, []);
+						const processedValues = __setValues(newValue.template[1], renderHtml.values, []);
 						newValue.values = processedValues;
+						if (renderHtml._$portal) {
+							const newDependency = __setPortal(renderHtml._$portal);
+							dynamics[i] = newDependency;
+						}
 					} else {
-						const [_, dynamics] = oldValue.template;
+						const [_, templateDynamics] = oldValue.template;
 						const processedValues = __setValues(
-							dynamics,
-							currentValue.values,
-							(oldValue as HtmlProcessedValue).values
+							templateDynamics,
+							renderHtml.values,
+							oldProcessedValue.values
 						);
-						(oldValue as HtmlProcessedValue).values = processedValues;
+						if (renderHtml._$portal) currentRenderingComponent._$portals.push(currentDependency);
+						oldProcessedValue.values = processedValues;
 						newValues[i] = oldValue;
 					}
 				}
@@ -1284,8 +1315,8 @@ const _$wompo = <Props extends WompoProps, E>(
 		private __updating: boolean = false;
 		/** The array containing the dynamic values of the last render. */
 		private __oldValues: any[] = [];
-		/** The array containing the indexes of html values that are portals */
-		private __portals: boolean[] = [];
+		/** The array containing the portals of the element */
+		public _$portals: DynamicNode[] = [];
 		/** It'll be true if the component is currently initializing. */
 		private __isInitializing: boolean = true;
 		/** It's true if the component is connected to the DOM. */
@@ -1356,9 +1387,8 @@ const _$wompo = <Props extends WompoProps, E>(
 						for (const hook of this.hooks) {
 							if ((hook as EffectHook)?.cleanupFunction) (hook as any).cleanupFunction();
 						}
-						for (let i = 0; i < this.__portals.length; i++) {
-							const portal = this.__portals[i];
-							if (portal) (this.__dynamics[i] as DynamicNode).dispose();
+						for (const portal of this._$portals) {
+							portal.dispose();
 						}
 					} else {
 						this._$hasBeenMoved = true;
@@ -1522,6 +1552,7 @@ const _$wompo = <Props extends WompoProps, E>(
 					return;
 				}
 				const constructor = this.constructor as typeof WompoComponent;
+				this._$portals = [];
 				if (this.__isInitializing) {
 					const template = constructor._$getOrCreateTemplate(renderHtml);
 					const [fragment, dynamics] = template.clone();
@@ -1536,26 +1567,10 @@ const _$wompo = <Props extends WompoProps, E>(
 					while (fragment.childNodes.length) {
 						this.__ROOT.appendChild(fragment.childNodes[0]);
 					}
-					const portals = [];
-					for (let i = 0; i < this.__oldValues.length; i++) {
-						const val = this.__oldValues[i];
-						if (val?.renderHtml?._$portal) {
-							portals.push(true);
-							const dependency = this.__dynamics[i] as DynamicNode;
-							let currentNode = dependency.startNode;
-							while (currentNode !== dependency.endNode) {
-								const nextNode = currentNode.nextSibling;
-								val.renderHtml._$portal.appendChild(currentNode);
-								currentNode = nextNode;
-							}
-						} else portals.push(false);
-					}
-					this.__portals = portals;
 				} else {
 					const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
 					this.__oldValues = oldValues;
 				}
-
 				for (const layoutEffectHook of this._$layoutEffects) {
 					layoutEffectHook.cleanupFunction = layoutEffectHook.callback();
 				}
@@ -2213,7 +2228,7 @@ export const useAsync = <S>(
  * @returns The HTML Element
  */
 export const useSelf = <H = WompoElement>() => {
-	return useHook()[0] as H;
+	return currentRenderingComponent as H;
 };
 
 /* 
@@ -2553,11 +2568,7 @@ export const unsafelyRenderString = (html: string): RenderHtml => {
 /**
  * If you want that an element inside of a Wompo component is appended in another part of the DOM
  * (e.g. the body), you can use the `createPortal`. In the first parameter it goes the HTML template
- * and in the second the DOM element on which the tempalte should be attached.
- *
- * Note: To work correctly, the createPortal function should always be used in the "first layer" of
- * the element (it should NOT be nested inside of another html template) and always in the same
- * position.
+ * and in the second the DOM element on which the template should be attached.
  * @param html The html to render
  * @param node The html node on which to render the template
  * @returns the RenderHtml object.
