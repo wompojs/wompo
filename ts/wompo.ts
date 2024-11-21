@@ -648,16 +648,19 @@ class WompoArrayDependency {
 	private __oldPureValues: any[];
 	/** The parent dynamic node dependency. */
 	private __parentDependency: DynamicNode;
+	/** The component who owns the dependency. */
+	private __owner: WompoElement;
 
 	/**
 	 * Creates a new WompoArrayDependency instance.
 	 * @param values The array of values to put in the DOM
 	 * @param dependency The dynamic node dependency on which the array should be rendered.
 	 */
-	constructor(values: any[], dependency: DynamicNode) {
+	constructor(values: any[], dependency: DynamicNode, owner: WompoElement) {
 		this.dynamics = [];
 		this.__oldValues = [];
 		this.__parentDependency = dependency;
+		this.__owner = owner;
 		dependency.startNode.after(document.createComment('?wc-end'));
 		this.addDependenciesFrom(dependency.startNode as HTMLElement, values);
 		this.__oldPureValues = values;
@@ -681,7 +684,7 @@ class WompoArrayDependency {
 			);
 			currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
 			this.dynamics.push(dependency);
-			this.__oldValues.push(__setValues([dependency], [value], [])[0]);
+			this.__oldValues.push(__setValues([dependency], [value], [], this.__owner)[0]);
 		}
 	}
 
@@ -700,7 +703,7 @@ class WompoArrayDependency {
 			const newValue = newValues[i];
 			const dependency = this.dynamics[i];
 			const oldValue = this.__oldValues[i];
-			this.__oldValues[i] = __setValues([dependency], [newValue], [oldValue])[0];
+			this.__oldValues[i] = __setValues([dependency], [newValue], [oldValue], this.__owner)[0];
 		}
 		if (diff > 0) {
 			let currentNode = this.dynamics[this.dynamics.length - 1]?.endNode;
@@ -716,7 +719,7 @@ class WompoArrayDependency {
 				);
 				currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
 				this.dynamics.push(dependency);
-				this.__oldValues.push(__setValues([dependency], [value], []));
+				this.__oldValues.push(__setValues([dependency], [value], [], this.__owner));
 			}
 		}
 		this.__oldPureValues = newValues;
@@ -1058,13 +1061,13 @@ const __handleDynamicTag = (
 	return node;
 };
 
-const __setPortal = (portal: HTMLElement) => {
+const __setPortal = (portal: HTMLElement, renderingComponent: WompoElement) => {
 	const startNode = document.createTextNode('');
 	const endNode = document.createTextNode('');
 	portal.appendChild(startNode);
 	startNode.after(endNode);
 	const dependency = new DynamicNode(startNode, endNode);
-	currentRenderingComponent._$portals.push(dependency);
+	renderingComponent._$portals.push(dependency);
 	return dependency;
 };
 
@@ -1077,7 +1080,12 @@ const __setPortal = (portal: HTMLElement) => {
  * @param oldValues The old values used in the previous render
  * @returns A modified version of the new values
  */
-const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
+const __setValues = (
+	dynamics: Dynamics[],
+	values: any[],
+	oldValues: any[],
+	renderingComponent: WompoElement
+) => {
 	const newValues = [...values];
 	for (let i = 0; i < dynamics.length; i++) {
 		const currentDependency = dynamics[i];
@@ -1107,12 +1115,17 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					const template = cachedTemplate.clone();
 					const [fragment, templateDynamics] = template;
 					newValues[i] = new HtmlProcessedValue(renderHtml, template, i);
-					newValues[i].values = __setValues(templateDynamics, renderHtml.values, []);
+					newValues[i].values = __setValues(
+						templateDynamics,
+						renderHtml.values,
+						[],
+						renderingComponent
+					);
 					let dependency = currentDependency as DynamicNode;
 					if (oldProcessedValue?.renderHtml?._$portal) dependency.dispose();
 					else dependency.clearValue();
 					if (renderHtml._$portal) {
-						const newDependency = __setPortal(renderHtml._$portal);
+						const newDependency = __setPortal(renderHtml._$portal, renderingComponent);
 						dependency = newDependency;
 						dynamics[i] = dependency;
 					}
@@ -1129,10 +1142,15 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 						const template = cachedTemplate.clone();
 						newValues[i] = new HtmlProcessedValue(renderHtml, template, i);
 						const newValue = newValues[i];
-						const processedValues = __setValues(newValue.template[1], renderHtml.values, []);
+						const processedValues = __setValues(
+							newValue.template[1],
+							renderHtml.values,
+							[],
+							renderingComponent
+						);
 						newValue.values = processedValues;
 						if (renderHtml._$portal) {
-							const newDependency = __setPortal(renderHtml._$portal);
+							const newDependency = __setPortal(renderHtml._$portal, renderingComponent);
 							dynamics[i] = newDependency;
 						}
 					} else {
@@ -1140,9 +1158,10 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 						const processedValues = __setValues(
 							templateDynamics,
 							renderHtml.values,
-							oldProcessedValue.values
+							oldProcessedValue.values,
+							renderingComponent
 						);
-						if (renderHtml._$portal) currentRenderingComponent._$portals.push(currentDependency);
+						if (renderHtml._$portal) renderingComponent._$portals.push(currentDependency);
 						oldProcessedValue.values = processedValues;
 						newValues[i] = oldValue;
 					}
@@ -1183,7 +1202,11 @@ const __setValues = (dynamics: Dynamics[], values: any[], oldValues: any[]) => {
 					if (Array.isArray(currentValue)) {
 						if (!(oldValue as WompoArrayDependency)?.isArrayDependency) {
 							currentDependency.clearValue();
-							newValues[i] = new WompoArrayDependency(currentValue, currentDependency);
+							newValues[i] = new WompoArrayDependency(
+								currentValue,
+								currentDependency,
+								renderingComponent
+							);
 						} else newValues[i] = (oldValue as WompoArrayDependency).checkUpdates(currentValue);
 					} else if (DEV_MODE) {
 						throw new Error(
@@ -1560,7 +1583,8 @@ const _$wompo = <Props extends WompoProps, E>(
 					const elaboratedValues = __setValues(
 						this.__dynamics,
 						renderHtml.values,
-						this.__oldValues
+						this.__oldValues,
+						this
 					);
 					this.__oldValues = elaboratedValues;
 					if (!this.__isInitializing) this.__ROOT.innerHTML = '';
@@ -1568,7 +1592,7 @@ const _$wompo = <Props extends WompoProps, E>(
 						this.__ROOT.appendChild(fragment.childNodes[0]);
 					}
 				} else {
-					const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues);
+					const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues, this);
 					this.__oldValues = oldValues;
 				}
 				for (const layoutEffectHook of this._$layoutEffects) {
