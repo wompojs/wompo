@@ -344,7 +344,7 @@ const treeWalker = doc.createTreeWalker(
 	129 // NodeFilter.SHOW_{ELEMENT|COMMENT}
 );
 
-const mutationAttributesExclusions = ['class', 'style', 'id'];
+const mutationAttributesExclusions = ['class', 'style', 'id', 'title'];
 
 const adoptedStyles: { [componentName: string]: Node[] } = {};
 
