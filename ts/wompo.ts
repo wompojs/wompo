@@ -335,7 +335,7 @@ const NODE = 0; // Is a NODE Dependency.
 const ATTR = 1; // Is an ATTRIBUTE Dependency.
 const TAG = 2; // Is a TAG Dependency.
 
-const IS_SERVER = typeof global !== 'undefined';
+const IS_SERVER = typeof window === 'undefined' || typeof document === 'undefined';
 
 const doc = IS_SERVER ? ({ createTreeWalker() {} } as unknown as Document) : document;
 
@@ -347,6 +347,55 @@ const treeWalker = doc.createTreeWalker(
 const mutationAttributesExclusions = ['class', 'style', 'id', 'title'];
 
 const adoptedStyles: { [componentName: string]: Node[] } = {};
+
+type HydrationRegistry = {
+        [componentName: string]: (WompoProps | undefined)[];
+};
+
+const hydrationRegistry: HydrationRegistry = {};
+
+export type HydrationPayload = {
+        [componentName: string]: WompoProps[];
+};
+
+export const registerHydration = (payload: HydrationPayload = {}) => {
+        if (IS_SERVER || !payload) return;
+        for (const componentName of Object.keys(payload)) {
+                const componentHydrations = payload[componentName] ?? [];
+                hydrationRegistry[componentName] = componentHydrations.map((props) =>
+                        props ? { ...props } : props
+                );
+        }
+};
+
+const consumeHydrationProps = (componentName: string, index: number): WompoProps | undefined => {
+        const componentHydrations = hydrationRegistry[componentName];
+        if (!componentHydrations) return undefined;
+        const props = componentHydrations[index];
+        componentHydrations[index] = undefined;
+        if (componentHydrations.every((value) => value === undefined)) delete hydrationRegistry[componentName];
+        return props ? { ...props } : undefined;
+};
+
+export interface RenderingContextSnapshot {
+        component: WompoElement | null;
+        hookIndex: number;
+}
+
+export const pushRenderingContext = (component: WompoElement | null): RenderingContextSnapshot => {
+        const snapshot: RenderingContextSnapshot = {
+                component: currentRenderingComponent,
+                hookIndex: currentHookIndex,
+        };
+        currentRenderingComponent = component as WompoElement;
+        currentHookIndex = 0;
+        return snapshot;
+};
+
+export const popRenderingContext = (snapshot: RenderingContextSnapshot) => {
+        currentRenderingComponent = snapshot.component;
+        currentHookIndex = snapshot.hookIndex;
+};
 
 /* 
 ================================================
@@ -1458,11 +1507,23 @@ const _$wompo = <Props extends WompoProps, E>(
 		/**
 		 * Initializes the component with the state, props, and styles.
 		 */
-		private __initElement() {
-			this.__ROOT = this; // Shadow DOM is eventually attached later
-			this.props = {
-				...this.props,
-				...this._$initialProps,
+                private __initElement() {
+                        this.__ROOT = this; // Shadow DOM is eventually attached later
+                        const hydrateAttr = this.getAttribute('wompo-hydrate');
+                        if (hydrateAttr !== null) {
+                                const hydrateIndex = Number(hydrateAttr);
+                                const hydrationProps = consumeHydrationProps(options.name, hydrateIndex);
+                                if (hydrationProps) {
+                                        this._$initialProps = {
+                                                ...hydrationProps,
+                                                ...this._$initialProps,
+                                        } as any;
+                                }
+                                this.removeAttribute('wompo-hydrate');
+                        }
+                        this.props = {
+                                ...this.props,
+                                ...this._$initialProps,
 				styles: styles,
 			} as any;
 
@@ -1789,15 +1850,16 @@ export const useState = <S>(initialState: S | (() => S)) => {
  * @param dependencies The list of dependencies to listen to changes.
  */
 export const useEffect = (
-	callback: VoidFunction | (() => VoidFunction),
-	dependencies: any[] = null
+        callback: VoidFunction | (() => VoidFunction),
+        dependencies: any[] = null
 ) => {
-	const [component, hookIndex] = useHook();
-	if (!component.hooks.hasOwnProperty(hookIndex)) {
-		const effectHook = {
-			dependencies: dependencies,
-			callback: callback,
-			cleanupFunction: null,
+        const [component, hookIndex] = useHook();
+        if (!component || IS_SERVER) return;
+        if (!component.hooks.hasOwnProperty(hookIndex)) {
+                const effectHook = {
+                        dependencies: dependencies,
+                        callback: callback,
+                        cleanupFunction: null,
 		} as EffectHook;
 		component.hooks[hookIndex] = effectHook;
 		component._$effects.push(effectHook);
@@ -1830,15 +1892,16 @@ export const useEffect = (
  * @param dependencies The list of dependencies to listen to changes.
  */
 export const useLayoutEffect = (
-	callback: VoidFunction | (() => VoidFunction),
-	dependencies: any[] = null
+        callback: VoidFunction | (() => VoidFunction),
+        dependencies: any[] = null
 ) => {
-	const [component, hookIndex] = useHook();
-	if (!component.hooks.hasOwnProperty(hookIndex)) {
-		const layoutEffectHook = {
-			dependencies: dependencies,
-			callback: callback,
-			cleanupFunction: null,
+        const [component, hookIndex] = useHook();
+        if (!component || IS_SERVER) return;
+        if (!component.hooks.hasOwnProperty(hookIndex)) {
+                const layoutEffectHook = {
+                        dependencies: dependencies,
+                        callback: callback,
+                        cleanupFunction: null,
 		} as EffectHook;
 		component.hooks[hookIndex] = layoutEffectHook;
 		component._$layoutEffects.push(layoutEffectHook);
@@ -2152,12 +2215,13 @@ export const useReducer = <State>(
  * @param toExpose The keys to expose.
  */
 export const useExposed = <E = {}>(toExpose: E) => {
-	// No need to use useHook and increase the hook index
-	const component = currentRenderingComponent;
-	const keys = Object.keys(toExpose) as (keyof E)[];
-	for (const key of keys) {
-		(component as any)[key] = toExpose[key];
-	}
+        // No need to use useHook and increase the hook index
+        const component = currentRenderingComponent;
+        if (!component || IS_SERVER) return;
+        const keys = Object.keys(toExpose) as (keyof E)[];
+        for (const key of keys) {
+                (component as any)[key] = toExpose[key];
+        }
 };
 
 /**
@@ -2217,16 +2281,17 @@ const executeUseAsyncCallback = <S>(
  * @returns The result of the promise or null if it's pending or rejected.
  */
 export const useAsync = <S>(
-	callback: () => Promise<S>,
-	dependencies: any[],
-	activateSuspense = true
+        callback: () => Promise<S>,
+        dependencies: any[],
+        activateSuspense = true
 ): null | S => {
-	const [component, hookIndex] = useHook();
-	if (!component.hooks.hasOwnProperty(hookIndex)) {
-		component.hooks[hookIndex] = {
-			asyncCallback: callback,
-			dependencies: dependencies,
-			value: null,
+        const [component, hookIndex] = useHook();
+        if (!component || IS_SERVER) return null;
+        if (!component.hooks.hasOwnProperty(hookIndex)) {
+                component.hooks[hookIndex] = {
+                        asyncCallback: callback,
+                        dependencies: dependencies,
+                        value: null,
 			activateSuspense: activateSuspense,
 		} as AsyncHook<S>;
 		executeUseAsyncCallback([component, hookIndex], callback, dependencies, activateSuspense);
@@ -2345,10 +2410,11 @@ export const createContext = createContextMemo();
  * @returns The value of the context above the element.
  */
 export const useContext = <S>(Context: Context<S>): S => {
-	const [component, hookIndex] = useHook();
-	if (!component.hooks.hasOwnProperty(hookIndex) || component._$hasBeenMoved) {
-		let parent = component as Node;
-		const toFind = Context.name.toUpperCase();
+        const [component, hookIndex] = useHook();
+        if (!component || IS_SERVER) return Context.default;
+        if (!component.hooks.hasOwnProperty(hookIndex) || component._$hasBeenMoved) {
+                let parent = component as Node;
+                const toFind = Context.name.toUpperCase();
 		while (parent && parent.nodeName !== toFind && parent !== document.body) {
 			if (parent instanceof ShadowRoot) parent = parent.host;
 			else parent = parent.parentNode;

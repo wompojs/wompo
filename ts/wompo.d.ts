@@ -258,6 +258,16 @@ interface Dependency {
  * The possible dynamic values: DynamicNode | DynamicAttribute | DynamicTag.
  */
 type Dynamics = DynamicNode | DynamicAttribute | DynamicTag;
+export type HydrationPayload = {
+    [componentName: string]: WompoProps[];
+};
+export declare const registerHydration: (payload?: HydrationPayload) => void;
+export interface RenderingContextSnapshot {
+    component: WompoElement | null;
+    hookIndex: number;
+}
+export declare const pushRenderingContext: (component: WompoElement | null) => RenderingContextSnapshot;
+export declare const popRenderingContext: (snapshot: RenderingContextSnapshot) => void;
 /**
  * The CachedTemplate class is used to efficiently render components. The template HTML element is
  * stored here and only cloned when a new component is instantiated.
@@ -690,7 +700,7 @@ export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any
  * This hook returns the HTML component itself
  * @returns The HTML Element
  */
-export declare const useSelf: <H = WompoElement<WompoProps, {}>>() => H;
+export declare const useSelf: <H = WompoElement>() => H;
 /**
  * The Context interface
  */
