@@ -1,24 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Test</title>
-	</head>
-	<body>
-		<script type="importmap">
-			{
-				"imports": {
-					"wompo": "../dist/wompo.js"
-				}
-			}
-		</script>
-		<script type="module">
-			import './test.js';
-			import './async-test.js';
-			import './test-components.js';
-			/* import Counter from './perf-counter.js';
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test</title>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "wompo": "../dist/wompo.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import './test.js';
+      import './async-test.js';
+      import './custom-button.js';
+      import './test-portals.js';
+      import './test-keyd-array.js';
+      /* import Counter from './perf-counter.js';
 
 			console.time('Perf');
 			let length = 1000;
@@ -27,10 +29,14 @@
 				document.body.appendChild(counter);
 			}
 			console.timeEnd('Perf'); */
-		</script>
+    </script>
 
-		<!-- <async-test></async-test> -->
-		<test-components></test-components>
-		<!-- <test-wompo></test-wompo> -->
-	</body>
+    <!-- <button is="custom-button"></button> -->
+    <!-- <hr /> -->
+
+    <test-wompo></test-wompo>
+    <test-keyd-array></test-keyd-array>
+    <!-- <async-test></async-test> -->
+    <!-- <test-portals></test-portals> -->
+  </body>
 </html>

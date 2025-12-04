@@ -12,7 +12,8 @@
 		"skipLibCheck": true,
 		"declaration": true,
 		"emitDeclarationOnly": true,
-		"declarationDir": "."
+		"declarationDir": ".",
+		"useDefineForClassFields": true
 	},
 	"include": ["ts/wompo.ts", "ts/ssr/index.ts"],
 	"exclude": ["dist", "./jsx-runtime.ts"]
