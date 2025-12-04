@@ -1,26 +1,26 @@
-import { html, defineWompo, useState, useRef, createPortal } from 'wompo';
+import { html, defineWompo, useState, useRef, createPortal, useEffect } from 'wompo';
 
-export default function TestComponents({ styles: s }) {
+export default function ListComponent({ styles: s }) {
 	const [value, setValue] = useState([
 		{
 			id: 'accordion-item',
 			props: {
 				items: [],
-				title: 'Accordion Item #1',
+				title: 'Item #1',
 			},
 		},
 		{
 			id: 'accordion-item',
 			props: {
 				items: [],
-				title: 'Accordion Item #2',
+				title: 'Item #2',
 			},
 		},
 		{
 			id: 'accordion-item',
 			props: {
 				items: [],
-				title: 'Accordion Item #3',
+				title: 'Item #3',
 			},
 		},
 	]);
@@ -40,16 +40,6 @@ export default function TestComponents({ styles: s }) {
 				},
 			},
 		]);
-	};
-	const editItem = (ev, index) => {
-		if (ev.isTrusted) {
-			const newTitle = ev.currentTarget.value;
-			setValue(
-				value.map((item, i) =>
-					i === index ? { ...item, props: { ...item.props, title: newTitle } } : item
-				)
-			);
-		}
 	};
 
 	const handleKeyboard = (ev) => {
@@ -71,7 +61,7 @@ export default function TestComponents({ styles: s }) {
 	`;
 }
 
-TestComponents.css = `
+ListComponent.css = `
 	.list {
 		position: fixed;
 		bottom: 40px;
@@ -82,5 +72,17 @@ TestComponents.css = `
 		border-radius: 10px;
 	}
 `;
+
+defineWompo(ListComponent);
+
+function TestComponents() {
+	const [show, setShow] = useState(true);
+	useEffect(() => {
+		setTimeout(() => {
+			setShow(!show);
+		}, 5000);
+	}, [show]);
+	return html`Emmm?? ${show && html`<${ListComponent} />`} `;
+}
 
 defineWompo(TestComponents);

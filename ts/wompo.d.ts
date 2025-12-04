@@ -112,6 +112,10 @@ export type WompoElement<Props extends WompoProps = WompoProps, E = {}> = HTMLEl
      */
     _$initialProps: WompoProps;
     /**
+     * The list of protals that the element has.
+     */
+    _$portals: DynamicNode[];
+    /**
      * True if the component wants to log the rendering time in the console. Only
      * available in DEV_MODE.
      * This property is set to true only when a component has the attribute or
@@ -536,7 +540,7 @@ export declare const useCallback: <C = (...args: any[]) => any>(callbackFn: C, d
  *
  * @returns The useId hook.
  */
-export declare const useId: () => string;
+export declare const useId: () => IdHook;
 /**
  * The useMemo hook is useful when you want to store a computed value which would be expensive to
  * re-compute for every single render. For example, filtering or sorting, an array. It accepts one
@@ -681,7 +685,7 @@ export declare const useExposed: <E = {}>(toExpose: E) => void;
  * @param promise The promise to resolve.
  * @returns The result of the promise or null if it's pending or rejected.
  */
-export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[], activateSuspense?: boolean) => S;
+export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[], activateSuspense?: boolean) => null | S;
 /**
  * This hook returns the HTML component itself
  * @returns The HTML Element
@@ -843,11 +847,7 @@ export declare const unsafelyRenderString: (html: string) => RenderHtml;
 /**
  * If you want that an element inside of a Wompo component is appended in another part of the DOM
  * (e.g. the body), you can use the `createPortal`. In the first parameter it goes the HTML template
- * and in the second the DOM element on which the tempalte should be attached.
- *
- * Note: To work correctly, the createPortal function should always be used in the "first layer" of
- * the element (it should NOT be nested inside of another html template) and always in the same
- * position.
+ * and in the second the DOM element on which the template should be attached.
  * @param html The html to render
  * @param node The html node on which to render the template
  * @returns the RenderHtml object.
