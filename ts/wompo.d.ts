@@ -4,6 +4,7 @@
 export interface RenderHtml {
     parts: TemplateStringsArray;
     values: any[];
+    key?: string;
     _$wompoHtml: true;
     _$portal?: HTMLElement;
 }
@@ -37,6 +38,7 @@ export interface WompoProps {
  * - `name` (string)
  * - `shadow` (boolean)
  * - `cssModule` (boolean)
+ * - `extends` (string)
  */
 export interface WompoComponentOptions {
     /**
@@ -108,7 +110,7 @@ export type WompoElement<Props extends WompoProps = WompoProps, E = {}> = HTMLEl
     hooks: Hook[];
     /**
      * The initial props of a component. This property is only used internally when
-     * using a dyanmic tag.
+     * using a dynamic tag.
      */
     _$initialProps: WompoProps;
     /**
@@ -356,8 +358,13 @@ declare class DynamicAttribute {
     /**
      * Set the callback function to be executed when an event is fired. If the event has not been
      * initialized, the event listener will be added.
+     * The callback can be directly a function, or an object containing the function and the options
+     * of the event listener.
      */
-    set callback(callback: (event: Event) => void);
+    set callback(callback: ((event: Event) => void) | {
+        fn: (event: Event) => void;
+        options?: AddEventListenerOptions;
+    });
     /**
      * The listener that will execute the __callback function (if defined).
      * @param event The event object
@@ -690,7 +697,7 @@ export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any
  * This hook returns the HTML component itself
  * @returns The HTML Element
  */
-export declare const useSelf: <H = WompoElement<WompoProps, {}>>() => H;
+export declare const useSelf: <H = WompoElement>() => H;
 /**
  * The Context interface
  */
