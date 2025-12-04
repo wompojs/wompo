@@ -547,7 +547,7 @@ export declare const useCallback: <C = (...args: any[]) => any>(callbackFn: C, d
  *
  * @returns The useId hook.
  */
-export declare const useId: () => IdHook;
+export declare const useId: () => string;
 /**
  * The useMemo hook is useful when you want to store a computed value which would be expensive to
  * re-compute for every single render. For example, filtering or sorting, an array. It accepts one
@@ -692,12 +692,12 @@ export declare const useExposed: <E = {}>(toExpose: E) => void;
  * @param promise The promise to resolve.
  * @returns The result of the promise or null if it's pending or rejected.
  */
-export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[], activateSuspense?: boolean) => null | S;
+export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[], activateSuspense?: boolean) => S;
 /**
  * This hook returns the HTML component itself
  * @returns The HTML Element
  */
-export declare const useSelf: <H = WompoElement>() => H;
+export declare const useSelf: <H = WompoElement<WompoProps, {}>>() => H;
 /**
  * The Context interface
  */

@@ -12,34 +12,34 @@ TYPES
  * The html`` template function result type.
  */
 export interface RenderHtml {
-  parts: TemplateStringsArray;
-  values: any[];
-  key?: string;
-  _$wompoHtml: true;
-  _$portal?: HTMLElement;
+	parts: TemplateStringsArray;
+	values: any[];
+	key?: string;
+	_$wompoHtml: true;
+	_$portal?: HTMLElement;
 }
 
 /**
  * The props of any component.
  */
 export interface WompoProps {
-  /** The children of the component instance */
-  children?: WompoChildren;
-  /** The styles generated from the CSS provided */
-  styles?: { [key: string]: string };
-  /** In DEV_MODE, will write on the console performance informations. */
-  ['wc-perf']?: boolean;
-  wcPerf?: boolean;
-  /** The style of a component to customize it through the style attribute in the DOM. */
-  style?: string | Partial<CSSStyleDeclaration> | object;
-  /** A potential reference to the element. */
-  ref?: RefHook<any>;
-  /** The ID of the element */
-  id?: string;
-  /** The classes of the element */
-  class?: string;
-  /** JSX events */
-  [event: `on${string}`]: (ev: Event) => void;
+	/** The children of the component instance */
+	children?: WompoChildren;
+	/** The styles generated from the CSS provided */
+	styles?: { [key: string]: string };
+	/** In DEV_MODE, will write on the console performance informations. */
+	['wc-perf']?: boolean;
+	wcPerf?: boolean;
+	/** The style of a component to customize it through the style attribute in the DOM. */
+	style?: string | Partial<CSSStyleDeclaration> | object;
+	/** A potential reference to the element. */
+	ref?: RefHook<any>;
+	/** The ID of the element */
+	id?: string;
+	/** The classes of the element */
+	class?: string;
+	/** JSX events */
+	[event: `on${string}`]: (ev: Event) => void;
 }
 
 /**
@@ -51,26 +51,26 @@ export interface WompoProps {
  * - `extends` (string)
  */
 export interface WompoComponentOptions {
-  /**
-   * Default value: `null`.
-   * The component name. If not defined, the component name will be the name of the function in
-   * hyphen-case. If the component doesn't have an hyphen, a "wompo" string will be placed as a
-   * suffix.
-   * E.g. TabPanel = tab-panel, Counter = counter-wompo
-   */
-  name?: string;
-  /**
-   * Default value: `false`. If true, the component will be rendered in a shadow DOM.
-   */
-  shadow?: boolean;
-  /**
-   * Default value: `true`. If true, the CSS of the component will be replaced with a more unique
-   * CSS. This is done by simply putting the component name as a prefix in every class.
-   * The generated class names will be put in the [styles] prop of the component.
-   * This is done to avoid styles collisions.
-   * E.g. CounterComponent.css = `.button` => .counter-component__button
-   */
-  cssModule?: boolean;
+	/**
+	 * Default value: `null`.
+	 * The component name. If not defined, the component name will be the name of the function in
+	 * hyphen-case. If the component doesn't have an hyphen, a "wompo" string will be placed as a
+	 * suffix.
+	 * E.g. TabPanel = tab-panel, Counter = counter-wompo
+	 */
+	name?: string;
+	/**
+	 * Default value: `false`. If true, the component will be rendered in a shadow DOM.
+	 */
+	shadow?: boolean;
+	/**
+	 * Default value: `true`. If true, the CSS of the component will be replaced with a more unique
+	 * CSS. This is done by simply putting the component name as a prefix in every class.
+	 * The generated class names will be put in the [styles] prop of the component.
+	 * This is done to avoid styles collisions.
+	 * E.g. CounterComponent.css = `.button` => .counter-component__button
+	 */
+	cssModule?: boolean;
 }
 
 /**
@@ -78,24 +78,24 @@ export interface WompoComponentOptions {
  * It can have a custom `css` property, corresponding to the specific styles of the component.
  */
 export interface WompoComponent<Props extends WompoProps = WompoProps> {
-  /** The props of the component */
-  (props: Props): RenderHtml;
-  /**
-   * The specific styles of the component.
-   */
-  css?: string;
-  /** The component name, elaborated in the defineWompo function */
-  componentName?: string;
-  /** Identifies the component */
-  _$wompoF?: true;
-  /** The generated class of the component */
-  class?: WompoElementClass<Props>;
-  /** Options */
-  options?: {
-    generatedCSS: string;
-    styles: { [key: string]: string };
-    shadow: boolean;
-  };
+	/** The props of the component */
+	(props: Props): RenderHtml;
+	/**
+	 * The specific styles of the component.
+	 */
+	css?: string;
+	/** The component name, elaborated in the defineWompo function */
+	componentName?: string;
+	/** Identifies the component */
+	_$wompoF?: true;
+	/** The generated class of the component */
+	class?: WompoElementClass<Props>;
+	/** Options */
+	options?: {
+		generatedCSS: string;
+		styles: { [key: string]: string };
+		shadow: boolean;
+	};
 }
 
 /**
@@ -110,129 +110,129 @@ export interface WompoComponent<Props extends WompoProps = WompoProps> {
  * - `updateProp(prop, newValue)`
  */
 export type WompoElement<Props extends WompoProps = WompoProps, E = {}> = HTMLElement &
-  E & {
-    /**
-     * The props of the component, that are then passed in the function.
-     */
-    props: Props;
+	E & {
+		/**
+		 * The props of the component, that are then passed in the function.
+		 */
+		props: Props;
 
-    /**
-     * The hooks of the component. They are accessed by the position in the array.
-     */
-    hooks: Hook[];
+		/**
+		 * The hooks of the component. They are accessed by the position in the array.
+		 */
+		hooks: Hook[];
 
-    /**
-     * The initial props of a component. This property is only used internally when
-     * using a dynamic tag.
-     */
-    _$initialProps: WompoProps;
+		/**
+		 * The initial props of a component. This property is only used internally when
+		 * using a dynamic tag.
+		 */
+		_$initialProps: WompoProps;
 
-    /**
-     * The list of protals that the element has.
-     */
-    _$portals: DynamicNode[];
+		/**
+		 * The list of protals that the element has.
+		 */
+		_$portals: DynamicNode[];
 
-    /**
-     * True if the component wants to log the rendering time in the console. Only
-     * available in DEV_MODE.
-     * This property is set to true only when a component has the attribute or
-     * initial prop [wc-perf].
-     */
-    _$measurePerf: boolean;
+		/**
+		 * True if the component wants to log the rendering time in the console. Only
+		 * available in DEV_MODE.
+		 * This property is set to true only when a component has the attribute or
+		 * initial prop [wc-perf].
+		 */
+		_$measurePerf: boolean;
 
-    /**
-     * True if the component uses a context.
-     */
-    _$usesContext: boolean;
+		/**
+		 * True if the component uses a context.
+		 */
+		_$usesContext: boolean;
 
-    /**
-     * True if the component has recently been moved. Used to know if a component should search
-     * again for parent contexts.
-     */
-    _$hasBeenMoved: boolean;
+		/**
+		 * True if the component has recently been moved. Used to know if a component should search
+		 * again for parent contexts.
+		 */
+		_$hasBeenMoved: boolean;
 
-    /**
-     * A list of effects to execute after the component has been rendered (asynchronously).
-     */
-    _$effects: EffectHook[];
+		/**
+		 * A list of effects to execute after the component has been rendered (asynchronously).
+		 */
+		_$effects: EffectHook[];
 
-    /**
-     * A list of asynchronous calls to execute when the component renders.
-     */
-    _$asyncCalls: AsyncHook<any>[];
+		/**
+		 * A list of asynchronous calls to execute when the component renders.
+		 */
+		_$asyncCalls: AsyncHook<any>[];
 
-    /**
-     * A list of asynchronous calls that have been suspended.
-     */
-    _$suspendedAsyncCalls: AsyncHook<any>[];
+		/**
+		 * A list of asynchronous calls that have been suspended.
+		 */
+		_$suspendedAsyncCalls: AsyncHook<any>[];
 
-    /**
-     * A list of layout effects to execute immediately after the component has been rendered (not
-     * asynchronously).
-     */
-    _$layoutEffects: EffectHook[];
+		/**
+		 * A list of layout effects to execute immediately after the component has been rendered (not
+		 * asynchronously).
+		 */
+		_$layoutEffects: EffectHook[];
 
-    /**
-     * Requests a render to the component.
-     * @returns void
-     */
-    requestRender: () => void;
+		/**
+		 * Requests a render to the component.
+		 * @returns void
+		 */
+		requestRender: () => void;
 
-    /**
-     * A callback that gets executed whenever the component id disconnected
-     * **definitely** from the DOM. This callback is not called when the
-     * component is just moved from one node to another.
-     * @returns void
-     */
-    onDisconnected: () => void;
+		/**
+		 * A callback that gets executed whenever the component id disconnected
+		 * **definitely** from the DOM. This callback is not called when the
+		 * component is just moved from one node to another.
+		 * @returns void
+		 */
+		onDisconnected: () => void;
 
-    /**
-     * Update a [prop] of the component with the [newValue]. It automatically
-     * re-render the component if the old value and the new value differs.
-     * @param prop The prop name to update
-     * @param newValue The new value to put in the prop
-     * @returns void
-     */
-    updateProp: (prop: string, newValue: any) => void;
+		/**
+		 * Update a [prop] of the component with the [newValue]. It automatically
+		 * re-render the component if the old value and the new value differs.
+		 * @param prop The prop name to update
+		 * @param newValue The new value to put in the prop
+		 * @returns void
+		 */
+		updateProp: (prop: string, newValue: any) => void;
 
-    /**
-     * An identifier to rapidly know if a node is a wompo component.
-     */
-    _$wompo: true;
-  };
+		/**
+		 * An identifier to rapidly know if a node is a wompo component.
+		 */
+		_$wompo: true;
+	};
 
 /** The possible hooks that a component can have. */
 export type Hook =
-  | StateHook<any>
-  | EffectHook
-  | RefHook<any>
-  | CallbackHook<any>
-  | IdHook
-  | MemoHook<any>
-  | ReducerHook<any>
-  | AsyncHook<any>
-  | ContextHook;
+	| StateHook<any>
+	| EffectHook
+	| RefHook<any>
+	| CallbackHook<any>
+	| IdHook
+	| MemoHook<any>
+	| ReducerHook<any>
+	| AsyncHook<any>
+	| ContextHook;
 
 /** The hook generated by the useState function */
 export type StateHook<S> = [S, (newValue: S | ((oldValue: S) => S)) => void];
 
 /** The hook generated by the useEffect and useLayoutEffect functions */
 export interface EffectHook {
-  dependencies: any;
-  callback: VoidFunction | (() => VoidFunction);
-  cleanupFunction: VoidFunction | void;
+	dependencies: any;
+	callback: VoidFunction | (() => VoidFunction);
+	cleanupFunction: VoidFunction | void;
 }
 
 /** The hook generated by the useRef function */
 export interface RefHook<V> {
-  current: V;
-  __wcRef: true;
+	current: V;
+	__wcRef: true;
 }
 
 /** The hook generated by the useCallback function */
 export interface CallbackHook<C> {
-  dependencies?: any[];
-  value: C;
+	dependencies?: any[];
+	value: C;
 }
 
 /** The hook generated by the useId function */
@@ -240,50 +240,50 @@ export type IdHook = string;
 
 /** The hook generated by the useMemo function */
 export interface MemoHook<T = any> {
-  dependencies: any[];
-  value: T;
+	dependencies: any[];
+	value: T;
 }
 
 interface ReducerAction {
-  [key: string]: any;
+	[key: string]: any;
 }
 /** The hook generated by the useState function */
 export type ReducerHook<State> = [State, (action: ReducerAction) => void];
 
 /** The hook generated by the useAsync function */
 export interface AsyncHook<S> {
-  asyncCallback: () => Promise<S>;
-  dependencies: any[];
-  value: S;
-  activateSuspense: boolean;
+	asyncCallback: () => Promise<S>;
+	dependencies: any[];
+	value: S;
+	activateSuspense: boolean;
 }
 
 /** The props type of a ContextProvider */
 interface ContextProviderProps extends WompoProps {
-  value: any;
+	value: any;
 }
 /** The exposed values of a ContextProvider */
 interface ContextProviderExposed {
-  subscribers: RefHook<Set<WompoElement>>;
+	subscribers: RefHook<Set<WompoElement>>;
 }
 /** The type of a ContextProvier instance */
 export type ContextProviderElement = WompoElement<ContextProviderProps, ContextProviderExposed>;
 
 /** The hook generated by the useContext hook */
 export interface ContextHook {
-  node: ContextProviderElement;
+	node: ContextProviderElement;
 }
 
 /**
  * The type of the class generated by the wompo() function.
  */
 interface WompoElementClass<Props extends WompoProps, E = {}> {
-  /** The constructor */
-  new (): WompoElement<Props, E>;
-  /** The cached template data. This is generated only the first time a component renders. */
-  _$cachedTemplate: CachedTemplate;
-  /** This function will get or create a new CachedTemplate instance. */
-  _$getOrCreateTemplate(parts: TemplateStringsArray): CachedTemplate;
+	/** The constructor */
+	new (): WompoElement<Props, E>;
+	/** The cached template data. This is generated only the first time a component renders. */
+	_$cachedTemplate: CachedTemplate;
+	/** This function will get or create a new CachedTemplate instance. */
+	_$getOrCreateTemplate(parts: TemplateStringsArray): CachedTemplate;
 }
 
 /**
@@ -291,17 +291,17 @@ interface WompoElementClass<Props extends WompoProps, E = {}> {
  * update the elements.
  */
 interface Dependency {
-  /** The type of the dependency (ATTRIBUTE, NODE, TAG) */
-  type: number;
-  /** The index of the element when walked with the treeWalker */
-  index: number;
-  /** This option is valorized if the type is ATTRIBUTE */
-  name?: string;
-  /**
-   * This option is valorized if the type is ATTRIBUTE and it's a composed attribute.
-   * (e.g. class="button ${'button-primary'}")
-   */
-  attrDynamics?: string;
+	/** The type of the dependency (ATTRIBUTE, NODE, TAG) */
+	type: number;
+	/** The index of the element when walked with the treeWalker */
+	index: number;
+	/** This option is valorized if the type is ATTRIBUTE */
+	name?: string;
+	/**
+	 * This option is valorized if the type is ATTRIBUTE and it's a composed attribute.
+	 * (e.g. class="button ${'button-primary'}")
+	 */
+	attrDynamics?: string;
 }
 
 /**
@@ -342,8 +342,8 @@ const IS_SERVER = typeof global !== 'undefined';
 const doc = IS_SERVER ? ({ createTreeWalker() {} } as unknown as Document) : document;
 
 const treeWalker = doc.createTreeWalker(
-  doc,
-  129 // NodeFilter.SHOW_{ELEMENT|COMMENT}
+	doc,
+	129 // NodeFilter.SHOW_{ELEMENT|COMMENT}
 );
 
 const mutationAttributesExclusions = ['class', 'style', 'id', 'title'];
@@ -360,67 +360,67 @@ CLASSES
  * stored here and only cloned when a new component is instantiated.
  */
 class CachedTemplate {
-  /**
-   * The HTML Template element that has all the structure and comments built in to identify dynamic
-   * elements.
-   */
-  public template: HTMLTemplateElement;
-  /**
-   * The list of metadata dependencies used to know which node/attribute should listen to updates
-   * when a variable changes.
-   */
-  public dependencies: Dependency[];
+	/**
+	 * The HTML Template element that has all the structure and comments built in to identify dynamic
+	 * elements.
+	 */
+	public template: HTMLTemplateElement;
+	/**
+	 * The list of metadata dependencies used to know which node/attribute should listen to updates
+	 * when a variable changes.
+	 */
+	public dependencies: Dependency[];
 
-  /**
-   * Create a new CachedTemplate instance.
-   * @param template The HTML Template already elaborated to handle the dynamic parts.
-   * @param dependencies The metadata dependencies for the template.
-   */
-  constructor(template: HTMLTemplateElement, dependencies: Dependency[]) {
-    this.template = template;
-    this.dependencies = dependencies;
-  }
+	/**
+	 * Create a new CachedTemplate instance.
+	 * @param template The HTML Template already elaborated to handle the dynamic parts.
+	 * @param dependencies The metadata dependencies for the template.
+	 */
+	constructor(template: HTMLTemplateElement, dependencies: Dependency[]) {
+		this.template = template;
+		this.dependencies = dependencies;
+	}
 
-  /**
-   * This function will clone the template content and build the dynamcis metadata - an array
-   * containing all the information to efficiently put values in the DOM, without checking if each
-   * node is equal to a virtual one. The DOM update is not done through this function, but thanks to
-   * the `__setValues` function.
-   * @returns An array containing 2 values: The DOM fragment cloned from the content of the
-   * template, and the dynamics metadata.
-   */
-  public clone(): [DocumentFragment, Dynamics[]] {
-    const content = this.template.content;
-    const dependencies = this.dependencies;
-    const fragment = document.importNode(content, true);
-    treeWalker.currentNode = fragment;
-    let node = treeWalker.nextNode();
-    let nodeIndex = 0;
-    let dynamicIndex = 0;
-    let templateDependency = dependencies[0];
-    const dynamics = [];
-    while (templateDependency !== undefined) {
-      if (nodeIndex === templateDependency.index) {
-        let dynamic: Dynamics;
-        const type = templateDependency.type;
-        if (type === NODE) {
-          dynamic = new DynamicNode(node as HTMLElement, node.nextSibling);
-        } else if (type === ATTR) {
-          dynamic = new DynamicAttribute(node as HTMLElement, templateDependency);
-        } else if (type === TAG) {
-          dynamic = new DynamicTag(node as HTMLElement);
-        }
-        dynamics.push(dynamic);
-        templateDependency = dependencies[++dynamicIndex];
-      }
-      if (nodeIndex !== templateDependency?.index) {
-        node = treeWalker.nextNode()!;
-        nodeIndex++;
-      }
-    }
-    treeWalker.currentNode = document;
-    return [fragment, dynamics];
-  }
+	/**
+	 * This function will clone the template content and build the dynamcis metadata - an array
+	 * containing all the information to efficiently put values in the DOM, without checking if each
+	 * node is equal to a virtual one. The DOM update is not done through this function, but thanks to
+	 * the `__setValues` function.
+	 * @returns An array containing 2 values: The DOM fragment cloned from the content of the
+	 * template, and the dynamics metadata.
+	 */
+	public clone(): [DocumentFragment, Dynamics[]] {
+		const content = this.template.content;
+		const dependencies = this.dependencies;
+		const fragment = document.importNode(content, true);
+		treeWalker.currentNode = fragment;
+		let node = treeWalker.nextNode();
+		let nodeIndex = 0;
+		let dynamicIndex = 0;
+		let templateDependency = dependencies[0];
+		const dynamics = [];
+		while (templateDependency !== undefined) {
+			if (nodeIndex === templateDependency.index) {
+				let dynamic: Dynamics;
+				const type = templateDependency.type;
+				if (type === NODE) {
+					dynamic = new DynamicNode(node as HTMLElement, node.nextSibling);
+				} else if (type === ATTR) {
+					dynamic = new DynamicAttribute(node as HTMLElement, templateDependency);
+				} else if (type === TAG) {
+					dynamic = new DynamicTag(node as HTMLElement);
+				}
+				dynamics.push(dynamic);
+				templateDependency = dependencies[++dynamicIndex];
+			}
+			if (nodeIndex !== templateDependency?.index) {
+				node = treeWalker.nextNode()!;
+				nodeIndex++;
+			}
+		}
+		treeWalker.currentNode = document;
+		return [fragment, dynamics];
+	}
 }
 
 /**
@@ -429,202 +429,202 @@ class CachedTemplate {
  * so a [dynamics] array is build and used to perform updated on the html result.
  */
 class HtmlProcessedValue {
-  /** The last values that the html function returned. */
-  public values: any[];
-  /** The parts of the render value. */
-  public parts: TemplateStringsArray;
-  /** The Cached template data returned by the `clone` function. */
-  public template: [DocumentFragment, Dynamics[]];
-  /** The index of the template in the arrya of values */
-  public index: number;
-  /** The whole renderHtml structure */
-  public renderHtml: RenderHtml;
-  /** The key of the template in the array of values */
-  public key?: string;
+	/** The last values that the html function returned. */
+	public values: any[];
+	/** The parts of the render value. */
+	public parts: TemplateStringsArray;
+	/** The Cached template data returned by the `clone` function. */
+	public template: [DocumentFragment, Dynamics[]];
+	/** The index of the template in the arrya of values */
+	public index: number;
+	/** The whole renderHtml structure */
+	public renderHtml: RenderHtml;
+	/** The key of the template in the array of values */
+	public key?: string;
 
-  constructor(render: RenderHtml, template: [DocumentFragment, Dynamics[]], index: number) {
-    this.values = render.values;
-    this.renderHtml = render;
-    this.parts = render.parts;
-    this.template = template;
-    this.index = index;
-    this.key = render.key;
-  }
+	constructor(render: RenderHtml, template: [DocumentFragment, Dynamics[]], index: number) {
+		this.values = render.values;
+		this.renderHtml = render;
+		this.parts = render.parts;
+		this.template = template;
+		this.index = index;
+		this.key = render.key;
+	}
 }
 
 /**
  * Contains the data about a Dynamic node.
  */
 class DynamicNode {
-  /**
-   * The start node marks the point on where dynamic nodes must be put after.
-   * It's a static HTML element. Values between the startNode and endNode are known to be dynamic.
-   */
-  public startNode: ChildNode;
-  /**
-   * The end node marks the point on where dynamic nodes must be put before.
-   * It's a static HTML element. Values between the startNode and endNode are known to be dynamic.
-   */
-  public endNode: ChildNode | null;
+	/**
+	 * The start node marks the point on where dynamic nodes must be put after.
+	 * It's a static HTML element. Values between the startNode and endNode are known to be dynamic.
+	 */
+	public startNode: ChildNode;
+	/**
+	 * The end node marks the point on where dynamic nodes must be put before.
+	 * It's a static HTML element. Values between the startNode and endNode are known to be dynamic.
+	 */
+	public endNode: ChildNode | null;
 
-  public isNode: true = true; // For faster access
-  public isAttr: false = false; // For faster access
-  public isTag: false = false; // For faster access
+	public isNode: true = true; // For faster access
+	public isAttr: false = false; // For faster access
+	public isTag: false = false; // For faster access
 
-  /**
-   * Creates a new DynamicNode instance.
-   * @param startNode The start node.
-   * @param endNode The end node.
-   */
-  constructor(startNode: ChildNode, endNode: ChildNode | null) {
-    this.startNode = startNode;
-    this.endNode = endNode;
-  }
+	/**
+	 * Creates a new DynamicNode instance.
+	 * @param startNode The start node.
+	 * @param endNode The end node.
+	 */
+	constructor(startNode: ChildNode, endNode: ChildNode | null) {
+		this.startNode = startNode;
+		this.endNode = endNode;
+	}
 
-  /**
-   * Removes all the nodes between the start and the end nodes.
-   */
-  public clearValue() {
-    let currentNode = this.startNode.nextSibling;
-    while (currentNode && currentNode !== this.endNode) {
-      currentNode.remove();
-      currentNode = this.startNode.nextSibling;
-    }
-  }
+	/**
+	 * Removes all the nodes between the start and the end nodes.
+	 */
+	public clearValue() {
+		let currentNode = this.startNode.nextSibling;
+		while (currentNode && currentNode !== this.endNode) {
+			currentNode.remove();
+			currentNode = this.startNode.nextSibling;
+		}
+	}
 
-  /**
-   * First removes all the nodes between the start and the end nodes, then it also removes the
-   * start node and the end node.
-   */
-  public dispose() {
-    this.clearValue();
-    this.startNode.remove();
-    if (this.endNode) this.endNode.remove();
-  }
+	/**
+	 * First removes all the nodes between the start and the end nodes, then it also removes the
+	 * start node and the end node.
+	 */
+	public dispose() {
+		this.clearValue();
+		this.startNode.remove();
+		if (this.endNode) this.endNode.remove();
+	}
 }
 
 /**
  * Contains the data about a dynamic attribute.
  */
 class DynamicAttribute {
-  /** The node that owns the dynamic attribute */
-  public node: HTMLElement;
-  /** The name of the dynamic attribute. */
-  public name: string;
-  /**
-   * If an attribute has only some dynamic parts, this property will contain the whole attribute
-   * structure. E.g. class="button ${'hidden'}".
-   */
-  public attrStructure: string;
+	/** The node that owns the dynamic attribute */
+	public node: HTMLElement;
+	/** The name of the dynamic attribute. */
+	public name: string;
+	/**
+	 * If an attribute has only some dynamic parts, this property will contain the whole attribute
+	 * structure. E.g. class="button ${'hidden'}".
+	 */
+	public attrStructure: string;
 
-  public isNode: false = false; // For faster access
-  public isAttr: true = true; // For faster access
-  public isTag: false = false; // For faster access
+	public isNode: false = false; // For faster access
+	public isAttr: true = true; // For faster access
+	public isTag: false = false; // For faster access
 
-  /** The callback to execute when an event is fired. */
-  private __callback: (event: Event) => void;
-  /** True if an event has already been initialized. */
-  private __eventInitialized = false;
+	/** The callback to execute when an event is fired. */
+	private __callback: (event: Event) => void;
+	/** True if an event has already been initialized. */
+	private __eventInitialized = false;
 
-  /**
-   * Creates a new DynamicAttribute instance.
-   * @param node The node that owns the attribute.
-   * @param dependency The dependency metadata.
-   */
-  constructor(node: HTMLElement, dependency: Dependency) {
-    this.node = node;
-    this.name = dependency.name;
-    this.attrStructure = dependency.attrDynamics;
-  }
+	/**
+	 * Creates a new DynamicAttribute instance.
+	 * @param node The node that owns the attribute.
+	 * @param dependency The dependency metadata.
+	 */
+	constructor(node: HTMLElement, dependency: Dependency) {
+		this.node = node;
+		this.name = dependency.name;
+		this.attrStructure = dependency.attrDynamics;
+	}
 
-  /**
-   * Update an attribute value.
-   * @param newValue The new value of the attribute
-   */
-  public updateValue(newValue: any) {
-    if (this.name === 'ref' && newValue.__wcRef) {
-      newValue.current = this.node;
-      return;
-    }
-    if (DEV_MODE && (this.name === 'wc-perf' || this.name == 'wcPerf'))
-      (this.node as WompoElement)._$measurePerf = true;
-    const isWompoElement = (this.node as WompoElement)._$wompo;
-    if (isWompoElement) (this.node as WompoElement).updateProp(this.name, newValue);
-    const isPrimitive = newValue !== Object(newValue);
-    if (newValue === false || newValue === null || newValue === undefined) {
-      this.node.removeAttribute(this.name);
-    } else if (
-      isPrimitive &&
-      (!this.name.match(/[A-Z]/) || this.node.nodeName === 'svg') &&
-      this.name !== 'title'
-    ) {
-      this.node.setAttribute(this.name, newValue);
-    } else if (this.name === 'style') {
-      let styleString = '';
-      const styles = Object.keys(newValue);
-      for (const key of styles) {
-        let styleValue = newValue[key];
-        let styleKey = key.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
-        if (typeof styleValue === 'number') styleValue = `${styleValue}px`;
-        if (
-          styleValue !== undefined &&
-          styleValue !== null &&
-          styleValue !== false &&
-          styleValue !== ''
-        )
-          styleString += `${styleKey}:${styleValue};`;
-      }
-      this.node.setAttribute(this.name, styleString);
-    }
-    if (this.name === 'title' && isWompoElement) this.node.removeAttribute(this.name);
-  }
+	/**
+	 * Update an attribute value.
+	 * @param newValue The new value of the attribute
+	 */
+	public updateValue(newValue: any) {
+		if (this.name === 'ref' && newValue.__wcRef) {
+			newValue.current = this.node;
+			return;
+		}
+		if (DEV_MODE && (this.name === 'wc-perf' || this.name == 'wcPerf'))
+			(this.node as WompoElement)._$measurePerf = true;
+		const isWompoElement = (this.node as WompoElement)._$wompo;
+		if (isWompoElement) (this.node as WompoElement).updateProp(this.name, newValue);
+		const isPrimitive = newValue !== Object(newValue);
+		if (newValue === false || newValue === null || newValue === undefined) {
+			this.node.removeAttribute(this.name);
+		} else if (
+			isPrimitive &&
+			(!this.name.match(/[A-Z]/) || this.node.nodeName === 'svg') &&
+			this.name !== 'title'
+		) {
+			this.node.setAttribute(this.name, newValue);
+		} else if (this.name === 'style') {
+			let styleString = '';
+			const styles = Object.keys(newValue);
+			for (const key of styles) {
+				let styleValue = newValue[key];
+				let styleKey = key.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
+				if (typeof styleValue === 'number') styleValue = `${styleValue}px`;
+				if (
+					styleValue !== undefined &&
+					styleValue !== null &&
+					styleValue !== false &&
+					styleValue !== ''
+				)
+					styleString += `${styleKey}:${styleValue};`;
+			}
+			this.node.setAttribute(this.name, styleString);
+		}
+		if (this.name === 'title' && isWompoElement) this.node.removeAttribute(this.name);
+	}
 
-  /**
-   * Set the callback function to be executed when an event is fired. If the event has not been
-   * initialized, the event listener will be added.
-   * The callback can be directly a function, or an object containing the function and the options
-   * of the event listener.
-   */
-  set callback(
-    callback:
-      | ((event: Event) => void)
-      | { fn: (event: Event) => void; options?: AddEventListenerOptions }
-  ) {
-    if (!this.__eventInitialized) {
-      const eventName = this.name.substring(1);
-      this.node.addEventListener(eventName, this.__listener.bind(this), (callback as any)?.options);
-      this.__eventInitialized = true;
-    }
-    this.__callback = typeof callback === 'function' ? callback : callback?.fn;
-  }
+	/**
+	 * Set the callback function to be executed when an event is fired. If the event has not been
+	 * initialized, the event listener will be added.
+	 * The callback can be directly a function, or an object containing the function and the options
+	 * of the event listener.
+	 */
+	set callback(
+		callback:
+			| ((event: Event) => void)
+			| { fn: (event: Event) => void; options?: AddEventListenerOptions }
+	) {
+		if (!this.__eventInitialized) {
+			const eventName = this.name.substring(1);
+			this.node.addEventListener(eventName, this.__listener.bind(this), (callback as any)?.options);
+			this.__eventInitialized = true;
+		}
+		this.__callback = typeof callback === 'function' ? callback : callback?.fn;
+	}
 
-  /**
-   * The listener that will execute the __callback function (if defined).
-   * @param event The event object
-   */
-  private __listener(event: Event) {
-    if (this.__callback) this.__callback(event);
-  }
+	/**
+	 * The listener that will execute the __callback function (if defined).
+	 * @param event The event object
+	 */
+	private __listener(event: Event) {
+		if (this.__callback) this.__callback(event);
+	}
 }
 
 /**
  * Contains the data about a dynamic tag name.
  */
 class DynamicTag {
-  /** The node that has the dynamic tag. */
-  public node: ChildNode;
+	/** The node that has the dynamic tag. */
+	public node: ChildNode;
 
-  public isNode: false = false; // For faster access
-  public isAttr: false = false; // For faster access
-  public isTag: true = true; // For faster access
+	public isNode: false = false; // For faster access
+	public isAttr: false = false; // For faster access
+	public isTag: true = true; // For faster access
 
-  /**
-   * Creates a new DynamicTag instance.
-   * @param node The node instance.
-   */
-  constructor(node: ChildNode) {
-    this.node = node;
-  }
+	/**
+	 * Creates a new DynamicTag instance.
+	 * @param node The node instance.
+	 */
+	constructor(node: ChildNode) {
+		this.node = node;
+	}
 }
 
 /**
@@ -632,228 +632,228 @@ class DynamicTag {
  * HTMLCollection, so that they are not lost and reusable when removed from the DOM.
  */
 class WompoChildren {
-  public nodes: Node[];
+	public nodes: Node[];
 
-  public _$wompoChildren: true = true;
+	public _$wompoChildren: true = true;
 
-  constructor(nodes: Node[]) {
-    this.nodes = nodes;
-  }
+	constructor(nodes: Node[]) {
+		this.nodes = nodes;
+	}
 }
 
 /**
  * Hold the informations to efficiently update a dynamic value that is an array.
  */
 class WompoArrayDependency {
-  /** A list of dynamic nodes, used to know where each item of the array begins and ends. */
-  public dynamics: DynamicNode[];
+	/** A list of dynamic nodes, used to know where each item of the array begins and ends. */
+	public dynamics: DynamicNode[];
 
-  public isArrayDependency: true = true; // For faster access
+	public isArrayDependency: true = true; // For faster access
 
-  /** The array containing the old values, for comparisons. */
-  private __oldValues: any[];
-  /** The array containing the old values, not modified by the __setValues function. */
-  private __oldPureValues: any[];
-  /** The parent dynamic node dependency. */
-  private __parentDependency: DynamicNode;
-  /** The component who owns the dependency. */
-  private __owner: WompoElement;
-  /** Whether this array should be handled using keys instead of indices. */
-  private __isKeyed: boolean;
+	/** The array containing the old values, for comparisons. */
+	private __oldValues: any[];
+	/** The array containing the old values, not modified by the __setValues function. */
+	private __oldPureValues: any[];
+	/** The parent dynamic node dependency. */
+	private __parentDependency: DynamicNode;
+	/** The component who owns the dependency. */
+	private __owner: WompoElement;
+	/** Whether this array should be handled using keys instead of indices. */
+	private __isKeyed: boolean;
 
-  /**
-   * Creates a new WompoArrayDependency instance.
-   * @param values The array of values to put in the DOM
-   * @param dependency The dynamic node dependency on which the array should be rendered.
-   */
-  constructor(values: any[], dependency: DynamicNode, owner: WompoElement) {
-    this.dynamics = [];
-    this.__oldValues = [];
-    this.__parentDependency = dependency;
-    this.__owner = owner;
-    this.__isKeyed = Array.isArray(values) && values.every((v) => v.key);
-    dependency.startNode.after(document.createComment('?wc-end'));
-    this.addDependenciesFrom(dependency.startNode as HTMLElement, values);
-    this.__oldPureValues = values;
-  }
+	/**
+	 * Creates a new WompoArrayDependency instance.
+	 * @param values The array of values to put in the DOM
+	 * @param dependency The dynamic node dependency on which the array should be rendered.
+	 */
+	constructor(values: any[], dependency: DynamicNode, owner: WompoElement) {
+		this.dynamics = [];
+		this.__oldValues = [];
+		this.__parentDependency = dependency;
+		this.__owner = owner;
+		this.__isKeyed = Array.isArray(values) && values.every((v) => v.key);
+		dependency.startNode.after(document.createComment('?wc-end'));
+		this.addDependenciesFrom(dependency.startNode as HTMLElement, values);
+		this.__oldPureValues = values;
+	}
 
-  /**
-   * This function will add markers (HTML comments) and generate dynamic nodes dependecies used to
-   * efficiently udpate the values inside of the array.
-   * @param startNode The start node on which insert the new "single-item" dependencies.
-   * @param toAdd The values to add
-   */
-  private addDependenciesFrom(startNode: HTMLElement, toAdd: any[]) {
-    let currentNode = startNode;
-    for (let i = 0; i < toAdd.length; i++) {
-      const value = toAdd[i];
-      currentNode.after(document.createTextNode(''));
-      currentNode.after(document.createTextNode(''));
-      const dependency = new DynamicNode(
-        currentNode.nextSibling,
-        currentNode.nextSibling.nextSibling
-      );
-      currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
-      this.dynamics.push(dependency);
-      this.__oldValues.push(__setValues([dependency], [value], [], this.__owner)[0]);
-    }
-  }
+	/**
+	 * This function will add markers (HTML comments) and generate dynamic nodes dependecies used to
+	 * efficiently udpate the values inside of the array.
+	 * @param startNode The start node on which insert the new "single-item" dependencies.
+	 * @param toAdd The values to add
+	 */
+	private addDependenciesFrom(startNode: HTMLElement, toAdd: any[]) {
+		let currentNode = startNode;
+		for (let i = 0; i < toAdd.length; i++) {
+			const value = toAdd[i];
+			currentNode.after(document.createTextNode(''));
+			currentNode.after(document.createTextNode(''));
+			const dependency = new DynamicNode(
+				currentNode.nextSibling,
+				currentNode.nextSibling.nextSibling
+			);
+			currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
+			this.dynamics.push(dependency);
+			this.__oldValues.push(__setValues([dependency], [value], [], this.__owner)[0]);
+		}
+	}
 
-  /**
-   * Updated the values of a normal array (without keys).
-   * Arrays with keys are preferred if the array handles DOM nodes.
-   * @param newValues The new values of the array
-   * @returns The new array dependency
-   */
-  private updateNormalArray(newValues: any[]) {
-    const oldValuesLength = this.__oldValues.length;
-    let diff = newValues.length - oldValuesLength;
-    // Removal of extra items
-    if (diff < 0) {
-      while (diff) {
-        const toClean = this.dynamics.pop();
-        this.__oldValues.pop();
-        toClean.dispose();
-        diff++;
-      }
-    }
-    // Update of existing items
-    for (let i = 0; i < this.dynamics.length; i++) {
-      const newValue = newValues[i];
-      const dependency = this.dynamics[i];
-      const oldValue = this.__oldValues[i];
-      this.__oldValues[i] = __setValues([dependency], [newValue], [oldValue], this.__owner)[0];
-    }
-    // Addition of new items
-    if (diff > 0) {
-      let currentNode = this.dynamics[this.dynamics.length - 1]?.endNode;
-      if (!currentNode) currentNode = this.__parentDependency.startNode;
+	/**
+	 * Updated the values of a normal array (without keys).
+	 * Arrays with keys are preferred if the array handles DOM nodes.
+	 * @param newValues The new values of the array
+	 * @returns The new array dependency
+	 */
+	private updateNormalArray(newValues: any[]) {
+		const oldValuesLength = this.__oldValues.length;
+		let diff = newValues.length - oldValuesLength;
+		// Removal of extra items
+		if (diff < 0) {
+			while (diff) {
+				const toClean = this.dynamics.pop();
+				this.__oldValues.pop();
+				toClean.dispose();
+				diff++;
+			}
+		}
+		// Update of existing items
+		for (let i = 0; i < this.dynamics.length; i++) {
+			const newValue = newValues[i];
+			const dependency = this.dynamics[i];
+			const oldValue = this.__oldValues[i];
+			this.__oldValues[i] = __setValues([dependency], [newValue], [oldValue], this.__owner)[0];
+		}
+		// Addition of new items
+		if (diff > 0) {
+			let currentNode = this.dynamics[this.dynamics.length - 1]?.endNode;
+			if (!currentNode) currentNode = this.__parentDependency.startNode;
 
-      for (let i = 0; i < diff; i++) {
-        const value = newValues[oldValuesLength + i];
-        currentNode.after(document.createTextNode(''));
-        currentNode.after(document.createTextNode(''));
-        const dependency = new DynamicNode(
-          currentNode.nextSibling,
-          currentNode.nextSibling.nextSibling
-        );
-        currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
-        this.dynamics.push(dependency);
-        this.__oldValues.push(__setValues([dependency], [value], [], this.__owner));
-      }
-    }
-    this.__oldPureValues = newValues;
-    return this;
-  }
+			for (let i = 0; i < diff; i++) {
+				const value = newValues[oldValuesLength + i];
+				currentNode.after(document.createTextNode(''));
+				currentNode.after(document.createTextNode(''));
+				const dependency = new DynamicNode(
+					currentNode.nextSibling,
+					currentNode.nextSibling.nextSibling
+				);
+				currentNode = currentNode.nextSibling.nextSibling as HTMLElement;
+				this.dynamics.push(dependency);
+				this.__oldValues.push(__setValues([dependency], [value], [], this.__owner));
+			}
+		}
+		this.__oldPureValues = newValues;
+		return this;
+	}
 
-  /**
-   * Updates the values of a keyed array (values with a unique key).
-   *
-   * @param newValues The new values of the array
-   * @returns The new array dependency
-   */
-  private updateKeyedArray(newValues: any[]) {
-    const oldValues = this.__oldValues;
-    const oldDynamics = this.dynamics;
-    const oldKeyToIndex = new Map<any, number>();
-    // Get old mapped keys
-    for (let i = 0; i < oldValues.length; i++) {
-      const k = oldValues[i]?.key;
-      if (k !== undefined && !oldKeyToIndex.has(k)) {
-        oldKeyToIndex.set(k, i);
-      }
-    }
+	/**
+	 * Updates the values of a keyed array (values with a unique key).
+	 *
+	 * @param newValues The new values of the array
+	 * @returns The new array dependency
+	 */
+	private updateKeyedArray(newValues: any[]) {
+		const oldValues = this.__oldValues;
+		const oldDynamics = this.dynamics;
+		const oldKeyToIndex = new Map<any, number>();
+		// Get old mapped keys
+		for (let i = 0; i < oldValues.length; i++) {
+			const k = oldValues[i]?.key;
+			if (k !== undefined && !oldKeyToIndex.has(k)) {
+				oldKeyToIndex.set(k, i);
+			}
+		}
 
-    const newDynamics: DynamicNode[] = [];
-    const newOldValues: any[] = [];
-    const usedOldIndices = new Set<number>();
+		const newDynamics: DynamicNode[] = [];
+		const newOldValues: any[] = [];
+		const usedOldIndices = new Set<number>();
 
-    // Recycle old blocks if possible
-    for (let i = 0; i < newValues.length; i++) {
-      const newVal = newValues[i];
-      const key = newVal?.key;
-      if (key !== undefined && oldKeyToIndex.has(key)) {
-        const oldIndex = oldKeyToIndex.get(key)!;
-        usedOldIndices.add(oldIndex);
-        const dep = oldDynamics[oldIndex];
-        const oldVal = oldValues[oldIndex];
-        const [updatedVal] = __setValues([dep], [newVal], [oldVal], this.__owner);
-        newDynamics.push(dep);
-        newOldValues.push(updatedVal);
-      } else {
-        // New element: create a new DynamicNode at the end of the current list
-        let refNode: ChildNode =
-          newDynamics.length > 0
-            ? newDynamics[newDynamics.length - 1].endNode
-            : this.__parentDependency.startNode;
-        refNode.after(document.createTextNode(''));
-        refNode.after(document.createTextNode(''));
-        const dep = new DynamicNode(refNode.nextSibling, refNode.nextSibling!.nextSibling);
-        const [updatedVal] = __setValues([dep], [newVal], [], this.__owner);
-        newDynamics.push(dep);
-        newOldValues.push(updatedVal);
-      }
-    }
+		// Recycle old blocks if possible
+		for (let i = 0; i < newValues.length; i++) {
+			const newVal = newValues[i];
+			const key = newVal?.key;
+			if (key !== undefined && oldKeyToIndex.has(key)) {
+				const oldIndex = oldKeyToIndex.get(key)!;
+				usedOldIndices.add(oldIndex);
+				const dep = oldDynamics[oldIndex];
+				const oldVal = oldValues[oldIndex];
+				const [updatedVal] = __setValues([dep], [newVal], [oldVal], this.__owner);
+				newDynamics.push(dep);
+				newOldValues.push(updatedVal);
+			} else {
+				// New element: create a new DynamicNode at the end of the current list
+				let refNode: ChildNode =
+					newDynamics.length > 0
+						? newDynamics[newDynamics.length - 1].endNode
+						: this.__parentDependency.startNode;
+				refNode.after(document.createTextNode(''));
+				refNode.after(document.createTextNode(''));
+				const dep = new DynamicNode(refNode.nextSibling, refNode.nextSibling!.nextSibling);
+				const [updatedVal] = __setValues([dep], [newVal], [], this.__owner);
+				newDynamics.push(dep);
+				newOldValues.push(updatedVal);
+			}
+		}
 
-    // Dispose old blocks that are no longer used
-    for (let i = 0; i < oldDynamics.length; i++) {
-      if (!usedOldIndices.has(i)) {
-        oldDynamics[i].dispose();
-      }
-    }
+		// Dispose old blocks that are no longer used
+		for (let i = 0; i < oldDynamics.length; i++) {
+			if (!usedOldIndices.has(i)) {
+				oldDynamics[i].dispose();
+			}
+		}
 
-    // Reorder the DOM according to the new order of newDynamics
-    let currentRef: ChildNode = this.__parentDependency.startNode;
-    for (const dep of newDynamics) {
-      // If the block is not already in the correct position, move it
-      if (currentRef.nextSibling !== dep.startNode) {
-        const fragment = document.createDocumentFragment();
-        let node: Node | null = dep.startNode;
-        const end: Node | null = dep.endNode.nextSibling;
-        while (node && node !== end) {
-          const next = node.nextSibling;
-          fragment.appendChild(node);
-          node = next;
-        }
-        currentRef.after(fragment);
-      }
-      // Update the reference to the last node of the block
-      currentRef = dep.endNode;
-    }
-    this.dynamics = newDynamics;
-    this.__oldValues = newOldValues;
-    this.__oldPureValues = newValues;
-    return this;
-  }
+		// Reorder the DOM according to the new order of newDynamics
+		let currentRef: ChildNode = this.__parentDependency.startNode;
+		for (const dep of newDynamics) {
+			// If the block is not already in the correct position, move it
+			if (currentRef.nextSibling !== dep.startNode) {
+				const fragment = document.createDocumentFragment();
+				let node: Node | null = dep.startNode;
+				const end: Node | null = dep.endNode.nextSibling;
+				while (node && node !== end) {
+					const next = node.nextSibling;
+					fragment.appendChild(node);
+					node = next;
+				}
+				currentRef.after(fragment);
+			}
+			// Update the reference to the last node of the block
+			currentRef = dep.endNode;
+		}
+		this.dynamics = newDynamics;
+		this.__oldValues = newOldValues;
+		this.__oldPureValues = newValues;
+		return this;
+	}
 
-  /**
-   * Handle the update of the array, choosing whether to use keys or not.
-   * @param newValues The new values of the array
-   * @returns The new array dependency
-   */
-  private handleArray(newValues: any[]) {
-    const canUseKeys = Array.isArray(newValues) && newValues.every((v) => v.key);
+	/**
+	 * Handle the update of the array, choosing whether to use keys or not.
+	 * @param newValues The new values of the array
+	 * @returns The new array dependency
+	 */
+	private handleArray(newValues: any[]) {
+		const canUseKeys = Array.isArray(newValues) && newValues.every((v) => v.key);
 
-    if (this.__isKeyed && canUseKeys) {
-      this.updateKeyedArray(newValues);
-    } else {
-      this.__isKeyed = false;
-      this.updateNormalArray(newValues);
-    }
-    this.__isKeyed = canUseKeys;
-    return this;
-  }
+		if (this.__isKeyed && canUseKeys) {
+			this.updateKeyedArray(newValues);
+		} else {
+			this.__isKeyed = false;
+			this.updateNormalArray(newValues);
+		}
+		this.__isKeyed = canUseKeys;
+		return this;
+	}
 
-  /**
-   * Check if there are dependencies to add/remove, and then set the new values to the old nodes.
-   * Setting the new values will start an eventual recursive check for eventual nested arrays.
-   * @param newValues The new values to check with the old ones fot updates.
-   * @returns This instance.
-   */
-  public checkUpdates(newValues: any[]) {
-    if (newValues === this.__oldPureValues) return this;
-    return this.handleArray(newValues);
-  }
+	/**
+	 * Check if there are dependencies to add/remove, and then set the new values to the old nodes.
+	 * Setting the new values will start an eventual recursive check for eventual nested arrays.
+	 * @param newValues The new values to check with the old ones fot updates.
+	 * @returns This instance.
+	 */
+	public checkUpdates(newValues: any[]) {
+		if (newValues === this.__oldPureValues) return this;
+		return this.handleArray(newValues);
+	}
 }
 
 /* 
@@ -871,39 +871,39 @@ SUPPORT FUNCTIONS
  * having as keys the original class names, and as the value the replaced class names.
  */
 const __generateSpecifcStyles = (
-  component: WompoComponent,
-  options: WompoComponentOptions
+	component: WompoComponent,
+	options: WompoComponentOptions
 ): [string, { [className: string]: string }] => {
-  const { css } = component;
-  const { shadow, name, cssModule } = options;
-  const componentName = name;
-  const classes: { [key: string]: string } = {};
-  let generatedCss = css;
-  if (cssModule) {
-    if (!css.includes(':host'))
-      generatedCss = `${shadow ? ':host' : componentName} {display:block;} ${css}`;
-    if (DEV_MODE) {
-      const invalidSelectors: string[] = [];
-      // It's appropriate that at least one class is present in each selector
-      [...generatedCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
-        const cssSelector = selector[1].trim();
-        if (!cssSelector.match(/\.|:host|@/)) invalidSelectors.push(cssSelector);
-      });
-      invalidSelectors.forEach((selector) => {
-        console.warn(
-          `The CSS selector "${selector} {...}" in the component "${componentName}" is not enough` +
-            ` specific: include at least one class or deactive the "cssModule" option on the component.`
-        );
-      });
-    }
-    if (!shadow) generatedCss = generatedCss.replace(/:host/g, componentName);
-    generatedCss = generatedCss.replace(/\.(?!\d)([_a-zA-Z0-9-]+)/gm, (_, className) => {
-      const uniqueClassName = `${componentName}__${className}`;
-      classes[className] = uniqueClassName;
-      return `.${uniqueClassName}`;
-    });
-  }
-  return [generatedCss, classes];
+	const { css } = component;
+	const { shadow, name, cssModule } = options;
+	const componentName = name;
+	const classes: { [key: string]: string } = {};
+	let generatedCss = css;
+	if (cssModule) {
+		if (!css.includes(':host'))
+			generatedCss = `${shadow ? ':host' : componentName} {display:block;} ${css}`;
+		if (DEV_MODE) {
+			const invalidSelectors: string[] = [];
+			// It's appropriate that at least one class is present in each selector
+			[...generatedCss.matchAll(/.*?}([\s\S]*?){/gm)].forEach((selector) => {
+				const cssSelector = selector[1].trim();
+				if (!cssSelector.match(/\.|:host|@/)) invalidSelectors.push(cssSelector);
+			});
+			invalidSelectors.forEach((selector) => {
+				console.warn(
+					`The CSS selector "${selector} {...}" in the component "${componentName}" is not enough` +
+						` specific: include at least one class or deactive the "cssModule" option on the component.`
+				);
+			});
+		}
+		if (!shadow) generatedCss = generatedCss.replace(/:host/g, componentName);
+		generatedCss = generatedCss.replace(/\.(?!\d)([_a-zA-Z0-9-]+)/gm, (_, className) => {
+			const uniqueClassName = `${componentName}__${className}`;
+			classes[className] = uniqueClassName;
+			return `.${uniqueClassName}`;
+		});
+	}
+	return [generatedCss, classes];
 };
 
 /**
@@ -914,65 +914,65 @@ const __generateSpecifcStyles = (
  * are known to be dynamic.
  */
 const __createHtml = (parts: TemplateStringsArray): [string, string[]] => {
-  let html = '';
-  const attributes = [];
-  const length = parts.length - 1;
-  let attrDelimiter = '';
-  let textTagName = '';
-  for (let i = 0; i < length; i++) {
-    let part = parts[i];
-    // End of values inside an attribute
-    if (attrDelimiter && part.includes(attrDelimiter)) attrDelimiter = '';
-    // End of values inside a text node (script, textarea, title, style)
-    if (textTagName && new RegExp(`<\/${textTagName}>`)) textTagName = '';
-    if (attrDelimiter || textTagName) {
-      // We are inside an attribute
-      html += part + WC_MARKER;
-    } else {
-      // If the Regex is global, it will start from the index past the end of the last match.
-      isAttrRegex.lastIndex = 0;
-      const isAttr = isAttrRegex.exec(part);
-      if (isAttr) {
-        const [match, attrName] = isAttr;
-        const beforeLastChar = match[match.length - 1];
-        const delimiter = match.lastIndexOf('"') > match.lastIndexOf("'") ? '"' : "'";
-        if (!attrDelimiter) {
-          attrDelimiter = beforeLastChar === '=' ? '' : delimiter;
-          part = part.replace(/=([^=]*)$/g, (el) => `${WC_MARKER}=${el.substring(1)}`);
-          let toAdd = part;
-          if (attrDelimiter) toAdd += WC_MARKER;
-          else toAdd += '"0"';
-          html += toAdd;
-        }
-        attributes.push(attrName);
-      } else {
-        if (part.match(isDynamicTagRegex)) {
-          html += part + DYNAMIC_TAG_MARKER;
-          continue;
-        }
-        isInsideTextTag.lastIndex = 0;
-        const insideTextTag = isInsideTextTag.exec(part);
-        if (insideTextTag) {
-          textTagName = insideTextTag[1];
-          html += part + WC_MARKER;
-        } else {
-          // It's a child node
-          html += part + `<?${WC_MARKER}>`;
-        }
-      }
-    }
-  }
-  html += parts[parts.length - 1];
-  html = html.replace(selfClosingRegex, (match, firstPart, componentName) => {
-    if (match.endsWith('/>')) return `${firstPart}></${componentName}>`;
-    return match;
-  });
-  html = html.replace(/<[a-z]*-[a-z]*\s?.*?>/gms, (match) => {
-    return match.replace(/(?<=\s)([a-z]+([A-Z][a-z]*)+)[=\s]/gms, (attr) =>
-      attr.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
-    );
-  });
-  return [html, attributes];
+	let html = '';
+	const attributes = [];
+	const length = parts.length - 1;
+	let attrDelimiter = '';
+	let textTagName = '';
+	for (let i = 0; i < length; i++) {
+		let part = parts[i];
+		// End of values inside an attribute
+		if (attrDelimiter && part.includes(attrDelimiter)) attrDelimiter = '';
+		// End of values inside a text node (script, textarea, title, style)
+		if (textTagName && new RegExp(`<\/${textTagName}>`)) textTagName = '';
+		if (attrDelimiter || textTagName) {
+			// We are inside an attribute
+			html += part + WC_MARKER;
+		} else {
+			// If the Regex is global, it will start from the index past the end of the last match.
+			isAttrRegex.lastIndex = 0;
+			const isAttr = isAttrRegex.exec(part);
+			if (isAttr) {
+				const [match, attrName] = isAttr;
+				const beforeLastChar = match[match.length - 1];
+				const delimiter = match.lastIndexOf('"') > match.lastIndexOf("'") ? '"' : "'";
+				if (!attrDelimiter) {
+					attrDelimiter = beforeLastChar === '=' ? '' : delimiter;
+					part = part.replace(/=([^=]*)$/g, (el) => `${WC_MARKER}=${el.substring(1)}`);
+					let toAdd = part;
+					if (attrDelimiter) toAdd += WC_MARKER;
+					else toAdd += '"0"';
+					html += toAdd;
+				}
+				attributes.push(attrName);
+			} else {
+				if (part.match(isDynamicTagRegex)) {
+					html += part + DYNAMIC_TAG_MARKER;
+					continue;
+				}
+				isInsideTextTag.lastIndex = 0;
+				const insideTextTag = isInsideTextTag.exec(part);
+				if (insideTextTag) {
+					textTagName = insideTextTag[1];
+					html += part + WC_MARKER;
+				} else {
+					// It's a child node
+					html += part + `<?${WC_MARKER}>`;
+				}
+			}
+		}
+	}
+	html += parts[parts.length - 1];
+	html = html.replace(selfClosingRegex, (match, firstPart, componentName) => {
+		if (match.endsWith('/>')) return `${firstPart}></${componentName}>`;
+		return match;
+	});
+	html = html.replace(/<[a-z]*-[a-z]*\s?.*?>/gms, (match) => {
+		return match.replace(/(?<=\s)([a-z]+([A-Z][a-z]*)+)[=\s]/gms, (attr) =>
+			attr.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+		);
+	});
+	return [html, attributes];
 };
 
 /**
@@ -984,80 +984,80 @@ const __createHtml = (parts: TemplateStringsArray): [string, string[]] => {
  * @returns The list of elaborated dependencies
  */
 const __createDependencies = (
-  template: HTMLTemplateElement,
-  parts: TemplateStringsArray,
-  attributes: string[]
+	template: HTMLTemplateElement,
+	parts: TemplateStringsArray,
+	attributes: string[]
 ) => {
-  const dependencies = [];
-  treeWalker.currentNode = template.content;
-  let node: Element;
-  let dependencyIndex = 0;
-  let nodeIndex = 0;
-  const partsLength = parts.length;
-  while (((node as Node) = treeWalker.nextNode()) !== null && dependencies.length < partsLength) {
-    // Is a "normal" node
-    if (node.nodeType === 1) {
-      if (node.nodeName === DYNAMIC_TAG_MARKER.toUpperCase()) {
-        const dependency: Dependency = {
-          type: TAG,
-          index: nodeIndex,
-        };
-        dependencies.push(dependency);
-      }
-      if (node.hasAttributes()) {
-        const attributeNames = node.getAttributeNames();
-        for (const attrName of attributeNames) {
-          if (attrName.endsWith(WC_MARKER)) {
-            const realName = attributes[dependencyIndex++];
-            const attrValue = node.getAttribute(attrName);
-            if (attrValue !== '0') {
-              const dynamicParts = attrValue.split(WC_MARKER);
-              for (let i = 0; i < dynamicParts.length - 1; i++) {
-                const dependency: Dependency = {
-                  type: ATTR,
-                  index: nodeIndex,
-                  attrDynamics: attrValue,
-                  name: realName,
-                };
-                dependencies.push(dependency);
-              }
-            } else {
-              const dependency: Dependency = {
-                type: ATTR,
-                index: nodeIndex,
-                name: realName,
-              };
-              dependencies.push(dependency);
-            }
-            node.removeAttribute(attrName);
-          }
-        }
-      }
-      // A text node should be created for each dynamic part inside of
-      // nodes that only have text nodes inside (script, style, textarea, title).
-      if (onlyTextChildrenElementsRegex.test(node.tagName)) {
-        const strings = node.textContent!.split(WC_MARKER);
-        const lastIndex = strings.length - 1;
-        if (lastIndex > 0) {
-          node.textContent = '';
-          for (let i = 0; i < lastIndex; i++) {
-            node.append(strings[i], document.createComment(''));
-            // Walk past the marker node we just added
-            treeWalker.nextNode();
-            dependencies.push({ type: NODE, index: ++nodeIndex });
-          }
-          // It's not necessary to adjust nodeIndex here
-          node.append(strings[lastIndex], document.createComment(''));
-        }
-      }
-    } else if (node.nodeType === 8) {
-      // Is a comment
-      const data = (node as unknown as Comment).data;
-      if (data === `?${WC_MARKER}`) dependencies.push({ type: NODE, index: nodeIndex });
-    }
-    nodeIndex++;
-  }
-  return dependencies;
+	const dependencies = [];
+	treeWalker.currentNode = template.content;
+	let node: Element;
+	let dependencyIndex = 0;
+	let nodeIndex = 0;
+	const partsLength = parts.length;
+	while (((node as Node) = treeWalker.nextNode()) !== null && dependencies.length < partsLength) {
+		// Is a "normal" node
+		if (node.nodeType === 1) {
+			if (node.nodeName === DYNAMIC_TAG_MARKER.toUpperCase()) {
+				const dependency: Dependency = {
+					type: TAG,
+					index: nodeIndex,
+				};
+				dependencies.push(dependency);
+			}
+			if (node.hasAttributes()) {
+				const attributeNames = node.getAttributeNames();
+				for (const attrName of attributeNames) {
+					if (attrName.endsWith(WC_MARKER)) {
+						const realName = attributes[dependencyIndex++];
+						const attrValue = node.getAttribute(attrName);
+						if (attrValue !== '0') {
+							const dynamicParts = attrValue.split(WC_MARKER);
+							for (let i = 0; i < dynamicParts.length - 1; i++) {
+								const dependency: Dependency = {
+									type: ATTR,
+									index: nodeIndex,
+									attrDynamics: attrValue,
+									name: realName,
+								};
+								dependencies.push(dependency);
+							}
+						} else {
+							const dependency: Dependency = {
+								type: ATTR,
+								index: nodeIndex,
+								name: realName,
+							};
+							dependencies.push(dependency);
+						}
+						node.removeAttribute(attrName);
+					}
+				}
+			}
+			// A text node should be created for each dynamic part inside of
+			// nodes that only have text nodes inside (script, style, textarea, title).
+			if (onlyTextChildrenElementsRegex.test(node.tagName)) {
+				const strings = node.textContent!.split(WC_MARKER);
+				const lastIndex = strings.length - 1;
+				if (lastIndex > 0) {
+					node.textContent = '';
+					for (let i = 0; i < lastIndex; i++) {
+						node.append(strings[i], document.createComment(''));
+						// Walk past the marker node we just added
+						treeWalker.nextNode();
+						dependencies.push({ type: NODE, index: ++nodeIndex });
+					}
+					// It's not necessary to adjust nodeIndex here
+					node.append(strings[lastIndex], document.createComment(''));
+				}
+			}
+		} else if (node.nodeType === 8) {
+			// Is a comment
+			const data = (node as unknown as Comment).data;
+			if (data === `?${WC_MARKER}`) dependencies.push({ type: NODE, index: nodeIndex });
+		}
+		nodeIndex++;
+	}
+	return dependencies;
 };
 
 /**
@@ -1067,11 +1067,11 @@ const __createDependencies = (
  * @returns a new instance of CachedTemplate
  */
 const __createTemplate = (html: RenderHtml) => {
-  const [dom, attributes] = __createHtml(html.parts);
-  const template = document.createElement('template');
-  template.innerHTML = dom;
-  const dependencies = __createDependencies(template, html.parts, attributes);
-  return new CachedTemplate(template, dependencies);
+	const [dom, attributes] = __createHtml(html.parts);
+	const template = document.createElement('template');
+	template.innerHTML = dom;
+	const dependencies = __createDependencies(template, html.parts, attributes);
+	return new CachedTemplate(template, dependencies);
 };
 
 /**
@@ -1081,22 +1081,22 @@ const __createTemplate = (html: RenderHtml) => {
  * @returns The string representation of the the template.
  */
 const __areSameTemplates = (newTemplate: RenderHtml, oldTemplate: RenderHtml) => {
-  if (!newTemplate || !oldTemplate) return false;
-  const newParts = newTemplate.parts;
-  const oldParts = oldTemplate.parts;
-  // If keys are the same we assume the templates are the same
-  if (newTemplate.key && oldTemplate.key && newTemplate.key === oldTemplate.key) return true;
-  if (newParts.length !== oldParts?.length) return false;
-  const newValues = newTemplate.values;
-  const oldValues = oldTemplate.values;
-  for (let i = 0; i < newParts.length; i++) {
-    if (newParts[i] !== oldParts[i]) return false;
-    if (newValues[i]?._$wompoF) {
-      if (!oldValues[i]?._$wompoF) return false;
-      if (newValues[i].componentName !== oldValues[i].componentName) return false;
-    }
-  }
-  return true;
+	if (!newTemplate || !oldTemplate) return false;
+	const newParts = newTemplate.parts;
+	const oldParts = oldTemplate.parts;
+	// If keys are the same we assume the templates are the same
+	if (newTemplate.key && oldTemplate.key && newTemplate.key === oldTemplate.key) return true;
+	if (newParts.length !== oldParts?.length) return false;
+	const newValues = newTemplate.values;
+	const oldValues = oldTemplate.values;
+	for (let i = 0; i < newParts.length; i++) {
+		if (newParts[i] !== oldParts[i]) return false;
+		if (newValues[i]?._$wompoF) {
+			if (!oldValues[i]?._$wompoF) return false;
+			if (newValues[i].componentName !== oldValues[i].componentName) return false;
+		}
+	}
+	return true;
 };
 
 /**
@@ -1107,88 +1107,88 @@ const __areSameTemplates = (newTemplate: RenderHtml, oldTemplate: RenderHtml) =>
  * @returns True if the dependency should be updated
  */
 const __shouldUpdate = (currentValue: any, oldValue: any, dependency: Dynamics) => {
-  const valuesDiffers = currentValue !== oldValue;
-  const isComposedAttribute = !!(dependency as DynamicAttribute).attrStructure;
-  const isWompoChildren = currentValue?._$wompoChildren;
-  const childrenNeedUpdate =
-    isWompoChildren && (dependency as DynamicNode).startNode.nextSibling !== currentValue.nodes[0];
-  const isDynamicNodeToUpdate =
-    currentValue === oldValue &&
-    dependency.isTag &&
-    dependency.node.nodeName === DYNAMIC_TAG_MARKER.toUpperCase();
-  return valuesDiffers || isComposedAttribute || childrenNeedUpdate || isDynamicNodeToUpdate;
+	const valuesDiffers = currentValue !== oldValue;
+	const isComposedAttribute = !!(dependency as DynamicAttribute).attrStructure;
+	const isWompoChildren = currentValue?._$wompoChildren;
+	const childrenNeedUpdate =
+		isWompoChildren && (dependency as DynamicNode).startNode.nextSibling !== currentValue.nodes[0];
+	const isDynamicNodeToUpdate =
+		currentValue === oldValue &&
+		dependency.isTag &&
+		dependency.node.nodeName === DYNAMIC_TAG_MARKER.toUpperCase();
+	return valuesDiffers || isComposedAttribute || childrenNeedUpdate || isDynamicNodeToUpdate;
 };
 
 const __handleDynamicTag = (
-  currentValue: any,
-  currentDependency: DynamicTag,
-  valueIndex: number,
-  dynamics: Dynamics[],
-  values: any[]
+	currentValue: any,
+	currentDependency: DynamicTag,
+	valueIndex: number,
+	dynamics: Dynamics[],
+	values: any[]
 ) => {
-  const node = currentDependency.node;
-  let customElement: HTMLElement = null;
-  const isCustomComponent = currentValue._$wompoF;
-  const newNodeName: string = isCustomComponent ? currentValue.componentName : currentValue;
-  if (node.nodeName !== newNodeName.toUpperCase()) {
-    const oldAttributes = (node as HTMLElement).getAttributeNames();
-    if (isCustomComponent) {
-      const initialProps: any = {};
-      for (const attrName of oldAttributes) {
-        // attributes on the dom will be set when creating the element
-        const attrValue = (node as HTMLElement).getAttribute(attrName);
-        let propName = attrName;
-        if (propName.includes('-')) propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
-        initialProps[propName] = attrValue === '' ? true : attrValue;
-      }
-      customElement = new currentValue.class() as WompoElement;
-      (customElement as WompoElement)._$initialProps = initialProps;
-      (customElement as WompoElement).props = initialProps;
-      const childNodes = node.childNodes;
-      while (childNodes.length) {
-        customElement.appendChild(childNodes[0]);
-      }
-    } else {
-      // Is normal element
-      customElement = document.createElement(newNodeName);
-      for (const attrName of oldAttributes) {
-        customElement.setAttribute(attrName, (node as HTMLElement).getAttribute(attrName));
-      }
-    }
-    let index = valueIndex;
-    let currentDynamic = dynamics[index] as DynamicAttribute;
-    while (currentDynamic?.node === node) {
-      // Update node pointer of dynamics pointing to the old one.
-      currentDynamic.node = customElement;
-      if (index === valueIndex) {
-        // Skip first value, which is the dynamic node itself.
-        index++;
-        currentDynamic = dynamics[index] as DynamicAttribute;
-      } else {
-        // Set initial props of the correct type, so a number doesn't become a string
-        if (currentDynamic?.name && currentDynamic?.name !== 'ref') {
-          ((customElement as WompoElement)._$initialProps as any)[currentDynamic.name] =
-            values[index];
-          ((customElement as WompoElement).props as any)[currentDynamic.name] = values[index];
-        }
-        index++;
-        currentDynamic = dynamics[index] as DynamicAttribute;
-      }
-    }
-    node.replaceWith(customElement);
-    return customElement;
-  }
-  return node;
+	const node = currentDependency.node;
+	let customElement: HTMLElement = null;
+	const isCustomComponent = currentValue._$wompoF;
+	const newNodeName: string = isCustomComponent ? currentValue.componentName : currentValue;
+	if (node.nodeName !== newNodeName.toUpperCase()) {
+		const oldAttributes = (node as HTMLElement).getAttributeNames();
+		if (isCustomComponent) {
+			const initialProps: any = {};
+			for (const attrName of oldAttributes) {
+				// attributes on the dom will be set when creating the element
+				const attrValue = (node as HTMLElement).getAttribute(attrName);
+				let propName = attrName;
+				if (propName.includes('-')) propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
+				initialProps[propName] = attrValue === '' ? true : attrValue;
+			}
+			customElement = new currentValue.class() as WompoElement;
+			(customElement as WompoElement)._$initialProps = initialProps;
+			(customElement as WompoElement).props = initialProps;
+			const childNodes = node.childNodes;
+			while (childNodes.length) {
+				customElement.appendChild(childNodes[0]);
+			}
+		} else {
+			// Is normal element
+			customElement = document.createElement(newNodeName);
+			for (const attrName of oldAttributes) {
+				customElement.setAttribute(attrName, (node as HTMLElement).getAttribute(attrName));
+			}
+		}
+		let index = valueIndex;
+		let currentDynamic = dynamics[index] as DynamicAttribute;
+		while (currentDynamic?.node === node) {
+			// Update node pointer of dynamics pointing to the old one.
+			currentDynamic.node = customElement;
+			if (index === valueIndex) {
+				// Skip first value, which is the dynamic node itself.
+				index++;
+				currentDynamic = dynamics[index] as DynamicAttribute;
+			} else {
+				// Set initial props of the correct type, so a number doesn't become a string
+				if (currentDynamic?.name && currentDynamic?.name !== 'ref') {
+					((customElement as WompoElement)._$initialProps as any)[currentDynamic.name] =
+						values[index];
+					((customElement as WompoElement).props as any)[currentDynamic.name] = values[index];
+				}
+				index++;
+				currentDynamic = dynamics[index] as DynamicAttribute;
+			}
+		}
+		node.replaceWith(customElement);
+		return customElement;
+	}
+	return node;
 };
 
 const __setPortal = (portal: HTMLElement, renderingComponent: WompoElement) => {
-  const startNode = document.createTextNode('');
-  const endNode = document.createTextNode('');
-  portal.appendChild(startNode);
-  startNode.after(endNode);
-  const dependency = new DynamicNode(startNode, endNode);
-  renderingComponent._$portals.push(dependency);
-  return dependency;
+	const startNode = document.createTextNode('');
+	const endNode = document.createTextNode('');
+	portal.appendChild(startNode);
+	startNode.after(endNode);
+	const dependency = new DynamicNode(startNode, endNode);
+	renderingComponent._$portals.push(dependency);
+	return dependency;
 };
 
 /**
@@ -1201,204 +1201,204 @@ const __setPortal = (portal: HTMLElement, renderingComponent: WompoElement) => {
  * @returns A modified version of the new values
  */
 const __setValues = (
-  dynamics: Dynamics[],
-  values: any[],
-  oldValues: any[],
-  renderingComponent: WompoElement
+	dynamics: Dynamics[],
+	values: any[],
+	oldValues: any[],
+	renderingComponent: WompoElement
 ) => {
-  const newValues = [...values];
-  for (let i = 0; i < dynamics.length; i++) {
-    const currentDependency = dynamics[i];
-    const currentValue = newValues[i];
-    const oldValue = oldValues[i];
-    // Update References
-    if (currentValue?.__wcRef && currentDependency.isAttr && currentDependency.name === 'ref')
-      currentValue.current = currentDependency.node;
-    if (!__shouldUpdate(currentValue, oldValue, currentDependency)) {
-      // Skip update: values are the same
-      continue;
-    }
-    if (currentDependency.isNode) {
-      // Falsy values are cleared from the DOM
-      if (currentValue === false || currentValue === undefined || currentValue === null) {
-        currentDependency.clearValue();
-        continue;
-      }
-      if (currentValue?._$wompoHtml) {
-        const renderHtml = currentValue as RenderHtml;
-        const oldProcessedValue = oldValue as HtmlProcessedValue;
-        // handle template elements
-        if (
-          oldProcessedValue === undefined ||
-          !__areSameTemplates(renderHtml, oldProcessedValue?.renderHtml)
-        ) {
-          const cachedTemplate = __createTemplate(renderHtml);
-          const template = cachedTemplate.clone();
-          const [fragment, templateDynamics] = template;
-          newValues[i] = new HtmlProcessedValue(renderHtml, template, i);
-          newValues[i].values = __setValues(
-            templateDynamics,
-            renderHtml.values,
-            [],
-            renderingComponent
-          );
-          let dependency = currentDependency as DynamicNode;
-          if (oldProcessedValue?.renderHtml?._$portal) dependency.dispose();
-          else dependency.clearValue();
-          if (renderHtml._$portal) {
-            const newDependency = __setPortal(renderHtml._$portal, renderingComponent);
-            dependency = newDependency;
-            dynamics[i] = dependency;
-          }
-          const startNode = dependency.startNode;
-          let currentNode = startNode;
-          while (fragment.childNodes.length) {
-            if (!currentNode) break;
-            currentNode.after(fragment.childNodes[0]);
-            currentNode = currentNode.nextSibling;
-          }
-        } else {
-          if (!oldProcessedValue.template) {
-            const cachedTemplate = __createTemplate(renderHtml);
-            const template = cachedTemplate.clone();
-            newValues[i] = new HtmlProcessedValue(renderHtml, template, i);
-            const newValue = newValues[i];
-            const processedValues = __setValues(
-              newValue.template[1],
-              renderHtml.values,
-              [],
-              renderingComponent
-            );
-            newValue.values = processedValues;
-            if (renderHtml._$portal) {
-              const newDependency = __setPortal(renderHtml._$portal, renderingComponent);
-              dynamics[i] = newDependency;
-            }
-          } else {
-            const [_, templateDynamics] = oldValue.template;
-            const processedValues = __setValues(
-              templateDynamics,
-              renderHtml.values,
-              oldProcessedValue.values,
-              renderingComponent
-            );
-            if (renderHtml._$portal) renderingComponent._$portals.push(currentDependency);
-            oldProcessedValue.values = processedValues;
-            newValues[i] = oldValue;
-          }
-        }
-        continue;
-      }
-      // It's not necessary to check every single node: if a dependency updates,
-      // it'll be automatically updated. It's only necessary to update the
-      // textContent of primitive values.
-      const isPrimitive = currentValue !== Object(currentValue);
-      const oldIsPrimitive = oldValue !== Object(oldValue) && oldValue !== undefined;
-      const startNode = currentDependency.startNode;
-      if (isPrimitive) {
-        if (oldIsPrimitive) {
-          // At this point there's already a content in the node
-          if (startNode.nextSibling) startNode.nextSibling.textContent = currentValue;
-          else startNode.after(currentValue);
-        } else {
-          currentDependency.clearValue();
-          startNode.after(currentValue);
-        }
-      } else {
-        let currentNode = startNode.nextSibling;
-        let newNodeIndex = 0;
-        let index = 0;
-        if (currentValue._$wompoChildren) {
-          if (oldValue && !oldValue?._$wompoChildren) currentDependency.clearValue();
-          const childrenNodes = (currentValue as WompoChildren).nodes;
-          while (index < childrenNodes.length) {
-            if (!currentNode || index === 0) currentNode = startNode;
-            const newNode = childrenNodes[newNodeIndex];
-            newNodeIndex++;
-            currentNode.after(newNode);
-            currentNode = currentNode.nextSibling;
-            index++;
-          }
-        } else {
-          if (Array.isArray(currentValue)) {
-            if (!(oldValue as WompoArrayDependency)?.isArrayDependency) {
-              currentDependency.clearValue();
-              newValues[i] = new WompoArrayDependency(
-                currentValue,
-                currentDependency,
-                renderingComponent
-              );
-            } else newValues[i] = (oldValue as WompoArrayDependency).checkUpdates(currentValue);
-          } else if (DEV_MODE) {
-            throw new Error(
-              'Rendering objects is not supported. Please stringify or remove the object.'
-            );
-          }
-        }
-      }
-    } else if (currentDependency.isAttr) {
-      const attrName = currentDependency.name;
-      if (attrName.startsWith('@')) {
-        currentDependency.callback = currentValue;
-      } else if (attrName.startsWith('.')) {
-        const valueName = attrName.substring(1);
-        if (valueName === 'innerHTML' && document.activeElement.hasAttribute('contenteditable')) {
-          // The browser will already handle the innerHTML update when the user is editing the content
-          continue;
-        }
-        (currentDependency.node as any)[valueName] = currentValue as string;
-      } else {
-        const attrStructure = currentDependency.attrStructure;
-        if (attrStructure) {
-          const parts = attrStructure.split(WC_MARKER);
-          let dynamicValue = currentValue;
-          for (let j = 0; j < parts.length - 1; j++) {
-            const value =
-              dynamicValue !== undefined && dynamicValue !== null && dynamicValue !== false
-                ? dynamicValue
-                : '';
-            parts[j] = `${parts[j]}${value}`;
-            i++; // Go to the next dynamic value
-            dynamicValue = newValues[i];
-          }
-          i--; // Since it'll be already increased in the loop, decrease by one
-          currentDependency.updateValue(parts.join('').trim());
-        } else {
-          currentDependency.updateValue(currentValue);
-        }
-      }
-    } else if (currentDependency.isTag) {
-      const isLazy = currentValue._$wompoLazy;
-      if (isLazy) {
-        const node = currentDependency.node;
-        const suspenseNode = findSuspense(node) as SuspenseInstance | null;
-        if (suspenseNode) {
-          if (suspenseNode.addSuspense) {
-            suspenseNode.addSuspense(node);
-          } else {
-            suspenseNode.loadingComponents = new Set();
-            suspenseNode.loadingComponents.add(node);
-          }
-          (node as any).suspense = suspenseNode;
-        }
-        // Catch is handled inside the lazy() function.
-        currentValue().then((Component: WompoComponent) => {
-          const customElement = __handleDynamicTag(
-            Component,
-            currentDependency,
-            i,
-            dynamics,
-            values
-          );
-          if (suspenseNode) suspenseNode.removeSuspense(node, customElement);
-        });
-        continue;
-      } else {
-        __handleDynamicTag(currentValue, currentDependency, i, dynamics, values);
-      }
-    }
-  }
-  return newValues;
+	const newValues = [...values];
+	for (let i = 0; i < dynamics.length; i++) {
+		const currentDependency = dynamics[i];
+		const currentValue = newValues[i];
+		const oldValue = oldValues[i];
+		// Update References
+		if (currentValue?.__wcRef && currentDependency.isAttr && currentDependency.name === 'ref')
+			currentValue.current = currentDependency.node;
+		if (!__shouldUpdate(currentValue, oldValue, currentDependency)) {
+			// Skip update: values are the same
+			continue;
+		}
+		if (currentDependency.isNode) {
+			// Falsy values are cleared from the DOM
+			if (currentValue === false || currentValue === undefined || currentValue === null) {
+				currentDependency.clearValue();
+				continue;
+			}
+			if (currentValue?._$wompoHtml) {
+				const renderHtml = currentValue as RenderHtml;
+				const oldProcessedValue = oldValue as HtmlProcessedValue;
+				// handle template elements
+				if (
+					oldProcessedValue === undefined ||
+					!__areSameTemplates(renderHtml, oldProcessedValue?.renderHtml)
+				) {
+					const cachedTemplate = __createTemplate(renderHtml);
+					const template = cachedTemplate.clone();
+					const [fragment, templateDynamics] = template;
+					newValues[i] = new HtmlProcessedValue(renderHtml, template, i);
+					newValues[i].values = __setValues(
+						templateDynamics,
+						renderHtml.values,
+						[],
+						renderingComponent
+					);
+					let dependency = currentDependency as DynamicNode;
+					if (oldProcessedValue?.renderHtml?._$portal) dependency.dispose();
+					else dependency.clearValue();
+					if (renderHtml._$portal) {
+						const newDependency = __setPortal(renderHtml._$portal, renderingComponent);
+						dependency = newDependency;
+						dynamics[i] = dependency;
+					}
+					const startNode = dependency.startNode;
+					let currentNode = startNode;
+					while (fragment.childNodes.length) {
+						if (!currentNode) break;
+						currentNode.after(fragment.childNodes[0]);
+						currentNode = currentNode.nextSibling;
+					}
+				} else {
+					if (!oldProcessedValue.template) {
+						const cachedTemplate = __createTemplate(renderHtml);
+						const template = cachedTemplate.clone();
+						newValues[i] = new HtmlProcessedValue(renderHtml, template, i);
+						const newValue = newValues[i];
+						const processedValues = __setValues(
+							newValue.template[1],
+							renderHtml.values,
+							[],
+							renderingComponent
+						);
+						newValue.values = processedValues;
+						if (renderHtml._$portal) {
+							const newDependency = __setPortal(renderHtml._$portal, renderingComponent);
+							dynamics[i] = newDependency;
+						}
+					} else {
+						const [_, templateDynamics] = oldValue.template;
+						const processedValues = __setValues(
+							templateDynamics,
+							renderHtml.values,
+							oldProcessedValue.values,
+							renderingComponent
+						);
+						if (renderHtml._$portal) renderingComponent._$portals.push(currentDependency);
+						oldProcessedValue.values = processedValues;
+						newValues[i] = oldValue;
+					}
+				}
+				continue;
+			}
+			// It's not necessary to check every single node: if a dependency updates,
+			// it'll be automatically updated. It's only necessary to update the
+			// textContent of primitive values.
+			const isPrimitive = currentValue !== Object(currentValue);
+			const oldIsPrimitive = oldValue !== Object(oldValue) && oldValue !== undefined;
+			const startNode = currentDependency.startNode;
+			if (isPrimitive) {
+				if (oldIsPrimitive) {
+					// At this point there's already a content in the node
+					if (startNode.nextSibling) startNode.nextSibling.textContent = currentValue;
+					else startNode.after(currentValue);
+				} else {
+					currentDependency.clearValue();
+					startNode.after(currentValue);
+				}
+			} else {
+				let currentNode = startNode.nextSibling;
+				let newNodeIndex = 0;
+				let index = 0;
+				if (currentValue._$wompoChildren) {
+					if (oldValue && !oldValue?._$wompoChildren) currentDependency.clearValue();
+					const childrenNodes = (currentValue as WompoChildren).nodes;
+					while (index < childrenNodes.length) {
+						if (!currentNode || index === 0) currentNode = startNode;
+						const newNode = childrenNodes[newNodeIndex];
+						newNodeIndex++;
+						currentNode.after(newNode);
+						currentNode = currentNode.nextSibling;
+						index++;
+					}
+				} else {
+					if (Array.isArray(currentValue)) {
+						if (!(oldValue as WompoArrayDependency)?.isArrayDependency) {
+							currentDependency.clearValue();
+							newValues[i] = new WompoArrayDependency(
+								currentValue,
+								currentDependency,
+								renderingComponent
+							);
+						} else newValues[i] = (oldValue as WompoArrayDependency).checkUpdates(currentValue);
+					} else if (DEV_MODE) {
+						throw new Error(
+							'Rendering objects is not supported. Please stringify or remove the object.'
+						);
+					}
+				}
+			}
+		} else if (currentDependency.isAttr) {
+			const attrName = currentDependency.name;
+			if (attrName.startsWith('@')) {
+				currentDependency.callback = currentValue;
+			} else if (attrName.startsWith('.')) {
+				const valueName = attrName.substring(1);
+				if (valueName === 'innerHTML' && document.activeElement.hasAttribute('contenteditable')) {
+					// The browser will already handle the innerHTML update when the user is editing the content
+					continue;
+				}
+				(currentDependency.node as any)[valueName] = currentValue as string;
+			} else {
+				const attrStructure = currentDependency.attrStructure;
+				if (attrStructure) {
+					const parts = attrStructure.split(WC_MARKER);
+					let dynamicValue = currentValue;
+					for (let j = 0; j < parts.length - 1; j++) {
+						const value =
+							dynamicValue !== undefined && dynamicValue !== null && dynamicValue !== false
+								? dynamicValue
+								: '';
+						parts[j] = `${parts[j]}${value}`;
+						i++; // Go to the next dynamic value
+						dynamicValue = newValues[i];
+					}
+					i--; // Since it'll be already increased in the loop, decrease by one
+					currentDependency.updateValue(parts.join('').trim());
+				} else {
+					currentDependency.updateValue(currentValue);
+				}
+			}
+		} else if (currentDependency.isTag) {
+			const isLazy = currentValue._$wompoLazy;
+			if (isLazy) {
+				const node = currentDependency.node;
+				const suspenseNode = findSuspense(node) as SuspenseInstance | null;
+				if (suspenseNode) {
+					if (suspenseNode.addSuspense) {
+						suspenseNode.addSuspense(node);
+					} else {
+						suspenseNode.loadingComponents = new Set();
+						suspenseNode.loadingComponents.add(node);
+					}
+					(node as any).suspense = suspenseNode;
+				}
+				// Catch is handled inside the lazy() function.
+				currentValue().then((Component: WompoComponent) => {
+					const customElement = __handleDynamicTag(
+						Component,
+						currentDependency,
+						i,
+						dynamics,
+						values
+					);
+					if (suspenseNode) suspenseNode.removeSuspense(node, customElement);
+				});
+				continue;
+			} else {
+				__handleDynamicTag(currentValue, currentDependency, i, dynamics, values);
+			}
+		}
+	}
+	return newValues;
 };
 
 /* 
@@ -1414,402 +1414,402 @@ WOMPO COMPONENT DEFINITION
  * @returns A new dynamic class that will be used to create the custom web-component
  */
 const _$wompo = <Props extends WompoProps, E>(
-  Component: WompoComponent,
-  options: WompoComponentOptions
+	Component: WompoComponent,
+	options: WompoComponentOptions
 ): WompoElementClass<Props, E> => {
-  const { generatedCSS, styles } = Component.options;
-  const sheet = new CSSStyleSheet();
-  sheet.replaceSync(generatedCSS);
-  let Constructor = HTMLElement;
-  /**
-   * The dynamic class created to make it possible to create a custom web-component
-   */
-  const WompoComponent = class extends Constructor implements WompoElement {
-    static _$wompo = true; // For faster access
+	const { generatedCSS, styles } = Component.options;
+	const sheet = new CSSStyleSheet();
+	sheet.replaceSync(generatedCSS);
+	let Constructor = HTMLElement;
+	/**
+	 * The dynamic class created to make it possible to create a custom web-component
+	 */
+	const WompoComponent = class extends Constructor implements WompoElement {
+		static _$wompo = true; // For faster access
 
-    /** The component name, used in the DOM */
-    static componentName = options.name;
-    /**
-     * The cached template created in the first item's render, and then reused across all
-     * components.
-     */
-    static _$cachedTemplate: CachedTemplate;
+		/** The component name, used in the DOM */
+		static componentName = options.name;
+		/**
+		 * The cached template created in the first item's render, and then reused across all
+		 * components.
+		 */
+		static _$cachedTemplate: CachedTemplate;
 
-    /**
-     * Get the already present cached template, or create a new one if the component is rendering
-     * for the first time.
-     * @param parts The template parts from the html function.
-     * @returns The cached template.
-     */
-    static _$getOrCreateTemplate(html: RenderHtml) {
-      if (!this._$cachedTemplate) this._$cachedTemplate = __createTemplate(html);
-      return this._$cachedTemplate;
-    }
+		/**
+		 * Get the already present cached template, or create a new one if the component is rendering
+		 * for the first time.
+		 * @param parts The template parts from the html function.
+		 * @returns The cached template.
+		 */
+		static _$getOrCreateTemplate(html: RenderHtml) {
+			if (!this._$cachedTemplate) this._$cachedTemplate = __createTemplate(html);
+			return this._$cachedTemplate;
+		}
 
-    public _$wompo: true = true; // For faster access
+		public _$wompo: true = true; // For faster access
 
-    public props: WompoProps = {};
-    public hooks: Hook[] = [];
-    public _$measurePerf: boolean = false;
-    public _$initialProps: WompoProps = {} as any;
-    public _$usesContext: boolean = false;
-    public _$hasBeenMoved: boolean = false;
-    public _$layoutEffects: EffectHook[] = [];
-    public _$effects: EffectHook[] = [];
-    public _$asyncCalls: AsyncHook<any>[] = [];
-    public _$suspendedAsyncCalls: AsyncHook<any>[] = [];
+		public props: WompoProps = {};
+		public hooks: Hook[] = [];
+		public _$measurePerf: boolean = false;
+		public _$initialProps: WompoProps = {} as any;
+		public _$usesContext: boolean = false;
+		public _$hasBeenMoved: boolean = false;
+		public _$layoutEffects: EffectHook[] = [];
+		public _$effects: EffectHook[] = [];
+		public _$asyncCalls: AsyncHook<any>[] = [];
+		public _$suspendedAsyncCalls: AsyncHook<any>[] = [];
 
-    /** The Root. It'll be the node itself, or it's ShadowRoot if shadow is set to true */
-    private __ROOT: this | ShadowRoot;
-    /** The array containing metadata of the component, used to render the component */
-    private __dynamics: Dynamics[];
-    /** It'll be true if the component has already processing an update. */
-    private __updating: boolean = false;
-    /** The array containing the dynamic values of the last render. */
-    private __oldValues: any[] = [];
-    /** The array containing the portals of the element */
-    public _$portals: DynamicNode[] = [];
-    /** It'll be true if the component is currently initializing. */
-    private __isInitializing: boolean = true;
-    /** It's true if the component is connected to the DOM. */
-    private __connected: boolean = false;
-    /** It's true if the component has been disconnected from the DOM. */
-    private __disconnected: boolean = false;
-    /**
-     * Used to know if a component has been completely removed from the DOM or only temporarely to
-     * move it from a node to another.
-     */
-    private __isInDOM: boolean = false;
+		/** The Root. It'll be the node itself, or it's ShadowRoot if shadow is set to true */
+		private __ROOT: this | ShadowRoot;
+		/** The array containing metadata of the component, used to render the component */
+		private __dynamics: Dynamics[];
+		/** It'll be true if the component has already processing an update. */
+		private __updating: boolean = false;
+		/** The array containing the dynamic values of the last render. */
+		private __oldValues: any[] = [];
+		/** The array containing the portals of the element */
+		public _$portals: DynamicNode[] = [];
+		/** It'll be true if the component is currently initializing. */
+		private __isInitializing: boolean = true;
+		/** It's true if the component is connected to the DOM. */
+		private __connected: boolean = false;
+		/** It's true if the component has been disconnected from the DOM. */
+		private __disconnected: boolean = false;
+		/**
+		 * Used to know if a component has been completely removed from the DOM or only temporarely to
+		 * move it from a node to another.
+		 */
+		private __isInDOM: boolean = false;
 
-    constructor() {
-      super();
-    }
+		constructor() {
+			super();
+		}
 
-    /** @override component has been connected to the DOM */
-    connectedCallback() {
-      // If the element is disconnected and connected again, then execute again all effects.
-      if (this.__disconnected && this.isConnected) {
-        this.__disconnected = false;
-        for (const hook of this.hooks) {
-          if ((hook as EffectHook)?.callback) {
-            // Effect hooks are executed again since the component has been connected again.
-            Promise.resolve().then(() => {
-              (hook as EffectHook).callback();
-            });
-          }
-        }
+		/** @override component has been connected to the DOM */
+		connectedCallback() {
+			// If the element is disconnected and connected again, then execute again all effects.
+			if (this.__disconnected && this.isConnected) {
+				this.__disconnected = false;
+				for (const hook of this.hooks) {
+					if ((hook as EffectHook)?.callback) {
+						// Effect hooks are executed again since the component has been connected again.
+						Promise.resolve().then(() => {
+							(hook as EffectHook).callback();
+						});
+					}
+				}
 
-        if (this._$suspendedAsyncCalls.length) {
-          const suspense = findSuspense(this);
-          const promises: Promise<any>[] = [];
-          for (const asyncHook of this._$suspendedAsyncCalls) {
-            if (asyncHook.activateSuspense) suspense?.addSuspense(this);
-            promises.push(
-              asyncHook.asyncCallback().then((data) => {
-                asyncHook.value = data;
-              })
-            );
-          }
-          this._$suspendedAsyncCalls = [];
-          Promise.all(promises).then(() => {
-            this.requestRender();
-            suspense?.removeSuspense(this);
-          });
-        }
+				if (this._$suspendedAsyncCalls.length) {
+					const suspense = findSuspense(this);
+					const promises: Promise<any>[] = [];
+					for (const asyncHook of this._$suspendedAsyncCalls) {
+						if (asyncHook.activateSuspense) suspense?.addSuspense(this);
+						promises.push(
+							asyncHook.asyncCallback().then((data) => {
+								asyncHook.value = data;
+							})
+						);
+					}
+					this._$suspendedAsyncCalls = [];
+					Promise.all(promises).then(() => {
+						this.requestRender();
+						suspense?.removeSuspense(this);
+					});
+				}
 
-        this._$hasBeenMoved = true;
-        if (this._$usesContext) this.requestRender();
-      }
-      this.__isInDOM = true;
-      if (!this.__connected && this.isConnected) this.__initElement();
-    }
+				this._$hasBeenMoved = true;
+				if (this._$usesContext) this.requestRender();
+			}
+			this.__isInDOM = true;
+			if (!this.__connected && this.isConnected) this.__initElement();
+		}
 
-    /** @override component has been disconnected from the DOM */
-    disconnectedCallback() {
-      // When a component is just "moved" to another element but not
-      // removed from the DOM, it still calls the disconnected and
-      // then the connected callback again. This prevents it.
-      if (this.__connected) {
-        this.__isInDOM = false;
-        Promise.resolve().then(() => {
-          // If the connectedCallback is called again, isInTheDOM will be true
-          if (!this.__isInDOM) {
-            this.onDisconnected();
-            this.__disconnected = true;
-            for (const hook of this.hooks) {
-              if ((hook as EffectHook)?.cleanupFunction) (hook as any).cleanupFunction();
-            }
-            for (const portal of this._$portals) {
-              portal.dispose();
-            }
-          } else {
-            this._$hasBeenMoved = true;
-            if (this._$usesContext) this.requestRender();
-          }
-        });
-      }
-    }
+		/** @override component has been disconnected from the DOM */
+		disconnectedCallback() {
+			// When a component is just "moved" to another element but not
+			// removed from the DOM, it still calls the disconnected and
+			// then the connected callback again. This prevents it.
+			if (this.__connected) {
+				this.__isInDOM = false;
+				Promise.resolve().then(() => {
+					// If the connectedCallback is called again, isInTheDOM will be true
+					if (!this.__isInDOM) {
+						this.onDisconnected();
+						this.__disconnected = true;
+						for (const hook of this.hooks) {
+							if ((hook as EffectHook)?.cleanupFunction) (hook as any).cleanupFunction();
+						}
+						for (const portal of this._$portals) {
+							portal.dispose();
+						}
+					} else {
+						this._$hasBeenMoved = true;
+						if (this._$usesContext) this.requestRender();
+					}
+				});
+			}
+		}
 
-    /** @override component has been moved in a new document (like iframe) */
-    public adoptedCallback() {
-      Object.setPrototypeOf(this, WompoComponent.prototype);
+		/** @override component has been moved in a new document (like iframe) */
+		public adoptedCallback() {
+			Object.setPrototypeOf(this, WompoComponent.prototype);
 
-      // Using adoptedStyleSheets in a different document is not permitted, so we need to create
-      // a <style> element.
-      const style = document.createElement('style');
-      style.textContent = generatedCSS;
+			// Using adoptedStyleSheets in a different document is not permitted, so we need to create
+			// a <style> element.
+			const style = document.createElement('style');
+			style.textContent = generatedCSS;
 
-      const componentName = this.nodeName.toLowerCase();
-      if (!adoptedStyles[componentName]) adoptedStyles[componentName] = [];
+			const componentName = this.nodeName.toLowerCase();
+			if (!adoptedStyles[componentName]) adoptedStyles[componentName] = [];
 
-      if (options.shadow) {
-        if (!adoptedStyles[componentName].includes(this.__ROOT)) {
-          adoptedStyles[componentName].push(this.__ROOT);
-          (this.__ROOT as ShadowRoot).appendChild(style);
-        }
-      } else {
-        const root = this.getRootNode();
-        if (!adoptedStyles[componentName].includes(root)) {
-          adoptedStyles[componentName].push(root);
-          if ((root as Document).body) (root as Document).body.appendChild(style);
-          else (root as Document | ShadowRoot).appendChild(style);
-        }
-      }
-    }
+			if (options.shadow) {
+				if (!adoptedStyles[componentName].includes(this.__ROOT)) {
+					adoptedStyles[componentName].push(this.__ROOT);
+					(this.__ROOT as ShadowRoot).appendChild(style);
+				}
+			} else {
+				const root = this.getRootNode();
+				if (!adoptedStyles[componentName].includes(root)) {
+					adoptedStyles[componentName].push(root);
+					if ((root as Document).body) (root as Document).body.appendChild(style);
+					else (root as Document | ShadowRoot).appendChild(style);
+				}
+			}
+		}
 
-    /**
-     * This public callback will be used when a component is removed permanently from the DOM.
-     * It allows other code to hook into the component and unmount listeners or similar when the
-     * component is disconnected from the DOM.
-     */
-    public onDisconnected() {}
+		/**
+		 * This public callback will be used when a component is removed permanently from the DOM.
+		 * It allows other code to hook into the component and unmount listeners or similar when the
+		 * component is disconnected from the DOM.
+		 */
+		public onDisconnected() {}
 
-    /**
-     * Initializes the component with the state, props, and styles.
-     */
-    private __initElement() {
-      this.__ROOT = this; // Shadow DOM is eventually attached later
-      this.props = {
-        ...this.props,
-        ...this._$initialProps,
-        styles: styles,
-      } as any;
+		/**
+		 * Initializes the component with the state, props, and styles.
+		 */
+		private __initElement() {
+			this.__ROOT = this; // Shadow DOM is eventually attached later
+			this.props = {
+				...this.props,
+				...this._$initialProps,
+				styles: styles,
+			} as any;
 
-      const componentAttributes = this.getAttributeNames();
-      for (const attrName of componentAttributes) {
-        let propName = attrName;
-        if (propName.includes('-')) propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
-        if (!this.props.hasOwnProperty(propName)) {
-          const attrValue = this.getAttribute(attrName);
-          (this.props as any)[propName] = attrValue === '' ? true : attrValue;
-        }
-      }
+			const componentAttributes = this.getAttributeNames();
+			for (const attrName of componentAttributes) {
+				let propName = attrName;
+				if (propName.includes('-')) propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
+				if (!this.props.hasOwnProperty(propName)) {
+					const attrValue = this.getAttribute(attrName);
+					(this.props as any)[propName] = attrValue === '' ? true : attrValue;
+				}
+			}
 
-      // Set initialProps as attributes
-      const initialPropsKeys = Object.keys(this._$initialProps);
-      for (const key of initialPropsKeys) {
-        const prop = this._$initialProps[key as keyof typeof this._$initialProps];
-        if (prop !== Object(prop) && (prop || (prop as any) === 0) && key !== 'title') {
-          this.setAttribute(
-            key.replace(/[A-Z]/g, (l) => `-${l.toLowerCase()}`),
-            prop.toString()
-          );
-        }
-      }
+			// Set initialProps as attributes
+			const initialPropsKeys = Object.keys(this._$initialProps);
+			for (const key of initialPropsKeys) {
+				const prop = this._$initialProps[key as keyof typeof this._$initialProps];
+				if (prop !== Object(prop) && (prop || (prop as any) === 0) && key !== 'title') {
+					this.setAttribute(
+						key.replace(/[A-Z]/g, (l) => `-${l.toLowerCase()}`),
+						prop.toString()
+					);
+				}
+			}
 
-      if (DEV_MODE && this.props.wcPerf) this._$measurePerf = true;
+			if (DEV_MODE && this.props.wcPerf) this._$measurePerf = true;
 
-      if (DEV_MODE && this._$measurePerf) console.time('First render ' + options.name);
-      // The children are saved in a WompoChildren instance, so that
-      // they are not lost even when disconnected from the DOM.
-      const childNodes = this.__ROOT.childNodes;
-      const childrenArray: Node[] = [];
-      // Removing items from the DOM doesn't delete them.
-      while (childNodes.length) {
-        childrenArray.push(childNodes[0]);
-        childNodes[0].remove();
-      }
-      const children = new WompoChildren(childrenArray);
-      this.props.children = children;
+			if (DEV_MODE && this._$measurePerf) console.time('First render ' + options.name);
+			// The children are saved in a WompoChildren instance, so that
+			// they are not lost even when disconnected from the DOM.
+			const childNodes = this.__ROOT.childNodes;
+			const childrenArray: Node[] = [];
+			// Removing items from the DOM doesn't delete them.
+			while (childNodes.length) {
+				childrenArray.push(childNodes[0]);
+				childNodes[0].remove();
+			}
+			const children = new WompoChildren(childrenArray);
+			this.props.children = children;
 
-      // Create shadow DOM
-      if (options.shadow && !this.shadowRoot) this.__ROOT = this.attachShadow({ mode: 'open' });
+			// Create shadow DOM
+			if (options.shadow && !this.shadowRoot) this.__ROOT = this.attachShadow({ mode: 'open' });
 
-      const componentName = this.nodeName.toLowerCase();
-      if (!adoptedStyles[componentName]) adoptedStyles[componentName] = [];
+			const componentName = this.nodeName.toLowerCase();
+			if (!adoptedStyles[componentName]) adoptedStyles[componentName] = [];
 
-      if (options.shadow) {
-        if (!adoptedStyles[componentName].includes(this.__ROOT)) {
-          adoptedStyles[componentName].push(this.__ROOT);
-          (this.__ROOT as ShadowRoot).adoptedStyleSheets = [sheet];
-        }
-      } else {
-        const root = this.getRootNode();
-        if (!adoptedStyles[componentName].includes(root)) {
-          adoptedStyles[componentName].push(root);
-          (root as Document | ShadowRoot).adoptedStyleSheets.push(sheet);
-        }
-      }
+			if (options.shadow) {
+				if (!adoptedStyles[componentName].includes(this.__ROOT)) {
+					adoptedStyles[componentName].push(this.__ROOT);
+					(this.__ROOT as ShadowRoot).adoptedStyleSheets = [sheet];
+				}
+			} else {
+				const root = this.getRootNode();
+				if (!adoptedStyles[componentName].includes(root)) {
+					adoptedStyles[componentName].push(root);
+					(root as Document | ShadowRoot).adoptedStyleSheets.push(sheet);
+				}
+			}
 
-      // Render
-      this.__render();
+			// Render
+			this.__render();
 
-      this.__isInitializing = false;
-      this.__connected = true;
+			this.__isInitializing = false;
+			this.__connected = true;
 
-      // Observe attributes mutations
-      new MutationObserver((mutationRecords) => {
-        if (!this.__updating) {
-          mutationRecords.forEach((record) => {
-            if (!mutationAttributesExclusions.includes(record.attributeName)) {
-              let propName = record.attributeName;
-              if (propName.includes('-'))
-                propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
-              const newAttrVal = this.getAttribute(record.attributeName);
-              // So that 2 will not cause a re-render because of "2"
-              if (this.props[propName as keyof WompoProps] != newAttrVal)
-                this.updateProp(propName, this.getAttribute(record.attributeName));
-            }
-          });
-        }
-      }).observe(this, { attributes: true });
+			// Observe attributes mutations
+			new MutationObserver((mutationRecords) => {
+				if (!this.__updating) {
+					mutationRecords.forEach((record) => {
+						if (!mutationAttributesExclusions.includes(record.attributeName)) {
+							let propName = record.attributeName;
+							if (propName.includes('-'))
+								propName = propName.replace(/-(.)/g, (_, l) => l.toUpperCase());
+							const newAttrVal = this.getAttribute(record.attributeName);
+							// So that 2 will not cause a re-render because of "2"
+							if (this.props[propName as keyof WompoProps] != newAttrVal)
+								this.updateProp(propName, this.getAttribute(record.attributeName));
+						}
+					});
+				}
+			}).observe(this, { attributes: true });
 
-      if (DEV_MODE && this._$measurePerf) console.timeEnd('First render ' + options.name);
-    }
+			if (DEV_MODE && this._$measurePerf) console.timeEnd('First render ' + options.name);
+		}
 
-    /**
-     * Calls the functional component by first setting correct values to the
-     * [currentRenderingComponent] and [currentHookIndex] variables.
-     * @returns The result of the call.
-     */
-    private __callComponent() {
-      currentRenderingComponent = this;
-      currentHookIndex = 0;
-      const result = Component.call(this, this.props);
-      let renderHtml: RenderHtml = result as RenderHtml;
-      if (typeof result === 'string' || result instanceof HTMLElement) renderHtml = html`${result}`;
-      return renderHtml;
-    }
+		/**
+		 * Calls the functional component by first setting correct values to the
+		 * [currentRenderingComponent] and [currentHookIndex] variables.
+		 * @returns The result of the call.
+		 */
+		private __callComponent() {
+			currentRenderingComponent = this;
+			currentHookIndex = 0;
+			const result = Component.call(this, this.props);
+			let renderHtml: RenderHtml = result as RenderHtml;
+			if (typeof result === 'string' || result instanceof HTMLElement) renderHtml = html`${result}`;
+			return renderHtml;
+		}
 
-    /**
-     * Calls the component and executes the operations to update the DOM.
-     */
-    private __render() {
-      try {
-        const renderHtml = this.__callComponent();
-        if (renderHtml === null || renderHtml === undefined) {
-          this.__dynamics = [];
-          this.__oldValues = [];
-          this.remove();
-          return;
-        }
-        const constructor = this.constructor as typeof WompoComponent;
-        this._$portals = [];
-        if (this.__isInitializing) {
-          const template = constructor._$getOrCreateTemplate(renderHtml);
-          const [fragment, dynamics] = template.clone();
-          this.__dynamics = dynamics;
-          const elaboratedValues = __setValues(
-            this.__dynamics,
-            renderHtml.values,
-            this.__oldValues,
-            this
-          );
-          this.__oldValues = elaboratedValues;
-          if (!this.__isInitializing) this.__ROOT.innerHTML = '';
-          while (fragment.childNodes.length) {
-            this.__ROOT.appendChild(fragment.childNodes[0]);
-          }
-        } else {
-          const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues, this);
-          this.__oldValues = oldValues;
-        }
-        for (const layoutEffectHook of this._$layoutEffects) {
-          layoutEffectHook.cleanupFunction = layoutEffectHook.callback();
-        }
-        this._$layoutEffects = [];
-        Promise.resolve().then(() => {
-          // Only if the component is still in the DOM, execute effects and async calls
-          if (this.isConnected) {
-            // Handle effect hooks
-            for (const effectHook of this._$effects) {
-              effectHook.cleanupFunction = effectHook.callback();
-            }
-            this._$effects = [];
+		/**
+		 * Calls the component and executes the operations to update the DOM.
+		 */
+		private __render() {
+			try {
+				const renderHtml = this.__callComponent();
+				if (renderHtml === null || renderHtml === undefined) {
+					this.__dynamics = [];
+					this.__oldValues = [];
+					this.remove();
+					return;
+				}
+				const constructor = this.constructor as typeof WompoComponent;
+				this._$portals = [];
+				if (this.__isInitializing) {
+					const template = constructor._$getOrCreateTemplate(renderHtml);
+					const [fragment, dynamics] = template.clone();
+					this.__dynamics = dynamics;
+					const elaboratedValues = __setValues(
+						this.__dynamics,
+						renderHtml.values,
+						this.__oldValues,
+						this
+					);
+					this.__oldValues = elaboratedValues;
+					if (!this.__isInitializing) this.__ROOT.innerHTML = '';
+					while (fragment.childNodes.length) {
+						this.__ROOT.appendChild(fragment.childNodes[0]);
+					}
+				} else {
+					const oldValues = __setValues(this.__dynamics, renderHtml.values, this.__oldValues, this);
+					this.__oldValues = oldValues;
+				}
+				for (const layoutEffectHook of this._$layoutEffects) {
+					layoutEffectHook.cleanupFunction = layoutEffectHook.callback();
+				}
+				this._$layoutEffects = [];
+				Promise.resolve().then(() => {
+					// Only if the component is still in the DOM, execute effects and async calls
+					if (this.isConnected) {
+						// Handle effect hooks
+						for (const effectHook of this._$effects) {
+							effectHook.cleanupFunction = effectHook.callback();
+						}
+						this._$effects = [];
 
-            // Handle async calls
-            if (this._$asyncCalls.length) {
-              const promises: Promise<any>[] = [];
-              const suspense = findSuspense(this);
-              for (const asyncHook of this._$asyncCalls) {
-                if (asyncHook.activateSuspense) suspense?.addSuspense(this);
-                const promise = asyncHook
-                  .asyncCallback()
-                  .then((data) => {
-                    asyncHook.value = data;
-                  })
-                  .catch((err) => console.error(err));
-                promises.push(promise);
-              }
-              Promise.all(promises).then(() => {
-                suspense?.removeSuspense(this);
-                this.requestRender();
-              });
-            }
-            this._$asyncCalls = [];
-          } else {
-            this._$suspendedAsyncCalls = this._$asyncCalls;
-          }
-        });
-      } catch (err) {
-        console.error(err);
-      }
-    }
+						// Handle async calls
+						if (this._$asyncCalls.length) {
+							const promises: Promise<any>[] = [];
+							const suspense = findSuspense(this);
+							for (const asyncHook of this._$asyncCalls) {
+								if (asyncHook.activateSuspense) suspense?.addSuspense(this);
+								const promise = asyncHook
+									.asyncCallback()
+									.then((data) => {
+										asyncHook.value = data;
+									})
+									.catch((err) => console.error(err));
+								promises.push(promise);
+							}
+							Promise.all(promises).then(() => {
+								suspense?.removeSuspense(this);
+								this.requestRender();
+							});
+						}
+						this._$asyncCalls = [];
+					} else {
+						this._$suspendedAsyncCalls = this._$asyncCalls;
+					}
+				});
+			} catch (err) {
+				console.error(err);
+			}
+		}
 
-    /**
-     * It requests a render to the component. If the component has already received a render
-     * request, the request will be rejected. This is to avoid multiple re-renders when it's not
-     * necessary. The following function will cause a single re-render:
-     * ```javascript
-     * const incBy2 = () => {
-     *   setState((oldState) => oldState + 1)
-     *   setState((oldState) => oldState + 1)
-     * }
-     * ```
-     */
-    public requestRender() {
-      if (!this.__updating) {
-        this.__updating = true;
-        Promise.resolve().then(() => {
-          if (DEV_MODE && this._$measurePerf) console.time('Re-render ' + options.name);
-          this.__render();
-          this.__updating = false;
-          this._$hasBeenMoved = false;
-          if (DEV_MODE && this._$measurePerf) console.timeEnd('Re-render ' + options.name);
-        });
-      }
-    }
+		/**
+		 * It requests a render to the component. If the component has already received a render
+		 * request, the request will be rejected. This is to avoid multiple re-renders when it's not
+		 * necessary. The following function will cause a single re-render:
+		 * ```javascript
+		 * const incBy2 = () => {
+		 *   setState((oldState) => oldState + 1)
+		 *   setState((oldState) => oldState + 1)
+		 * }
+		 * ```
+		 */
+		public requestRender() {
+			if (!this.__updating) {
+				this.__updating = true;
+				Promise.resolve().then(() => {
+					if (DEV_MODE && this._$measurePerf) console.time('Re-render ' + options.name);
+					this.__render();
+					this.__updating = false;
+					this._$hasBeenMoved = false;
+					if (DEV_MODE && this._$measurePerf) console.timeEnd('Re-render ' + options.name);
+				});
+			}
+		}
 
-    /**
-     * It'll set a new value to a specific prop of the component, and a re-render will be requested.
-     * @param prop The prop name.
-     * @param value The new value to set.
-     */
-    public updateProp(prop: string, value: any) {
-      if ((this.props as any)[prop] !== value) {
-        const isPrimitive = value !== Object(value);
-        const attrName = prop.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
-        if (isPrimitive && value !== undefined && value !== null && value !== false)
-          this.setAttribute(attrName, value);
-        else this.removeAttribute(attrName);
-        (this.props as any)[prop] = value;
-        if (!this.__isInitializing) {
-          this.requestRender();
-        }
-      }
-    }
-  };
-  return WompoComponent as unknown as WompoElementClass<Props, E>;
+		/**
+		 * It'll set a new value to a specific prop of the component, and a re-render will be requested.
+		 * @param prop The prop name.
+		 * @param value The new value to set.
+		 */
+		public updateProp(prop: string, value: any) {
+			if ((this.props as any)[prop] !== value) {
+				const isPrimitive = value !== Object(value);
+				const attrName = prop.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
+				if (isPrimitive && value !== undefined && value !== null && value !== false)
+					this.setAttribute(attrName, value);
+				else this.removeAttribute(attrName);
+				(this.props as any)[prop] = value;
+				if (!this.__isInitializing) {
+					this.requestRender();
+				}
+			}
+		}
+	};
+	return WompoComponent as unknown as WompoElementClass<Props, E>;
 };
 
 /* 
@@ -1827,11 +1827,11 @@ HOOKS
  * @returns The current rendering component and current index.
  */
 export const useHook = (): [WompoElement, number] => {
-  const currentComponent = currentRenderingComponent;
-  const currentIndex = currentHookIndex;
-  const res: [WompoElement, number] = [currentComponent, currentIndex];
-  currentHookIndex++;
-  return res;
+	const currentComponent = currentRenderingComponent;
+	const currentIndex = currentHookIndex;
+	const res: [WompoElement, number] = [currentComponent, currentIndex];
+	currentHookIndex++;
+	return res;
 };
 
 /**
@@ -1865,32 +1865,32 @@ export const useHook = (): [WompoElement, number] => {
  * @returns The current StateHook value.
  */
 export const useState = <S>(initialState: S | (() => S)) => {
-  const [component, hookIndex] = useHook();
-  if (!component) {
-    // Server context
-    if (typeof initialState === 'function')
-      return [(initialState as () => S)(), () => {}] as StateHook<S>;
-    return [initialState, () => {}] as StateHook<S>;
-  }
-  if (!component.hooks.hasOwnProperty(hookIndex)) {
-    const index = hookIndex;
-    component.hooks[index] = [
-      typeof initialState === 'function' ? (initialState as () => S)() : initialState,
-      (newValue: S) => {
-        let computedValue = newValue;
-        const stateHook = component.hooks[index] as StateHook<S>;
-        if (typeof newValue === 'function') {
-          computedValue = newValue(stateHook[0]);
-        }
-        if (computedValue !== stateHook[0]) {
-          stateHook[0] = computedValue;
-          component.requestRender();
-        }
-      },
-    ];
-  }
-  const state = component.hooks[hookIndex] as StateHook<S>;
-  return state;
+	const [component, hookIndex] = useHook();
+	if (!component) {
+		// Server context
+		if (typeof initialState === 'function')
+			return [(initialState as () => S)(), () => {}] as StateHook<S>;
+		return [initialState, () => {}] as StateHook<S>;
+	}
+	if (!component.hooks.hasOwnProperty(hookIndex)) {
+		const index = hookIndex;
+		component.hooks[index] = [
+			typeof initialState === 'function' ? (initialState as () => S)() : initialState,
+			(newValue: S) => {
+				let computedValue = newValue;
+				const stateHook = component.hooks[index] as StateHook<S>;
+				if (typeof newValue === 'function') {
+					computedValue = newValue(stateHook[0]);
+				}
+				if (computedValue !== stateHook[0]) {
+					stateHook[0] = computedValue;
+					component.requestRender();
+				}
+			},
+		];
+	}
+	const state = component.hooks[hookIndex] as StateHook<S>;
+	return state;
 };
 
 /**
@@ -1918,36 +1918,36 @@ export const useState = <S>(initialState: S | (() => S)) => {
  * @param dependencies The list of dependencies to listen to changes.
  */
 export const useEffect = (
-  callback: VoidFunction | (() => VoidFunction),
-  dependencies: any[] = null
+	callback: VoidFunction | (() => VoidFunction),
+	dependencies: any[] = null
 ) => {
-  const [component, hookIndex] = useHook();
-  if (!component.hooks.hasOwnProperty(hookIndex)) {
-    const effectHook = {
-      dependencies: dependencies,
-      callback: callback,
-      cleanupFunction: null,
-    } as EffectHook;
-    component.hooks[hookIndex] = effectHook;
-    component._$effects.push(effectHook);
-  } else {
-    const effectHook = component.hooks[hookIndex] as EffectHook;
-    if (dependencies !== null) {
-      for (let i = 0; i < dependencies.length; i++) {
-        const oldDep = effectHook.dependencies[i];
-        if (oldDep !== dependencies[i]) {
-          if (typeof effectHook.cleanupFunction === 'function') effectHook.cleanupFunction();
-          effectHook.dependencies = dependencies;
-          effectHook.callback = callback;
-          component._$effects.push(effectHook);
-          break;
-        }
-      }
-    } else {
-      effectHook.callback = callback;
-      component._$effects.push(effectHook);
-    }
-  }
+	const [component, hookIndex] = useHook();
+	if (!component.hooks.hasOwnProperty(hookIndex)) {
+		const effectHook = {
+			dependencies: dependencies,
+			callback: callback,
+			cleanupFunction: null,
+		} as EffectHook;
+		component.hooks[hookIndex] = effectHook;
+		component._$effects.push(effectHook);
+	} else {
+		const effectHook = component.hooks[hookIndex] as EffectHook;
+		if (dependencies !== null) {
+			for (let i = 0; i < dependencies.length; i++) {
+				const oldDep = effectHook.dependencies[i];
+				if (oldDep !== dependencies[i]) {
+					if (typeof effectHook.cleanupFunction === 'function') effectHook.cleanupFunction();
+					effectHook.dependencies = dependencies;
+					effectHook.callback = callback;
+					component._$effects.push(effectHook);
+					break;
+				}
+			}
+		} else {
+			effectHook.callback = callback;
+			component._$effects.push(effectHook);
+		}
+	}
 };
 
 /**
@@ -1959,37 +1959,37 @@ export const useEffect = (
  * @param dependencies The list of dependencies to listen to changes.
  */
 export const useLayoutEffect = (
-  callback: VoidFunction | (() => VoidFunction),
-  dependencies: any[] = null
+	callback: VoidFunction | (() => VoidFunction),
+	dependencies: any[] = null
 ) => {
-  const [component, hookIndex] = useHook();
-  if (!component.hooks.hasOwnProperty(hookIndex)) {
-    const layoutEffectHook = {
-      dependencies: dependencies,
-      callback: callback,
-      cleanupFunction: null,
-    } as EffectHook;
-    component.hooks[hookIndex] = layoutEffectHook;
-    component._$layoutEffects.push(layoutEffectHook);
-  } else {
-    const layoutEffectHook = component.hooks[hookIndex] as EffectHook;
-    if (dependencies !== null) {
-      for (let i = 0; i < dependencies.length; i++) {
-        const oldDep = layoutEffectHook.dependencies[i];
-        if (oldDep !== dependencies[i]) {
-          if (typeof layoutEffectHook.cleanupFunction === 'function')
-            layoutEffectHook.cleanupFunction();
-          layoutEffectHook.dependencies = dependencies;
-          layoutEffectHook.callback = callback;
-          component._$layoutEffects.push(layoutEffectHook);
-          break;
-        }
-      }
-    } else {
-      layoutEffectHook.callback = callback;
-      component._$layoutEffects.push(layoutEffectHook);
-    }
-  }
+	const [component, hookIndex] = useHook();
+	if (!component.hooks.hasOwnProperty(hookIndex)) {
+		const layoutEffectHook = {
+			dependencies: dependencies,
+			callback: callback,
+			cleanupFunction: null,
+		} as EffectHook;
+		component.hooks[hookIndex] = layoutEffectHook;
+		component._$layoutEffects.push(layoutEffectHook);
+	} else {
+		const layoutEffectHook = component.hooks[hookIndex] as EffectHook;
+		if (dependencies !== null) {
+			for (let i = 0; i < dependencies.length; i++) {
+				const oldDep = layoutEffectHook.dependencies[i];
+				if (oldDep !== dependencies[i]) {
+					if (typeof layoutEffectHook.cleanupFunction === 'function')
+						layoutEffectHook.cleanupFunction();
+					layoutEffectHook.dependencies = dependencies;
+					layoutEffectHook.callback = callback;
+					component._$layoutEffects.push(layoutEffectHook);
+					break;
+				}
+			}
+		} else {
+			layoutEffectHook.callback = callback;
+			component._$layoutEffects.push(layoutEffectHook);
+		}
+	}
 };
 
 /**
@@ -2017,15 +2017,15 @@ export const useLayoutEffect = (
  * @returns The current value of the reference.
  */
 export const useRef = <T>(initialValue: T = null) => {
-  const [component, hookIndex] = useHook();
-  if (!component.hooks.hasOwnProperty(hookIndex)) {
-    component.hooks[hookIndex] = {
-      current: initialValue,
-      __wcRef: true,
-    } as RefHook<T>;
-  }
-  const ref = component.hooks[hookIndex] as RefHook<T>;
-  return ref;
+	const [component, hookIndex] = useHook();
+	if (!component.hooks.hasOwnProperty(hookIndex)) {
+		component.hooks[hookIndex] = {
+			current: initialValue,
+			__wcRef: true,
+		} as RefHook<T>;
+	}
+	const ref = component.hooks[hookIndex] as RefHook<T>;
+	return ref;
 };
 
 /**
@@ -2060,41 +2060,41 @@ export const useRef = <T>(initialValue: T = null) => {
  * @returns The stored callback function.
  */
 export const useCallback = <C = (...args: any[]) => any>(
-  callbackFn: C,
-  dependencies: any[] = []
+	callbackFn: C,
+	dependencies: any[] = []
 ) => {
-  const [component, hookIndex] = useHook();
-  if (!component.hooks.hasOwnProperty(hookIndex)) {
-    component.hooks[hookIndex] = {
-      dependencies: dependencies,
-      value: callbackFn,
-    } as CallbackHook<C>;
-  } else {
-    const callbackHook = component.hooks[hookIndex] as CallbackHook<C>;
-    for (let i = 0; i < dependencies.length; i++) {
-      const oldDep = callbackHook.dependencies[i];
-      if (oldDep !== dependencies[i]) {
-        callbackHook.dependencies = dependencies;
-        callbackHook.value = callbackFn;
-        break;
-      }
-    }
-  }
-  const callback = component.hooks[hookIndex] as CallbackHook<C>;
-  return callback.value;
+	const [component, hookIndex] = useHook();
+	if (!component.hooks.hasOwnProperty(hookIndex)) {
+		component.hooks[hookIndex] = {
+			dependencies: dependencies,
+			value: callbackFn,
+		} as CallbackHook<C>;
+	} else {
+		const callbackHook = component.hooks[hookIndex] as CallbackHook<C>;
+		for (let i = 0; i < dependencies.length; i++) {
+			const oldDep = callbackHook.dependencies[i];
+			if (oldDep !== dependencies[i]) {
+				callbackHook.dependencies = dependencies;
+				callbackHook.value = callbackFn;
+				break;
+			}
+		}
+	}
+	const callback = component.hooks[hookIndex] as CallbackHook<C>;
+	return callback.value;
 };
 
 const useIdMemo = () => {
-  let counter = 0;
-  return () => {
-    const [component, hookIndex] = useHook();
-    if (!component.hooks.hasOwnProperty(hookIndex)) {
-      component.hooks[hookIndex] = `:w${counter}:` as IdHook;
-      counter++;
-    }
-    const callback = component.hooks[hookIndex];
-    return callback as IdHook;
-  };
+	let counter = 0;
+	return () => {
+		const [component, hookIndex] = useHook();
+		if (!component.hooks.hasOwnProperty(hookIndex)) {
+			component.hooks[hookIndex] = `:w${counter}:` as IdHook;
+			counter++;
+		}
+		const callback = component.hooks[hookIndex];
+		return callback as IdHook;
+	};
 };
 /**
  * The useId hook returns a unique id for the component. It's simply a counter that gets updated
@@ -2145,25 +2145,25 @@ export const useId = useIdMemo();
  * @returns The last computed result.
  */
 export const useMemo = <T>(callbackFn: () => T, dependencies: any[]) => {
-  const [component, hookIndex] = useHook();
-  if (!component.hooks.hasOwnProperty(hookIndex)) {
-    component.hooks[hookIndex] = {
-      value: callbackFn(),
-      dependencies: dependencies,
-    } as MemoHook<T>;
-  } else {
-    const oldMemo = component.hooks[hookIndex] as MemoHook<T>;
-    for (let i = 0; i < dependencies.length; i++) {
-      const oldDep = oldMemo.dependencies[i];
-      if (oldDep !== dependencies[i]) {
-        oldMemo.dependencies = dependencies;
-        oldMemo.value = callbackFn();
-        break;
-      }
-    }
-  }
-  const memoizedResult = component.hooks[hookIndex] as MemoHook<T>;
-  return memoizedResult.value;
+	const [component, hookIndex] = useHook();
+	if (!component.hooks.hasOwnProperty(hookIndex)) {
+		component.hooks[hookIndex] = {
+			value: callbackFn(),
+			dependencies: dependencies,
+		} as MemoHook<T>;
+	} else {
+		const oldMemo = component.hooks[hookIndex] as MemoHook<T>;
+		for (let i = 0; i < dependencies.length; i++) {
+			const oldDep = oldMemo.dependencies[i];
+			if (oldDep !== dependencies[i]) {
+				oldMemo.dependencies = dependencies;
+				oldMemo.value = callbackFn();
+				break;
+			}
+		}
+	}
+	const memoizedResult = component.hooks[hookIndex] as MemoHook<T>;
+	return memoizedResult.value;
 };
 
 /**
@@ -2208,35 +2208,35 @@ export const useMemo = <T>(callbackFn: () => T, dependencies: any[]) => {
  * @returns An array with [state, dispath].
  */
 export const useReducer = <State>(
-  reducer: (state: State, action: ReducerAction) => Partial<State>,
-  initialState: State
+	reducer: (state: State, action: ReducerAction) => Partial<State>,
+	initialState: State
 ) => {
-  const [component, hookIndex] = useHook();
-  const index = hookIndex;
-  if (!component.hooks.hasOwnProperty(index)) {
-    const dispatch = (action: ReducerAction) => {
-      const currentState = (component.hooks[index] as ReducerHook<State>)[0];
-      const partialState = reducer(currentState, action);
-      let newState: State = partialState as State;
-      if (
-        typeof currentState === 'object' &&
-        !Array.isArray(currentState) &&
-        currentState !== null
-      ) {
-        // Merge the partial state with the old one if it's an object
-        newState = {
-          ...currentState,
-          ...partialState,
-        } as State;
-      }
-      (component.hooks[hookIndex] as ReducerHook<State>)[0] = newState;
-      if (newState !== currentState) component.requestRender();
-    };
-    const reducerHook: ReducerHook<State> = [initialState, dispatch];
-    component.hooks[hookIndex] = reducerHook;
-  }
-  const stateAndReducer = component.hooks[hookIndex] as ReducerHook<State>;
-  return stateAndReducer;
+	const [component, hookIndex] = useHook();
+	const index = hookIndex;
+	if (!component.hooks.hasOwnProperty(index)) {
+		const dispatch = (action: ReducerAction) => {
+			const currentState = (component.hooks[index] as ReducerHook<State>)[0];
+			const partialState = reducer(currentState, action);
+			let newState: State = partialState as State;
+			if (
+				typeof currentState === 'object' &&
+				!Array.isArray(currentState) &&
+				currentState !== null
+			) {
+				// Merge the partial state with the old one if it's an object
+				newState = {
+					...currentState,
+					...partialState,
+				} as State;
+			}
+			(component.hooks[hookIndex] as ReducerHook<State>)[0] = newState;
+			if (newState !== currentState) component.requestRender();
+		};
+		const reducerHook: ReducerHook<State> = [initialState, dispatch];
+		component.hooks[hookIndex] = reducerHook;
+	}
+	const stateAndReducer = component.hooks[hookIndex] as ReducerHook<State>;
+	return stateAndReducer;
 };
 
 /**
@@ -2281,12 +2281,12 @@ export const useReducer = <State>(
  * @param toExpose The keys to expose.
  */
 export const useExposed = <E = {}>(toExpose: E) => {
-  // No need to use useHook and increase the hook index
-  const component = currentRenderingComponent;
-  const keys = Object.keys(toExpose) as (keyof E)[];
-  for (const key of keys) {
-    (component as any)[key] = toExpose[key];
-  }
+	// No need to use useHook and increase the hook index
+	const component = currentRenderingComponent;
+	const keys = Object.keys(toExpose) as (keyof E)[];
+	for (const key of keys) {
+		(component as any)[key] = toExpose[key];
+	}
 };
 
 /**
@@ -2297,18 +2297,18 @@ export const useExposed = <E = {}>(toExpose: E) => {
  * @param activateSuspense Whether to activate or not a parent Suspense element.
  */
 const executeUseAsyncCallback = <S>(
-  hook: [WompoElement, number],
-  callback: () => Promise<S>,
-  newDependencies: any[],
-  activateSuspense: boolean
+	hook: [WompoElement, number],
+	callback: () => Promise<S>,
+	newDependencies: any[],
+	activateSuspense: boolean
 ) => {
-  const [component, hookIndex] = hook;
-  const asyncHook = component.hooks[hookIndex] as AsyncHook<S>;
-  asyncHook.activateSuspense = activateSuspense;
-  asyncHook.value = null;
-  asyncHook.asyncCallback = callback;
-  asyncHook.dependencies = newDependencies;
-  component._$asyncCalls.push(asyncHook);
+	const [component, hookIndex] = hook;
+	const asyncHook = component.hooks[hookIndex] as AsyncHook<S>;
+	asyncHook.activateSuspense = activateSuspense;
+	asyncHook.value = null;
+	asyncHook.asyncCallback = callback;
+	asyncHook.dependencies = newDependencies;
+	component._$asyncCalls.push(asyncHook);
 };
 
 /**
@@ -2346,34 +2346,34 @@ const executeUseAsyncCallback = <S>(
  * @returns The result of the promise or null if it's pending or rejected.
  */
 export const useAsync = <S>(
-  callback: () => Promise<S>,
-  dependencies: any[],
-  activateSuspense = true
+	callback: () => Promise<S>,
+	dependencies: any[],
+	activateSuspense = true
 ): null | S => {
-  const [component, hookIndex] = useHook();
-  if (!component.hooks.hasOwnProperty(hookIndex)) {
-    component.hooks[hookIndex] = {
-      asyncCallback: callback,
-      dependencies: dependencies,
-      value: null,
-      activateSuspense: activateSuspense,
-    } as AsyncHook<S>;
-    executeUseAsyncCallback([component, hookIndex], callback, dependencies, activateSuspense);
-  } else {
-    const oldAsync = component.hooks[hookIndex] as AsyncHook<S>;
-    let newCall = false;
-    for (let i = 0; i < dependencies.length; i++) {
-      const oldDep = oldAsync.dependencies[i];
-      if (oldDep !== dependencies[i]) {
-        newCall = true;
-        break;
-      }
-    }
-    if (newCall) {
-      executeUseAsyncCallback([component, hookIndex], callback, dependencies, activateSuspense);
-    }
-  }
-  return (component.hooks[hookIndex] as AsyncHook<S>).value;
+	const [component, hookIndex] = useHook();
+	if (!component.hooks.hasOwnProperty(hookIndex)) {
+		component.hooks[hookIndex] = {
+			asyncCallback: callback,
+			dependencies: dependencies,
+			value: null,
+			activateSuspense: activateSuspense,
+		} as AsyncHook<S>;
+		executeUseAsyncCallback([component, hookIndex], callback, dependencies, activateSuspense);
+	} else {
+		const oldAsync = component.hooks[hookIndex] as AsyncHook<S>;
+		let newCall = false;
+		for (let i = 0; i < dependencies.length; i++) {
+			const oldDep = oldAsync.dependencies[i];
+			if (oldDep !== dependencies[i]) {
+				newCall = true;
+				break;
+			}
+		}
+		if (newCall) {
+			executeUseAsyncCallback([component, hookIndex], callback, dependencies, activateSuspense);
+		}
+	}
+	return (component.hooks[hookIndex] as AsyncHook<S>).value;
 };
 
 /**
@@ -2381,7 +2381,7 @@ export const useAsync = <S>(
  * @returns The HTML Element
  */
 export const useSelf = <H = WompoElement>() => {
-  return currentRenderingComponent as H;
+	return currentRenderingComponent as H;
 };
 
 /* 
@@ -2394,41 +2394,41 @@ CONTEXT
  * The Context interface
  */
 export interface Context<S = any> {
-  Provider: WompoComponent<ContextProviderProps>;
-  default: S;
-  name: string;
+	Provider: WompoComponent<ContextProviderProps>;
+	default: S;
+	name: string;
 }
 
 const createContextMemo = () => {
-  let contextIdentifier = 0;
-  return <S>(initialValue: S, providerName?: string): Context<S> => {
-    const name = providerName ?? `wompo-context-provider-${contextIdentifier}`;
-    contextIdentifier++;
-    const ProviderFunction = defineWompo<ContextProviderProps, ContextProviderExposed>(
-      ({ children, value }: ContextProviderProps) => {
-        const initialSubscribers = new Set<WompoElement>();
-        const subscribers = useRef(initialSubscribers);
-        useEffect(() => {
-          subscribers.current.forEach((el) => {
-            if (el.isConnected) el.requestRender();
-          });
-        }, [value]);
-        useExposed({ subscribers: subscribers });
-        return html`${children}`;
-      },
-      {
-        name: name,
-        cssModule: false,
-      }
-    );
-    const Context = {
-      name: name,
-      Provider: ProviderFunction,
-      default: initialValue,
-      subscribers: new Set<WompoElement>(),
-    };
-    return Context;
-  };
+	let contextIdentifier = 0;
+	return <S>(initialValue: S, providerName?: string): Context<S> => {
+		const name = providerName ?? `wompo-context-provider-${contextIdentifier}`;
+		contextIdentifier++;
+		const ProviderFunction = defineWompo<ContextProviderProps, ContextProviderExposed>(
+			({ children, value }: ContextProviderProps) => {
+				const initialSubscribers = new Set<WompoElement>();
+				const subscribers = useRef(initialSubscribers);
+				useEffect(() => {
+					subscribers.current.forEach((el) => {
+						if (el.isConnected) el.requestRender();
+					});
+				}, [value]);
+				useExposed({ subscribers: subscribers });
+				return html`${children}`;
+			},
+			{
+				name: name,
+				cssModule: false,
+			}
+		);
+		const Context = {
+			name: name,
+			Provider: ProviderFunction,
+			default: initialValue,
+			subscribers: new Set<WompoElement>(),
+		};
+		return Context;
+	};
 };
 
 /**
@@ -2474,47 +2474,47 @@ export const createContext = createContextMemo();
  * @returns The value of the context above the element.
  */
 export const useContext = <S>(Context: Context<S>): S => {
-  const [component, hookIndex] = useHook();
-  if (!component.hooks.hasOwnProperty(hookIndex) || component._$hasBeenMoved) {
-    let parent = component as Node;
-    const toFind = Context.name.toUpperCase();
-    while (parent && parent.nodeName !== toFind && parent !== document.body) {
-      if (parent instanceof ShadowRoot) parent = parent.host;
-      else parent = parent.parentNode;
-    }
-    const oldParent = (component.hooks[hookIndex] as ContextHook)?.node;
-    if (parent && parent !== document.body) {
-      (parent as ContextProviderElement).subscribers.current.add(component);
-      if (!component._$usesContext) {
-        const oldDisconnect = component.onDisconnected;
-        component.onDisconnected = () => {
-          (parent as ContextProviderElement).subscribers.current.delete(component);
-          oldDisconnect();
-        };
-      }
-      component._$usesContext = true;
-    } else if (oldParent) {
-      if (DEV_MODE) {
-        console.warn(
-          `The element ${component.tagName} doens't have access to the Context ${Context.name} ` +
-            'because is no longer a child of it.'
-        );
-      }
-      parent = null;
-      oldParent.subscribers.current.delete(component);
-    } else if (component.isConnected) {
-      console.warn(
-        `The element ${component.tagName} doens't have access to the Context ${Context.name}. ` +
-          'The default value will be returned instead.'
-      );
-      parent = null;
-    }
-    component.hooks[hookIndex] = {
-      node: parent,
-    } as ContextHook;
-  }
-  const contextNode = (component.hooks[hookIndex] as ContextHook).node;
-  return contextNode ? contextNode.props.value : Context.default;
+	const [component, hookIndex] = useHook();
+	if (!component.hooks.hasOwnProperty(hookIndex) || component._$hasBeenMoved) {
+		let parent = component as Node;
+		const toFind = Context.name.toUpperCase();
+		while (parent && parent.nodeName !== toFind && parent !== document.body) {
+			if (parent instanceof ShadowRoot) parent = parent.host;
+			else parent = parent.parentNode;
+		}
+		const oldParent = (component.hooks[hookIndex] as ContextHook)?.node;
+		if (parent && parent !== document.body) {
+			(parent as ContextProviderElement).subscribers.current.add(component);
+			if (!component._$usesContext) {
+				const oldDisconnect = component.onDisconnected;
+				component.onDisconnected = () => {
+					(parent as ContextProviderElement).subscribers.current.delete(component);
+					oldDisconnect();
+				};
+			}
+			component._$usesContext = true;
+		} else if (oldParent) {
+			if (DEV_MODE) {
+				console.warn(
+					`The element ${component.tagName} doens't have access to the Context ${Context.name} ` +
+						'because is no longer a child of it.'
+				);
+			}
+			parent = null;
+			oldParent.subscribers.current.delete(component);
+		} else if (component.isConnected) {
+			console.warn(
+				`The element ${component.tagName} doens't have access to the Context ${Context.name}. ` +
+					'The default value will be returned instead.'
+			);
+			parent = null;
+		}
+		component.hooks[hookIndex] = {
+			node: parent,
+		} as ContextHook;
+	}
+	const contextNode = (component.hooks[hookIndex] as ContextHook).node;
+	return contextNode ? contextNode.props.value : Context.default;
 };
 
 /* 
@@ -2538,21 +2538,21 @@ HTML
  * @param values The list of dynamic values of the template
  */
 export function html(templateParts: TemplateStringsArray, ...values: any[]): RenderHtml {
-  const cleanValues = [];
-  const length = templateParts.length - 1; // skip last element
-  if (!IS_SERVER) {
-    for (let i = 0; i < length; i++) {
-      // Don't include dynamic closing tags
-      if (!templateParts[i].endsWith('</')) cleanValues.push(values[i]);
-    }
-  } else {
-    cleanValues.push(...values);
-  }
-  return {
-    parts: templateParts,
-    values: cleanValues,
-    _$wompoHtml: true,
-  };
+	const cleanValues = [];
+	const length = templateParts.length - 1; // skip last element
+	if (!IS_SERVER) {
+		for (let i = 0; i < length; i++) {
+			// Don't include dynamic closing tags
+			if (!templateParts[i].endsWith('</')) cleanValues.push(values[i]);
+		}
+	} else {
+		cleanValues.push(...values);
+	}
+	return {
+		parts: templateParts,
+		values: cleanValues,
+		_$wompoHtml: true,
+	};
 }
 
 /* 
@@ -2568,9 +2568,9 @@ DEFAULT OPTIONS
  * - `cssModule`: true (boolean)
  */
 export const wompoDefaultOptions: WompoComponentOptions = {
-  shadow: false,
-  name: '',
-  cssModule: true,
+	shadow: false,
+	name: '',
+	cssModule: true,
 };
 
 /* 
@@ -2620,37 +2620,37 @@ export const registeredComponents: { [key: string]: WompoComponent } = {};
  * @returns The generated class for the component.
  */
 export function defineWompo<Props extends WompoProps, E = {}>(
-  Component: WompoComponent<Props & WompoProps>,
-  options?: WompoComponentOptions
+	Component: WompoComponent<Props & WompoProps>,
+	options?: WompoComponentOptions
 ) {
-  if (!Component.css) Component.css = '';
-  const componentOptions = {
-    ...wompoDefaultOptions,
-    ...(options || {}),
-  };
-  if (!componentOptions.name) {
-    let newName = Component.name
-      .replace(/.[A-Z]/g, (letter) => `${letter[0]}-${letter[1].toLowerCase()}`)
-      .toLowerCase();
-    if (!newName.includes('-')) newName += '-wompo';
-    componentOptions.name = newName;
-  }
-  Component.componentName = componentOptions.name;
-  Component._$wompoF = true;
-  const [generatedCSS, styles] = __generateSpecifcStyles(Component, componentOptions);
-  Component.css = generatedCSS;
-  Component.options = {
-    generatedCSS: generatedCSS,
-    styles: styles,
-    shadow: componentOptions.shadow,
-  };
-  if (!IS_SERVER) {
-    const ComponentClass = _$wompo<Props, E>(Component, componentOptions);
-    Component.class = ComponentClass;
-    customElements.define(componentOptions.name, ComponentClass);
-  }
-  registeredComponents[componentOptions.name] = Component;
-  return Component as WompoComponent<Props & WompoProps>;
+	if (!Component.css) Component.css = '';
+	const componentOptions = {
+		...wompoDefaultOptions,
+		...(options || {}),
+	};
+	if (!componentOptions.name) {
+		let newName = Component.name
+			.replace(/.[A-Z]/g, (letter) => `${letter[0]}-${letter[1].toLowerCase()}`)
+			.toLowerCase();
+		if (!newName.includes('-')) newName += '-wompo';
+		componentOptions.name = newName;
+	}
+	Component.componentName = componentOptions.name;
+	Component._$wompoF = true;
+	const [generatedCSS, styles] = __generateSpecifcStyles(Component, componentOptions);
+	Component.css = generatedCSS;
+	Component.options = {
+		generatedCSS: generatedCSS,
+		styles: styles,
+		shadow: componentOptions.shadow,
+	};
+	if (!IS_SERVER) {
+		const ComponentClass = _$wompo<Props, E>(Component, componentOptions);
+		Component.class = ComponentClass;
+		customElements.define(componentOptions.name, ComponentClass);
+	}
+	registeredComponents[componentOptions.name] = Component;
+	return Component as WompoComponent<Props & WompoProps>;
 }
 
 /* 
@@ -2661,8 +2661,8 @@ METHODS
 
 export type LazyCallbackResult = Promise<{ default: WompoComponent }>;
 export type LazyResult = {
-  (): Promise<WompoComponent<WompoProps>>;
-  _$wompoLazy: boolean;
+	(): Promise<WompoComponent<WompoProps>>;
+	_$wompoLazy: boolean;
 };
 
 /**
@@ -2687,21 +2687,21 @@ export type LazyResult = {
  * @returns A LazyComponent or the loaded compnent
  */
 export const lazy = (load: () => LazyCallbackResult): LazyResult => {
-  let loaded: WompoComponent = null;
-  async function LazyComponent() {
-    if (!loaded) {
-      try {
-        const importedModule = await load();
-        loaded = importedModule.default;
-        return loaded;
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    return loaded;
-  }
-  LazyComponent._$wompoLazy = true;
-  return LazyComponent;
+	let loaded: WompoComponent = null;
+	async function LazyComponent() {
+		if (!loaded) {
+			try {
+				const importedModule = await load();
+				loaded = importedModule.default;
+				return loaded;
+			} catch (err) {
+				console.error(err);
+			}
+		}
+		return loaded;
+	}
+	LazyComponent._$wompoLazy = true;
+	return LazyComponent;
 };
 
 /**
@@ -2711,11 +2711,11 @@ export const lazy = (load: () => LazyCallbackResult): LazyResult => {
  * @returns the html to render
  */
 export const unsafelyRenderString = (html: string): RenderHtml => {
-  return {
-    _$wompoHtml: true,
-    parts: [html] as any,
-    values: [],
-  };
+	return {
+		_$wompoHtml: true,
+		parts: [html] as any,
+		values: [],
+	};
 };
 
 /**
@@ -2727,29 +2727,29 @@ export const unsafelyRenderString = (html: string): RenderHtml => {
  * @returns the RenderHtml object.
  */
 export const createPortal = (html: RenderHtml, node: HTMLElement): RenderHtml => {
-  return {
-    ...html,
-    _$portal: node,
-  };
+	return {
+		...html,
+		_$portal: node,
+	};
 };
 
 interface SuspenseProps extends WompoProps {
-  fallback: RenderHtml;
+	fallback: RenderHtml;
 }
 interface SuspenseInstance extends WompoElement {
-  loadingComponents: Set<Node>;
-  /**
-   * Adds a node to the Suspense instance, and re-render.
-   * @param node The node that is suspended.
-   */
-  addSuspense: (node: Node) => void;
-  /**
-   * Remove a node from the Suspense instance. If the node is a new Node (e.g. a dynamic Tag),
-   * you should also add the second parameter (the new node).
-   * @param node The node that is suspended.
-   * @param newNode The new node to replace the old one with.
-   */
-  removeSuspense: (node: Node, newNode?: Node) => void;
+	loadingComponents: Set<Node>;
+	/**
+	 * Adds a node to the Suspense instance, and re-render.
+	 * @param node The node that is suspended.
+	 */
+	addSuspense: (node: Node) => void;
+	/**
+	 * Remove a node from the Suspense instance. If the node is a new Node (e.g. a dynamic Tag),
+	 * you should also add the second parameter (the new node).
+	 * @param node The node that is suspended.
+	 * @param newNode The new node to replace the old one with.
+	 */
+	removeSuspense: (node: Node, newNode?: Node) => void;
 }
 
 /**
@@ -2759,16 +2759,16 @@ interface SuspenseInstance extends WompoElement {
  * @returns The Found Suspanse instance or null.
  */
 const findSuspense = (startNode: Node): SuspenseInstance | null => {
-  let suspense = startNode;
-  while (
-    suspense &&
-    suspense.nodeName !== (Suspense as WompoComponent).componentName.toUpperCase()
-  ) {
-    if (suspense.parentNode === null && (suspense as ShadowRoot).host)
-      suspense = (suspense as ShadowRoot).host;
-    else suspense = suspense?.parentNode;
-  }
-  return suspense as SuspenseInstance | null;
+	let suspense = startNode;
+	while (
+		suspense &&
+		suspense.nodeName !== (Suspense as WompoComponent).componentName.toUpperCase()
+	) {
+		if (suspense.parentNode === null && (suspense as ShadowRoot).host)
+			suspense = (suspense as ShadowRoot).host;
+		else suspense = suspense?.parentNode;
+	}
+	return suspense as SuspenseInstance | null;
 };
 
 /**
@@ -2791,27 +2791,27 @@ const findSuspense = (startNode: Node): SuspenseInstance | null => {
  * @returns The Fallback if loading, otherwise the loaded content.
  */
 export function Suspense({ children, fallback }: SuspenseProps) {
-  if (!this.loadingComponents) {
-    this.loadingComponents = useRef(new Set<Node>()).current;
-  }
-  this.addSuspense = (node: Node) => {
-    if (!this.loadingComponents.size) this.requestRender();
-    this.loadingComponents.add(node);
-  };
-  this.removeSuspense = (node: Node, newNode: Node = null) => {
-    this.loadingComponents.delete(node);
-    if (newNode) {
-      for (let i = 0; i < children.nodes.length; i++) {
-        if (children.nodes[i] === node) {
-          children.nodes[i] = newNode;
-          break;
-        }
-      }
-    }
-    if (!this.loadingComponents.size) this.requestRender();
-  };
-  if (this.loadingComponents.size && fallback) return html`${fallback}`;
-  return html`${children}`;
+	if (!this.loadingComponents) {
+		this.loadingComponents = useRef(new Set<Node>()).current;
+	}
+	this.addSuspense = (node: Node) => {
+		if (!this.loadingComponents.size) this.requestRender();
+		this.loadingComponents.add(node);
+	};
+	this.removeSuspense = (node: Node, newNode: Node = null) => {
+		this.loadingComponents.delete(node);
+		if (newNode) {
+			for (let i = 0; i < children.nodes.length; i++) {
+				if (children.nodes[i] === node) {
+					children.nodes[i] = newNode;
+					break;
+				}
+			}
+		}
+		if (!this.loadingComponents.size) this.requestRender();
+	};
+	if (this.loadingComponents.size && fallback) return html`${fallback}`;
+	return html`${children}`;
 }
 defineWompo(Suspense, { name: 'wompo-suspense' });
 
