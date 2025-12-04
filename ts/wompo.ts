@@ -1342,7 +1342,10 @@ const __setValues = (
 				currentDependency.callback = currentValue;
 			} else if (attrName.startsWith('.')) {
 				const valueName = attrName.substring(1);
-				if (valueName === 'innerHTML' && document.activeElement.hasAttribute('contenteditable')) {
+				if (
+					valueName === 'innerHTML' &&
+					currentDependency.node.ownerDocument.activeElement.hasAttribute('contenteditable')
+				) {
 					// The browser will already handle the innerHTML update when the user is editing the content
 					continue;
 				}
