@@ -1342,12 +1342,24 @@ const __setValues = (
 				currentDependency.callback = currentValue;
 			} else if (attrName.startsWith('.')) {
 				const valueName = attrName.substring(1);
-				if (
-					valueName === 'innerHTML' &&
-					currentDependency.node.ownerDocument.activeElement.hasAttribute('contenteditable')
-				) {
-					// The browser will already handle the innerHTML update when the user is editing the content
-					continue;
+
+				if (valueName === 'innerHTML') {
+					const node = currentDependency.node;
+					const doc = node.ownerDocument;
+					if (node.isContentEditable) {
+						const active = doc.activeElement;
+						const sel = doc.getSelection && doc.getSelection();
+						const focusInsideNode = active === node || (active && node.contains(active));
+						let selectionInsideNode = false;
+						if (sel && sel.rangeCount > 0) {
+							const range = sel.getRangeAt(0);
+							const container = range.commonAncestorContainer;
+							selectionInsideNode = node.contains(container);
+						}
+						// The browser already handles the innerHTML update when the user is editing the content
+						// This prevents the cursor from jumping to the start of the content
+						if (focusInsideNode || selectionInsideNode) continue;
+					}
 				}
 				(currentDependency.node as any)[valueName] = currentValue as string;
 			} else {
