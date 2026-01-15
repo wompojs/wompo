@@ -6,6 +6,7 @@ export interface RenderHtml {
     values: any[];
     key?: string;
     _$wompoHtml: true;
+    _$wompoSvg?: boolean;
     _$portal?: HTMLElement;
 }
 /**
@@ -763,6 +764,13 @@ export declare const useContext: <S>(Context: Context<S>) => S;
  * @param values The list of dynamic values of the template
  */
 export declare function html(templateParts: TemplateStringsArray, ...values: any[]): RenderHtml;
+/**
+ * This template function is used to then generate the DOM structure inside an SVG element.
+ *
+ * @param template The list of static strings of the template
+ * @param values The list of dynamic values of the template
+ */
+export declare function svg(templateParts: TemplateStringsArray, ...values: any[]): RenderHtml;
 /**
  * The default options used when creating a Web Component. If you customize these options, you
  * should do it at the TOP of your html file, before every other component renders.

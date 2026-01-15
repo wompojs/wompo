@@ -16,6 +16,7 @@ export interface RenderHtml {
 	values: any[];
 	key?: string;
 	_$wompoHtml: true;
+	_$wompoSvg?: boolean;
 	_$portal?: HTMLElement;
 }
 
@@ -425,7 +426,7 @@ class CachedTemplate {
 
 /**
  * This function is used to store dynamic parts of one component that used the value returned by the
- * `html` function. It allows to create kinda the same process of caching used by every component,
+ * `html`  or `svg` function. It allows to create kinda the same process of caching used by every component,
  * so a [dynamics] array is build and used to perform updated on the html result.
  */
 class HtmlProcessedValue {
@@ -909,7 +910,7 @@ const __generateSpecifcStyles = (
 /**
  * This function will create the valid HTML string to put in a template, used then to create the DOM
  * of a component and obtain the dynamic metadata.
- * @param parts The static parts of the `html` function.
+ * @param parts The static parts of the `html` or `svg` function.
  * @returns An array having 2 values: the generated HTML string, and a list of attribute names that
  * are known to be dynamic.
  */
@@ -979,7 +980,7 @@ const __createHtml = (parts: TemplateStringsArray): [string, string[]] => {
  * Based on a template content, this function will extract the dynamic dependecies, and build the
  * metadata used to efficiently update the nodes during re-render.
  * @param template An HTML Template element
- * @param parts The parts returned by the `html` function
+ * @param parts The parts returned by the `html` or `svg` function
  * @param attributes The dynamic attribute names obtained by the `__createHtml` function.
  * @returns The list of elaborated dependencies
  */
@@ -1063,13 +1064,26 @@ const __createDependencies = (
 /**
  * Create a new CachedTemplate, by first obtaining the html content string, and then creating the
  * dependencies. The newly created template will be then used by components of the same type.
- * @param parts The parts returned by the `html` function.
+ * @param parts The parts returned by the `html` or `svg` function.
  * @returns a new instance of CachedTemplate
  */
 const __createTemplate = (html: RenderHtml) => {
 	const [dom, attributes] = __createHtml(html.parts);
 	const template = document.createElement('template');
-	template.innerHTML = dom;
+	if (html._$wompoSvg) {
+		template.innerHTML = `<svg>${dom}</svg>`;
+		const svgWrapper = template.content.firstChild;
+
+		if (svgWrapper) {
+			while (svgWrapper.firstChild) {
+				template.content.insertBefore(svgWrapper.firstChild, svgWrapper);
+			}
+			template.content.removeChild(svgWrapper);
+		}
+	} else {
+		template.innerHTML = dom;
+	}
+
 	const dependencies = __createDependencies(template, html.parts, attributes);
 	return new CachedTemplate(template, dependencies);
 };
@@ -1077,7 +1091,7 @@ const __createTemplate = (html: RenderHtml) => {
 /**
  * This function will compare the parts of the new and old template. If one of the parts differs,
  * means the 2 templates are not equal.
- * @param render The whole result of the `html` function
+ * @param render The whole result of the `html` or `svg` function
  * @returns The string representation of the the template.
  */
 const __areSameTemplates = (newTemplate: RenderHtml, oldTemplate: RenderHtml) => {
@@ -2568,6 +2582,18 @@ export function html(templateParts: TemplateStringsArray, ...values: any[]): Ren
 		values: cleanValues,
 		_$wompoHtml: true,
 	};
+}
+
+/**
+ * This template function is used to then generate the DOM structure inside an SVG element.
+ *
+ * @param template The list of static strings of the template
+ * @param values The list of dynamic values of the template
+ */
+export function svg(templateParts: TemplateStringsArray, ...values: any[]): RenderHtml {
+	const renderHtml = html(templateParts, ...values);
+	renderHtml._$wompoSvg = true;
+	return renderHtml;
 }
 
 /* 
