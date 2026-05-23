@@ -1,0 +1,410 @@
+/* Template caching + the HTML/dependency parser. */
+import {
+  ATTR,
+  ATTRS,
+  DYNAMIC_TAG_MARKER,
+  NODE,
+  TAG,
+  WC_ATTRS_ATTR_PREFIX,
+  WC_ATTRS_MARKER,
+  WC_MARKER,
+  isAttrRegex,
+  isDynamicTagRegex,
+  isInsideTextTag,
+  onlyTextChildrenElementsRegex,
+  selfClosingRegex,
+  treeWalker,
+} from './constants.js';
+import {
+  Dynamics,
+  DynamicAttribute,
+  DynamicAttributes,
+  DynamicNode,
+  DynamicTag,
+} from './dynamics.js';
+import type { Dependency, RenderHtml } from './types.js';
+
+/**
+ * The CachedTemplate class is used to efficiently render components. The template HTML element is
+ * stored here and only cloned when a new component is instantiated.
+ */
+export class CachedTemplate {
+  public template: HTMLTemplateElement;
+  public dependencies: Dependency[];
+
+  constructor(template: HTMLTemplateElement, dependencies: Dependency[]) {
+    this.template = template;
+    this.dependencies = dependencies;
+  }
+
+  /**
+   * Hydration variant of `clone()`. Walks an existing DOM subtree (an SSR-rendered host element)
+   * and constructs the same `Dynamics[]` it would have produced from a freshly cloned fragment —
+   * but with each Dynamic pointing at the existing DOM nodes.
+   *
+   * Relies on the SSR emitting `<!--w-->` / `<!--/w-->` marker comments around every node-position
+   * interpolation. ATTR/TAG/ATTRS dependencies use the existing element directly.
+   *
+   * When a NODE region is found, the walker is advanced past its end marker so subsequent
+   * dependencies resync with the template's walk order. Mismatches (missing markers or
+   * structural drift) throw `HydrationMismatch`, which the component class catches and falls
+   * back to destructive re-render.
+   */
+  public adopt(rootElement: Element): Dynamics[] {
+    const dependencies = this.dependencies;
+    treeWalker.currentNode = rootElement;
+    let node = treeWalker.nextNode();
+    let nodeIndex = 0;
+    let dynamicIndex = 0;
+    let templateDependency = dependencies[0];
+    const dynamics: Dynamics[] = [];
+    while (templateDependency !== undefined && node !== null) {
+      if (nodeIndex === templateDependency.index) {
+        const type = templateDependency.type;
+        let dynamic: Dynamics;
+        if (type === NODE) {
+          if (node.nodeType !== 8 || (node as unknown as Comment).data !== 'w') {
+            throw new HydrationMismatch(
+              `expected '<!--w-->' at node index ${nodeIndex}, got ${describeNode(node)}`,
+            );
+          }
+          const startNode = node as unknown as ChildNode;
+          const endNode = findEndMarker(startNode);
+          if (!endNode) {
+            throw new HydrationMismatch(`no matching '<!--/w-->' for start at index ${nodeIndex}`);
+          }
+          dynamic = new DynamicNode(startNode, endNode);
+          // Advance the walker past everything between start and end (inclusive of end), then
+          // realign nodeIndex with the template's counting scheme. In the template, a NODE
+          // dependency occupies two positions (the `?$wc$` placeholder + the inserted empty end
+          // marker); the SSR'd region may contain any number of inner element/comment nodes
+          // between `<!--w-->` and `<!--/w-->`, but they are not represented in the template's
+          // index space, so we snap back to `index + 1` instead of letting the count drift.
+          while (node && node !== endNode) {
+            node = treeWalker.nextNode();
+          }
+          nodeIndex = templateDependency.index + 1;
+        } else if (type === ATTR) {
+          dynamic = new DynamicAttribute(node as HTMLElement, templateDependency);
+        } else if (type === TAG) {
+          dynamic = new DynamicTag(node as HTMLElement);
+        } else if (type === ATTRS) {
+          dynamic = new DynamicAttributes(node as HTMLElement);
+        }
+        dynamics.push(dynamic!);
+        templateDependency = dependencies[++dynamicIndex];
+      }
+      if (templateDependency !== undefined && nodeIndex !== templateDependency.index) {
+        node = treeWalker.nextNode();
+        nodeIndex++;
+      }
+    }
+    treeWalker.currentNode = document;
+    if (dynamicIndex < dependencies.length) {
+      throw new HydrationMismatch(
+        `expected ${dependencies.length} dependencies but only matched ${dynamicIndex}`,
+      );
+    }
+    return dynamics;
+  }
+
+  /**
+   * Clone the cached template and build the Dynamics metadata used by __setValues to apply values
+   * to the DOM. NODE-dependency empty boundary comments are swapped with invisible text nodes
+   * after the walker is done — replacing them mid-iteration would make the walker skip nodes.
+   */
+  public clone(): [DocumentFragment, Dynamics[]] {
+    const content = this.template.content;
+    const dependencies = this.dependencies;
+    const fragment = document.importNode(content, true);
+    treeWalker.currentNode = fragment;
+    let node = treeWalker.nextNode();
+    let nodeIndex = 0;
+    let dynamicIndex = 0;
+    let templateDependency = dependencies[0];
+    const dynamics = [];
+    const pendingEndSwap: DynamicNode[] = [];
+    while (templateDependency !== undefined) {
+      if (nodeIndex === templateDependency.index) {
+        let dynamic: Dynamics;
+        const type = templateDependency.type;
+        if (type === NODE) {
+          const endNode = node.nextSibling;
+          const dn = new DynamicNode(node as HTMLElement, endNode);
+          if (endNode && endNode.nodeType === 8 && (endNode as Comment).data === '') {
+            pendingEndSwap.push(dn);
+          }
+          dynamic = dn;
+        } else if (type === ATTR) {
+          dynamic = new DynamicAttribute(node as HTMLElement, templateDependency);
+        } else if (type === TAG) {
+          dynamic = new DynamicTag(node as HTMLElement);
+        } else if (type === ATTRS) {
+          dynamic = new DynamicAttributes(node as HTMLElement);
+        }
+        dynamics.push(dynamic);
+        templateDependency = dependencies[++dynamicIndex];
+      }
+      if (nodeIndex !== templateDependency?.index) {
+        node = treeWalker.nextNode()!;
+        nodeIndex++;
+      }
+    }
+    treeWalker.currentNode = document;
+    for (const dn of pendingEndSwap) {
+      const oldEnd = dn.endNode!;
+      const replacement = document.createTextNode('');
+      oldEnd.parentNode!.replaceChild(replacement, oldEnd);
+      dn.endNode = replacement;
+    }
+    return [fragment, dynamics];
+  }
+}
+
+/** Thrown by `CachedTemplate.adopt()` when the existing DOM doesn't match the expected template
+ * structure. The caller (component class hydration entry) traps this and falls back to a
+ * destructive re-render. */
+export class HydrationMismatch extends Error {
+  public _$wompoHydrationMismatch = true;
+  constructor(message: string) {
+    super(message);
+    this.name = 'HydrationMismatch';
+  }
+}
+
+/** Scan forward from a `<!--w-->` start marker for the matching `<!--/w-->`, accounting for
+ * nested marker pairs. Markers are well-nested by the SSR emitter. */
+function findEndMarker(start: ChildNode): ChildNode | null {
+  let n: Node | null = start.nextSibling;
+  let depth = 1;
+  while (n) {
+    if (n.nodeType === 8) {
+      const data = (n as Comment).data;
+      if (data === 'w') depth++;
+      else if (data === '/w') {
+        depth--;
+        if (depth === 0) return n as ChildNode;
+      }
+    }
+    n = n.nextSibling;
+  }
+  return null;
+}
+
+function describeNode(node: Node): string {
+  if (node.nodeType === 1) return `<${(node as Element).tagName.toLowerCase()}>`;
+  if (node.nodeType === 8) return `<!--${(node as Comment).data}-->`;
+  if (node.nodeType === 3) return `"${(node as Text).data}"`;
+  return `[${node.nodeType}]`;
+}
+
+/**
+ * Stores the processed value of a nested `html` / `svg` interpolation. Lets the renderer keep
+ * track of the same kind of caching used by every component.
+ */
+export class HtmlProcessedValue {
+  public values: any[];
+  public parts: TemplateStringsArray;
+  public template: [DocumentFragment, Dynamics[]];
+  public index: number;
+  public renderHtml: RenderHtml;
+  public key?: string;
+
+  constructor(render: RenderHtml, template: [DocumentFragment, Dynamics[]], index: number) {
+    this.values = render.values;
+    this.renderHtml = render;
+    this.parts = render.parts;
+    this.template = template;
+    this.index = index;
+    this.key = render.key;
+  }
+}
+
+/**
+ * Builds the static HTML string used to populate a `<template>`, replacing dynamic interpolations
+ * with markers that __createDependencies will then read back.
+ */
+export const __createHtml = (parts: TemplateStringsArray): [string, string[]] => {
+  let html = '';
+  const attributes = [];
+  const length = parts.length - 1;
+  let attrDelimiter = '';
+  let textTagName = '';
+  let insideOpenTag = false;
+  let attrsCount = 0;
+  for (let i = 0; i < length; i++) {
+    let part = parts[i];
+    for (let k = 0; k < part.length; k++) {
+      const c = part.charCodeAt(k);
+      if (c === 60 /* < */) insideOpenTag = true;
+      else if (c === 62 /* > */) insideOpenTag = false;
+    }
+    if (attrDelimiter && part.includes(attrDelimiter)) attrDelimiter = '';
+    if (textTagName && part.includes(`</${textTagName}>`)) textTagName = '';
+    if (attrDelimiter || textTagName) {
+      html += part + WC_MARKER;
+    } else {
+      isAttrRegex.lastIndex = 0;
+      const isAttr = isAttrRegex.exec(part);
+      // Reject false positives: if the captured "attr name" contains a `>`, we're past a tag
+      // close and what looked like an attribute is actually text content.
+      if (isAttr && !isAttr[1].includes('>')) {
+        const [match, attrName] = isAttr;
+        const beforeLastChar = match[match.length - 1];
+        const delimiter = match.lastIndexOf('"') > match.lastIndexOf("'") ? '"' : "'";
+        if (!attrDelimiter) {
+          attrDelimiter = beforeLastChar === '=' ? '' : delimiter;
+          part = part.replace(/=([^=]*)$/g, (el) => `${WC_MARKER}=${el.substring(1)}`);
+          let toAdd = part;
+          if (attrDelimiter) toAdd += WC_MARKER;
+          else toAdd += '"0"';
+          html += toAdd;
+        }
+        attributes.push(attrName);
+      } else {
+        if (part.match(isDynamicTagRegex)) {
+          html += part + DYNAMIC_TAG_MARKER;
+          continue;
+        }
+        isInsideTextTag.lastIndex = 0;
+        const insideTextTag = isInsideTextTag.exec(part);
+        if (insideTextTag) {
+          textTagName = insideTextTag[1];
+          html += part + WC_MARKER;
+        } else if (insideOpenTag) {
+          const pad = part.length === 0 || part[part.length - 1] !== ' ' ? ' ' : '';
+          html += `${part}${pad}${WC_ATTRS_ATTR_PREFIX}${attrsCount}="${WC_MARKER}"`;
+          attributes.push(WC_ATTRS_MARKER);
+          attrsCount++;
+        } else {
+          html += part + `<?${WC_MARKER}>`;
+        }
+      }
+    }
+  }
+  html += parts[parts.length - 1];
+  html = html.replace(selfClosingRegex, (match, firstPart, componentName) => {
+    if (match.endsWith('/>')) return `${firstPart}></${componentName}>`;
+    return match;
+  });
+  html = html.replace(/<[a-z]*-[a-z]*\s?.*?>/gms, (match) => {
+    return match.replace(/(?<=\s)([a-z]+([A-Z][a-z]*)+)[=\s]/gms, (attr) =>
+      attr.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`),
+    );
+  });
+  return [html, attributes];
+};
+
+/**
+ * Walks the just-built template content and extracts the dependency metadata that __setValues uses
+ * to efficiently update the DOM on each render.
+ */
+export const __createDependencies = (
+  template: HTMLTemplateElement,
+  parts: TemplateStringsArray,
+  attributes: string[],
+) => {
+  const dependencies: Dependency[] = [];
+  treeWalker.currentNode = template.content;
+  let node: Element;
+  let dependencyIndex = 0;
+  let nodeIndex = 0;
+  const partsLength = parts.length;
+  while (((node as Node) = treeWalker.nextNode()) !== null && dependencies.length < partsLength) {
+    if (node.nodeType === 1) {
+      if (node.nodeName === DYNAMIC_TAG_MARKER.toUpperCase()) {
+        dependencies.push({ type: TAG, index: nodeIndex });
+      }
+      if (node.hasAttributes()) {
+        const attributeNames = node.getAttributeNames();
+        for (const attrName of attributeNames) {
+          if (attrName.startsWith(WC_ATTRS_ATTR_PREFIX)) {
+            dependencyIndex++;
+            dependencies.push({ type: ATTRS, index: nodeIndex });
+            node.removeAttribute(attrName);
+          } else if (attrName.endsWith(WC_MARKER)) {
+            const realName = attributes[dependencyIndex++];
+            const attrValue = node.getAttribute(attrName);
+            if (attrValue !== '0') {
+              const dynamicParts = attrValue.split(WC_MARKER);
+              for (let i = 0; i < dynamicParts.length - 1; i++) {
+                dependencies.push({
+                  type: ATTR,
+                  index: nodeIndex,
+                  attrDynamics: attrValue,
+                  name: realName,
+                });
+              }
+            } else {
+              dependencies.push({ type: ATTR, index: nodeIndex, name: realName });
+            }
+            node.removeAttribute(attrName);
+          }
+        }
+      }
+      if (onlyTextChildrenElementsRegex.test(node.tagName)) {
+        const strings = node.textContent!.split(WC_MARKER);
+        const lastIndex = strings.length - 1;
+        if (lastIndex > 0) {
+          node.textContent = '';
+          for (let i = 0; i < lastIndex; i++) {
+            node.append(strings[i], document.createComment(''));
+            treeWalker.nextNode();
+            dependencies.push({ type: NODE, index: ++nodeIndex });
+          }
+          node.append(strings[lastIndex], document.createComment(''));
+        }
+      }
+    } else if (node.nodeType === 8) {
+      const data = (node as unknown as Comment).data;
+      if (data === `?${WC_MARKER}`) {
+        dependencies.push({ type: NODE, index: nodeIndex });
+        // Every NODE dependency needs an explicit end marker as its next sibling. Without it,
+        // when the placeholder is the last child of its parent, the DynamicNode's endNode would
+        // be null and clearValue() would walk past the intended boundary.
+        node.parentNode!.insertBefore(document.createComment(''), node.nextSibling);
+      }
+    }
+    nodeIndex++;
+  }
+  return dependencies;
+};
+
+/** Create a new CachedTemplate for a given RenderHtml. */
+export const __createTemplate = (html: RenderHtml) => {
+  const [dom, attributes] = __createHtml(html.parts);
+  const template = document.createElement('template');
+  if (html._$wompoSvg) {
+    template.innerHTML = `<svg>${dom}</svg>`;
+    const svgWrapper = template.content.firstChild;
+    if (svgWrapper) {
+      while (svgWrapper.firstChild) {
+        template.content.insertBefore(svgWrapper.firstChild, svgWrapper);
+      }
+      template.content.removeChild(svgWrapper);
+    }
+  } else {
+    template.innerHTML = dom;
+  }
+  const dependencies = __createDependencies(template, html.parts, attributes);
+  return new CachedTemplate(template, dependencies);
+};
+
+/** True if two RenderHtml objects describe the same template. */
+export const __areSameTemplates = (newTemplate: RenderHtml, oldTemplate: RenderHtml) => {
+  if (!newTemplate || !oldTemplate) return false;
+  const newParts = newTemplate.parts;
+  const oldParts = oldTemplate.parts;
+  if (newTemplate.key && oldTemplate.key && newTemplate.key === oldTemplate.key) return true;
+  if (newParts.length !== oldParts?.length) return false;
+  const newValues = newTemplate.values;
+  const oldValues = oldTemplate.values;
+  for (let i = 0; i < newParts.length; i++) {
+    if (newParts[i] !== oldParts[i]) return false;
+    if (newValues[i]?._$wompoF) {
+      if (!oldValues[i]?._$wompoF) return false;
+      if (newValues[i].componentName !== oldValues[i].componentName) return false;
+    }
+  }
+  return true;
+};

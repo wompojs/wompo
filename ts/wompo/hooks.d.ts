@@ -1,0 +1,14 @@
+import type { Context, IdHook, RefHook, ReducerAction, ReducerHook, StateHook, WompoElement } from './types.js';
+export declare const useHook: () => [WompoElement, number];
+export declare const useState: <S>(initialState: S | (() => S)) => StateHook<S>;
+export declare const useEffect: (callback: VoidFunction | (() => VoidFunction), dependencies?: any[]) => void;
+export declare const useLayoutEffect: (callback: VoidFunction | (() => VoidFunction), dependencies?: any[]) => void;
+export declare const useRef: <T>(initialValue?: T) => RefHook<T>;
+export declare const useCallback: <C = (...args: any[]) => any>(callbackFn: C, dependencies?: any[]) => C;
+export declare const useId: () => IdHook;
+export declare const useMemo: <T>(callbackFn: () => T, dependencies: any[]) => T;
+export declare const useReducer: <State>(reducer: (state: State, action: ReducerAction) => Partial<State>, initialState: State) => ReducerHook<State>;
+export declare const useExposed: <E = {}>(toExpose: E) => void;
+export declare const useAsync: <S>(callback: () => Promise<S>, dependencies: any[], activateSuspense?: boolean) => null | S;
+export declare const useSelf: <H = WompoElement>() => H;
+export declare const useContext: <S>(Context: Context<S>) => S;

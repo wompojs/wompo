@@ -1,17 +1,17 @@
 {
 	"name": "wompo",
 	"description": "Wompo is a performant React-like JS library to create Web-Components that are re-usable, shareable, and beginner-friendly.",
-	"version": "1.4.3",
+	"version": "2.0.0",
 	"type": "module",
 	"module": "./dist/wompo.js",
 	"main": "./dist/wompo.js",
-	"types": "./ts/wompo.d.ts",
+	"types": "./dist/wompo.d.ts",
 	"author": "Lorenzo Lannino <lanninolore@gmail.com>",
 	"license": "MIT",
 	"scripts": {
-		"dev": "esbuild ts/wompo.ts ts/ssr/index.ts --sourcemap --watch --outdir=dist --allow-overwrite",
-		"build": "tsc & esbuild ts/wompo.ts ts/ssr/index.ts --minify --outdir=dist --allow-overwrite",
-		"jsx": "esbuild jsx-runtime.ts --minify --outfile=jsx-runtime.js --allow-overwrite",
+		"dev": "esbuild ts/wompo.ts ts/ssr/index.ts ts/wompo/hydrate.ts ts/ssr/devalue.ts --bundle --format=esm --splitting --sourcemap --watch --outdir=dist --allow-overwrite",
+		"build": "tsc & esbuild ts/wompo.ts ts/ssr/index.ts ts/wompo/hydrate.ts ts/ssr/devalue.ts --bundle --format=esm --splitting --minify --outdir=dist --allow-overwrite",
+		"test": "vitest run",
 		"perf": "npx tachometer --config tachometer.json"
 	},
 	"repository": {
@@ -24,35 +24,27 @@
 	"homepage": "https://wompo.dev",
 	"exports": {
 		".": {
-			"types": "./ts/wompo.d.ts",
+			"types": "./dist/wompo.d.ts",
 			"default": "./dist/wompo.js"
 		},
 		"./ssr": {
-			"types": "./ts/ssr/index.d.ts",
+			"types": "./dist/ssr/index.d.ts",
 			"default": "./dist/ssr/index.js"
 		},
-		"./jsx-runtime": {
-			"types": "./jsx.d.ts",
-			"default": "./jsx-runtime.js"
+		"./hydrate": {
+			"types": "./dist/wompo/hydrate.d.ts",
+			"default": "./dist/wompo/hydrate.js"
 		},
-		"./jsx-dev-runtime": {
-			"types": "./jsx.d.ts",
-			"default": "./jsx-runtime.js"
-		}
-	},
-	"typesVersions": {
-		"*": {
-			"jsx-runtime": [
-				"jsx.d.ts"
-			],
-			"jsx-dev-runtime": [
-				"jsx.d.ts"
-			]
+		"./devalue": {
+			"types": "./dist/ssr/devalue.d.ts",
+			"default": "./dist/ssr/devalue.js"
 		}
 	},
 	"devDependencies": {
 		"esbuild": "0.25.0",
+		"happy-dom": "^20.9.0",
 		"tachometer": "^0.7.0",
-		"ts-loader": "^9.4.3"
+		"ts-loader": "^9.4.3",
+		"vitest": "^4.1.7"
 	}
 }
