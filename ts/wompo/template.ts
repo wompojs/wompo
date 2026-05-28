@@ -31,10 +31,20 @@ import type { Dependency, RenderHtml } from './types.js';
 export class CachedTemplate {
   public template: HTMLTemplateElement;
   public dependencies: Dependency[];
+  /** Indices where the template has an element with no walker-visible children (no element/comment
+   * children — text-only or empty). During `adopt()` we use these to detect when a nested custom
+   * element has populated itself between SSR and our walk (a non-island wompo component upgrades
+   * synchronously when its `customElements.define` runs, and runs its own template render before
+   * the enclosing island gets a chance to call `_$hydrate`). Without this, the adopt walker
+   * descends into the unexpected children and throws a "hydration mismatch" — even though the
+   * shape we *care about* matches. Recording leaf positions lets us treat such elements as the
+   * leaves the template said they were and jump past their SSR'd subtree. */
+  public leafElementIndices: Set<number>;
 
-  constructor(template: HTMLTemplateElement, dependencies: Dependency[]) {
+  constructor(template: HTMLTemplateElement, dependencies: Dependency[], leafElementIndices: Set<number>) {
     this.template = template;
     this.dependencies = dependencies;
+    this.leafElementIndices = leafElementIndices;
   }
 
   /**
@@ -52,6 +62,7 @@ export class CachedTemplate {
    */
   public adopt(rootElement: Element): Dynamics[] {
     const dependencies = this.dependencies;
+    const leafElementIndices = this.leafElementIndices;
     treeWalker.currentNode = rootElement;
     let node = treeWalker.nextNode();
     let nodeIndex = 0;
@@ -63,6 +74,24 @@ export class CachedTemplate {
         const type = templateDependency.type;
         let dynamic: Dynamics;
         if (type === NODE) {
+          // When the parent template has `<${Comp}>${children}</${Comp}>` and `Comp` is an
+          // island, the parent's children NODE dep lands inside the SSR'd island — but the
+          // island's first child is a `<template data-wompo-props>` metadata payload, and the
+          // real children markers sit inside the island's own rendered template (e.g. inside
+          // the `<a>` produced by `<seawomp-link>`'s render). The parent's adopt walker hits
+          // that `<template>` first and would otherwise throw. Treat it as a signal that we're
+          // straddling a nested-island boundary and skip forward to the first `<!--w-->`.
+          if (
+            node.nodeType === 1 &&
+            (node as Element).tagName.toLowerCase() === 'template' &&
+            (node as Element).hasAttribute('data-wompo-props')
+          ) {
+            let scan: Node | null = node;
+            while (scan && (scan.nodeType !== 8 || (scan as unknown as Comment).data !== 'w')) {
+              scan = treeWalker.nextNode();
+            }
+            if (scan) node = scan;
+          }
           if (node.nodeType !== 8 || (node as unknown as Comment).data !== 'w') {
             throw new HydrationMismatch(
               `expected '<!--w-->' at node index ${nodeIndex}, got ${describeNode(node)}`,
@@ -95,7 +124,16 @@ export class CachedTemplate {
         templateDependency = dependencies[++dynamicIndex];
       }
       if (templateDependency !== undefined && nodeIndex !== templateDependency.index) {
-        node = treeWalker.nextNode();
+        // If this position is a template-side leaf (no walker-visible children), advance past any
+        // descendants the live DOM may have grown after SSR. The typical cause is a nested
+        // non-island wompo component upgrading and rendering its own template before the
+        // enclosing island gets a chance to call `_$hydrate`. From this template's perspective
+        // the element IS a leaf, so we mustn't let unexpected descendants shift our nodeIndex.
+        if (node.nodeType === 1 && leafElementIndices.has(nodeIndex)) {
+          node = nextNodeSkippingSubtree(node);
+        } else {
+          node = treeWalker.nextNode();
+        }
         nodeIndex++;
       }
     }
@@ -187,6 +225,26 @@ function findEndMarker(start: ChildNode): ChildNode | null {
       }
     }
     n = n.nextSibling;
+  }
+  return null;
+}
+
+/** Return the next walker-visible node (element or comment) in document order that is *not* a
+ * descendant of `start`. Walks up the parent chain until a `nextSibling` exists, then descends to
+ * the first walker-visible node from there (matching how the treeWalker would land next). When
+ * the start node has no element/comment children, this matches `treeWalker.nextNode()`. */
+function nextNodeSkippingSubtree(start: Node): Node | null {
+  let cur: Node | null = start;
+  while (cur) {
+    const sib = cur.nextSibling;
+    if (sib) {
+      // Position the walker at sib (which may be a text node) and ask for the next visible node.
+      treeWalker.currentNode = sib;
+      if (sib.nodeType === 1 || sib.nodeType === 8) return sib;
+      return treeWalker.nextNode();
+    }
+    cur = cur.parentNode;
+    if (!cur || cur === document) return null;
   }
   return null;
 }
@@ -370,6 +428,33 @@ export const __createDependencies = (
   return dependencies;
 };
 
+/** Walk the (post-`__createDependencies`) template and record indices for elements that have no
+ * walker-visible children — i.e. elements that occupy a single position in the dependency index
+ * space. `adopt()` uses this to recognise positions where the live DOM may legitimately have
+ * extra descendants the template doesn't know about (typically because a nested non-island
+ * custom element rendered itself before the enclosing island called `_$hydrate`). */
+const __computeLeafElementIndices = (templateContent: DocumentFragment): Set<number> => {
+  const leaves = new Set<number>();
+  treeWalker.currentNode = templateContent;
+  let node: Node | null;
+  let idx = 0;
+  while ((node = treeWalker.nextNode())) {
+    if (node.nodeType === 1) {
+      let hasWalkerChild = false;
+      for (let c = (node as Element).firstChild; c; c = c.nextSibling) {
+        if (c.nodeType === 1 || c.nodeType === 8) {
+          hasWalkerChild = true;
+          break;
+        }
+      }
+      if (!hasWalkerChild) leaves.add(idx);
+    }
+    idx++;
+  }
+  treeWalker.currentNode = document;
+  return leaves;
+};
+
 /** Create a new CachedTemplate for a given RenderHtml. */
 export const __createTemplate = (html: RenderHtml) => {
   const [dom, attributes] = __createHtml(html.parts);
@@ -387,7 +472,8 @@ export const __createTemplate = (html: RenderHtml) => {
     template.innerHTML = dom;
   }
   const dependencies = __createDependencies(template, html.parts, attributes);
-  return new CachedTemplate(template, dependencies);
+  const leafElementIndices = __computeLeafElementIndices(template.content);
+  return new CachedTemplate(template, dependencies, leafElementIndices);
 };
 
 /** True if two RenderHtml objects describe the same template. */

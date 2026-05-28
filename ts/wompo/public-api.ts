@@ -94,12 +94,20 @@ export function defineWompo<Props extends WompoProps, E = {}>(
     island: componentOptions.island,
   };
   if (!IS_SERVER) {
-    const ComponentClass = _$wompo<Props, E>(
-      Component as unknown as WompoComponent,
-      componentOptions,
-    );
-    Component.class = ComponentClass;
-    customElements.define(componentOptions.name, ComponentClass);
+    const existing = customElements.get(componentOptions.name);
+    if (existing) {
+      // Tag was already defined — most often a duplicate `wompo` module load (npm-link or
+      // workspace setups). Reuse the existing class so subsequent renders still work, and
+      // skip a second customElements.define call which would throw NotSupportedError.
+      Component.class = existing as any;
+    } else {
+      const ComponentClass = _$wompo<Props, E>(
+        Component as unknown as WompoComponent,
+        componentOptions,
+      );
+      Component.class = ComponentClass;
+      customElements.define(componentOptions.name, ComponentClass);
+    }
   }
   registeredComponents[componentOptions.name] = Component;
   return Component as WompoComponent<Props & WompoProps>;

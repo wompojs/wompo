@@ -2,10 +2,10 @@
  * useReducer, useAsync, useExposed, useSelf, useContext, useHook. */
 import { DEV_MODE, IS_SERVER } from './constants.js';
 import {
-  currentHookIndex,
-  currentRenderingComponent,
+  getCurrentHookIndex,
+  getCurrentRenderingComponent,
+  getServerContextResolver,
   incrementHookIndex,
-  serverContextResolver,
 } from './render-context.js';
 import type {
   AsyncHook,
@@ -24,8 +24,8 @@ import type {
 } from './types.js';
 
 export const useHook = (): [WompoElement, number] => {
-  const currentComponent = currentRenderingComponent;
-  const currentIndex = currentHookIndex;
+  const currentComponent = getCurrentRenderingComponent();
+  const currentIndex = getCurrentHookIndex();
   incrementHookIndex();
   return [currentComponent, currentIndex];
 };
@@ -224,7 +224,7 @@ export const useReducer = <State>(
 };
 
 export const useExposed = <E = {}>(toExpose: E) => {
-  const component = currentRenderingComponent;
+  const component = getCurrentRenderingComponent();
   const keys = Object.keys(toExpose) as (keyof E)[];
   for (const key of keys) {
     (component as any)[key] = toExpose[key];
@@ -278,14 +278,15 @@ export const useAsync = <S>(
 };
 
 export const useSelf = <H = WompoElement>() => {
-  return currentRenderingComponent as H;
+  return getCurrentRenderingComponent() as H;
 };
 
 export const useContext = <S>(Context: Context<S>): S => {
   const [component, hookIndex] = useHook();
   if (IS_SERVER) {
-    if (serverContextResolver) {
-      const v = serverContextResolver<S>(Context);
+    const resolver = getServerContextResolver();
+    if (resolver) {
+      const v = resolver<S>(Context);
       return v === undefined ? Context.default : (v as S);
     }
     return Context.default;

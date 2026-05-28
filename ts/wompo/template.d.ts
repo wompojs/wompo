@@ -7,7 +7,10 @@ import type { Dependency, RenderHtml } from './types.js';
 export declare class CachedTemplate {
     template: HTMLTemplateElement;
     dependencies: Dependency[];
-    constructor(template: HTMLTemplateElement, dependencies: Dependency[]);
+    /** Indices where the template has an element with no walker-visible children. Used by
+     * `adopt()` to skip over unexpected descendants the live DOM may have grown after SSR. */
+    leafElementIndices: Set<number>;
+    constructor(template: HTMLTemplateElement, dependencies: Dependency[], leafElementIndices: Set<number>);
     /**
      * Hydration variant of `clone()`. Walks an existing DOM subtree (an SSR-rendered host element)
      * and constructs the same `Dynamics[]` it would have produced from a freshly cloned fragment —

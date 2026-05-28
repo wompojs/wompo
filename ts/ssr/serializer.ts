@@ -83,6 +83,19 @@ function freshWalker(): Walker {
   };
 }
 
+/** Drop the trailing `name=` (one entry per char) and the preceding `=` from the buffer.
+ * Called when an interp at the `name=${value}` position evaluates to null/undefined/false on
+ * a native open tag — otherwise the dangling `=` would steal the next attribute as a value. */
+function backtrackAttrName(buf: string[], name: string): void {
+  const tail = name.length + 1; // chars + '='
+  if (buf.length < tail) return;
+  for (let n = 0; n < tail; n++) {
+    const last = buf[buf.length - 1];
+    if (last.length !== 1) return; // safety: walker emits one char per push; bail if not
+    buf.pop();
+  }
+}
+
 /* ============================== Component frame ============================== */
 
 interface Frame {
@@ -204,8 +217,8 @@ export class Serializer {
             break;
           }
           if (c === 47 /* / */) {
+            // `<tag/>` → mark self-closing; the actual `/>` (or `>`) is emitted by closeOpenTag.
             w.selfClosing = true;
-            if (!compOpen) buf.push('/');
             i++;
             break;
           }
@@ -228,7 +241,6 @@ export class Serializer {
           }
           if (c === 47 /* / */) {
             w.selfClosing = true;
-            if (!compOpen) buf.push('/');
             i++;
             break;
           }
@@ -292,7 +304,6 @@ export class Serializer {
             w.attrName = '';
             w.attrPrefix = '';
             w.selfClosing = true;
-            if (!compOpen) buf.push('/');
             i++;
             break;
           }
@@ -585,7 +596,9 @@ export class Serializer {
       // string; rebuild the full ` name="value"` in parentBuf.
       if (w.attrPrefix === '' && w.attrName !== 'ref') {
         (frame.pendingProps as any)[w.attrName] = w.attrAcc;
-        frame.parentBuf.push(' ', toKebab(w.attrName), '="', escapeAttr(w.attrAcc), '"');
+        if (w.attrName !== 'title') {
+          frame.parentBuf.push(' ', toKebab(w.attrName), '="', escapeAttr(w.attrAcc), '"');
+        }
       } else if (w.attrPrefix === '?' && w.attrAcc) {
         (frame.pendingProps as any)['?' + w.attrName] = w.attrAcc;
         frame.parentBuf.push(' ', toKebab(w.attrName));
@@ -596,7 +609,8 @@ export class Serializer {
     const key = w.attrPrefix + w.attrName;
     (frame.pendingProps as any)[key] = w.attrAcc;
     this.maybePushProviderValue(frame, w.attrPrefix, w.attrName, w.attrAcc);
-    if (w.attrPrefix === '' && w.attrName !== 'ref') {
+    if (w.attrPrefix === '' && w.attrName !== 'ref' && w.attrName !== 'title') {
+      // `title` is held only as a prop; see emitAttrValue for the rationale.
       frame.parentBuf.push(' ', toKebab(w.attrName), '="', escapeAttr(w.attrAcc), '"');
     } else if (w.attrPrefix === '?' && w.attrAcc) {
       frame.parentBuf.push(' ', toKebab(w.attrName));
@@ -741,7 +755,10 @@ export class Serializer {
       if (prefix !== '@') (frame.pendingProps as any)[propKey] = value;
       this.maybePushProviderValue(frame, prefix, name, value);
       if (prefix === '' && value !== null && value !== undefined && value !== false) {
-        if (value !== Object(value) && name !== 'ref') {
+        if (value !== Object(value) && name !== 'ref' && name !== 'title') {
+          // `title` is intentionally NOT emitted onto custom-element open tags — wompo client
+          // strips it on hydration to avoid the browser's native tooltip showing up on a
+          // wrapper element. Mirror that so SSR + client produce consistent DOM.
           const emit = formatPlainAttr(toKebab(name), value);
           if (emit) frame.parentBuf.push(emit);
         }
@@ -761,7 +778,14 @@ export class Serializer {
       if (emit) buf.push(emit);
       return;
     }
-    if (value === null || value === undefined || value === false) return;
+    if (value === null || value === undefined || value === false) {
+      // The walker already pushed `name=` (each char as a separate entry) into the buffer
+      // before this interp was processed. Drop those entries so the next attribute isn't
+      // glued to a dangling `name=`. inlineName=false means the spread path is responsible
+      // for not emitting anything in the first place, so no backtracking is needed there.
+      if (inlineName) backtrackAttrName(buf, name);
+      return;
+    }
     if (typeof value === 'object') {
       if (name === 'style' && value && !Array.isArray(value)) {
         const styleStr = styleObjectToString(value as Record<string, unknown>);

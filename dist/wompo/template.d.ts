@@ -7,7 +7,16 @@ import type { Dependency, RenderHtml } from './types.js';
 export declare class CachedTemplate {
     template: HTMLTemplateElement;
     dependencies: Dependency[];
-    constructor(template: HTMLTemplateElement, dependencies: Dependency[]);
+    /** Indices where the template has an element with no walker-visible children (no element/comment
+     * children — text-only or empty). During `adopt()` we use these to detect when a nested custom
+     * element has populated itself between SSR and our walk (a non-island wompo component upgrades
+     * synchronously when its `customElements.define` runs, and runs its own template render before
+     * the enclosing island gets a chance to call `_$hydrate`). Without this, the adopt walker
+     * descends into the unexpected children and throws a "hydration mismatch" — even though the
+     * shape we *care about* matches. Recording leaf positions lets us treat such elements as the
+     * leaves the template said they were and jump past their SSR'd subtree. */
+    leafElementIndices: Set<number>;
+    constructor(template: HTMLTemplateElement, dependencies: Dependency[], leafElementIndices: Set<number>);
     /**
      * Hydration variant of `clone()`. Walks an existing DOM subtree (an SSR-rendered host element)
      * and constructs the same `Dynamics[]` it would have produced from a freshly cloned fragment —

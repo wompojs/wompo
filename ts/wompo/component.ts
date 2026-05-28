@@ -33,11 +33,15 @@ export const _$wompo = <Props extends WompoProps, E>(
   const WompoComponentClass = class extends Constructor implements WompoElement {
     static _$wompo = true;
     static componentName = options.name;
-    static _$cachedTemplate: CachedTemplate;
+    static _$cachedTemplates: Map<TemplateStringsArray, CachedTemplate> = new Map();
 
     static _$getOrCreateTemplate(html: RenderHtml) {
-      if (!this._$cachedTemplate) this._$cachedTemplate = __createTemplate(html);
-      return this._$cachedTemplate;
+      let template = this._$cachedTemplates.get(html.parts);
+      if (!template) {
+        template = __createTemplate(html);
+        this._$cachedTemplates.set(html.parts, template);
+      }
+      return template;
     }
 
     public _$wompo: true = true;
