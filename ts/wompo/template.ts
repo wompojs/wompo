@@ -40,11 +40,24 @@ export class CachedTemplate {
    * shape we *care about* matches. Recording leaf positions lets us treat such elements as the
    * leaves the template said they were and jump past their SSR'd subtree. */
   public leafElementIndices: Set<number>;
+  /** Maps the node index of each dynamic-tag placeholder (`wc-wc`) to the node index immediately
+   * after its template subtree. When a dynamic tag resolves to a component, that component re-homes
+   * the tag's children into its own SSR output (behind a `<template data-wompo-props>` and wrapper
+   * elements), so `adopt()` can't walk them in template order. This range lets adopt() splice into
+   * the component's `<!--wc-->` children region for the in-range deps, then resume at the
+   * component's next sibling — the node the template says comes after the dynamic tag. */
+  public dynamicTagSubtrees: Map<number, number>;
 
-  constructor(template: HTMLTemplateElement, dependencies: Dependency[], leafElementIndices: Set<number>) {
+  constructor(
+    template: HTMLTemplateElement,
+    dependencies: Dependency[],
+    leafElementIndices: Set<number>,
+    dynamicTagSubtrees: Map<number, number>,
+  ) {
     this.template = template;
     this.dependencies = dependencies;
     this.leafElementIndices = leafElementIndices;
+    this.dynamicTagSubtrees = dynamicTagSubtrees;
   }
 
   /**
@@ -63,13 +76,53 @@ export class CachedTemplate {
   public adopt(rootElement: Element): Dynamics[] {
     const dependencies = this.dependencies;
     const leafElementIndices = this.leafElementIndices;
+    const dynamicTagSubtrees = this.dynamicTagSubtrees;
     treeWalker.currentNode = rootElement;
     let node = treeWalker.nextNode();
     let nodeIndex = 0;
     let dynamicIndex = 0;
     let templateDependency = dependencies[0];
     const dynamics: Dynamics[] = [];
+    // Stack of dynamic-tag boundaries we are currently "inside" (their children were re-homed into
+    // the resolved component). Each frame remembers where to resume once its in-range deps are
+    // bound. Dynamic tags can nest, so this is a stack.
+    const tagFrames: {
+      compEl: Element;
+      tagIndex: number;
+      subtreeEnd: number;
+      entered: boolean;
+    }[] = [];
     while (templateDependency !== undefined && node !== null) {
+      // Transition into / out of a re-homing dynamic-tag's children before matching this dep.
+      const frame = tagFrames[tagFrames.length - 1];
+      if (frame !== undefined) {
+        if (templateDependency.index >= frame.subtreeEnd) {
+          // All of this dynamic tag's in-range deps are bound. Resume at the component's next
+          // sibling (the node the template says follows the dynamic tag) and realign nodeIndex.
+          node = nextNodeSkippingSubtree(frame.compEl);
+          nodeIndex = frame.subtreeEnd;
+          tagFrames.pop();
+          continue;
+        }
+        if (!frame.entered && templateDependency.index > frame.tagIndex) {
+          // First dep that lives *inside* the tag's children (deps at the tag's own index are its
+          // attributes and bind to the component element directly). Splice the walker into the
+          // component's `<!--wc-->` children region so the re-homed children (which match the
+          // template's tag-subtree node-for-node) line up.
+          const regionStart = findChildrenRegionStart(frame.compEl);
+          if (regionStart === null) {
+            throw new HydrationMismatch(
+              `no '<!--wc-->' children region in <${frame.compEl.tagName.toLowerCase()}>`,
+            );
+          }
+          treeWalker.currentNode = regionStart;
+          node = regionStart as unknown as Node;
+          // The region marker sits at the dynamic tag's own index; the next walker step lands on
+          // the first re-homed child (tag index + 1), matching the template's subtree numbering.
+          nodeIndex = frame.tagIndex;
+          frame.entered = true;
+        }
+      }
       if (nodeIndex === templateDependency.index) {
         const type = templateDependency.type;
         let dynamic: Dynamics;
@@ -87,12 +140,12 @@ export class CachedTemplate {
             (node as Element).hasAttribute('data-wompo-props')
           ) {
             let scan: Node | null = node;
-            while (scan && (scan.nodeType !== 8 || (scan as unknown as Comment).data !== 'w')) {
+            while (scan && !isNodeStartMarker(scan)) {
               scan = treeWalker.nextNode();
             }
             if (scan) node = scan;
           }
-          if (node.nodeType !== 8 || (node as unknown as Comment).data !== 'w') {
+          if (!isNodeStartMarker(node)) {
             throw new HydrationMismatch(
               `expected '<!--w-->' at node index ${nodeIndex}, got ${describeNode(node)}`,
             );
@@ -116,7 +169,17 @@ export class CachedTemplate {
         } else if (type === ATTR) {
           dynamic = new DynamicAttribute(node as HTMLElement, templateDependency);
         } else if (type === TAG) {
-          dynamic = new DynamicTag(node as HTMLElement);
+          const compEl = node as Element;
+          dynamic = new DynamicTag(compEl as unknown as HTMLElement);
+          // If the dynamic tag resolved to a wompo component (every component emits
+          // `data-wompo-ssr`), it re-homed the tag's children into its own render output. Push a
+          // frame so the loop splices into the component's `<!--wc-->` region for the children deps
+          // and resumes at the component's next sibling afterward. Dynamic tags that resolved to a
+          // native element keep their children in place, so no frame is needed there.
+          const subtreeEnd = dynamicTagSubtrees.get(nodeIndex);
+          if (subtreeEnd !== undefined && compEl.nodeType === 1 && compEl.hasAttribute('data-wompo-ssr')) {
+            tagFrames.push({ compEl, tagIndex: nodeIndex, subtreeEnd, entered: false });
+          }
         } else if (type === ATTRS) {
           dynamic = new DynamicAttributes(node as HTMLElement);
         }
@@ -210,21 +273,47 @@ export class HydrationMismatch extends Error {
   }
 }
 
-/** Scan forward from a `<!--w-->` start marker for the matching `<!--/w-->`, accounting for
- * nested marker pairs. Markers are well-nested by the SSR emitter. */
+/** True if a node is a NODE-region start marker (`<!--w-->` for an interp, `<!--wc-->` for a
+ * component's re-homed `${children}`). */
+function isNodeStartMarker(node: Node): boolean {
+  return node.nodeType === 8 && ((node as Comment).data === 'w' || (node as Comment).data === 'wc');
+}
+
+/** Scan forward from a NODE start marker for its matching end. Both `<!--w-->`/`<!--/w-->` and
+ * `<!--wc-->`/`<!--/wc-->` pairs are tracked with a single depth counter — they are well-nested by
+ * the SSR emitter, so the first marker that brings the depth back to 0 is the matching close. */
 function findEndMarker(start: ChildNode): ChildNode | null {
   let n: Node | null = start.nextSibling;
   let depth = 1;
   while (n) {
     if (n.nodeType === 8) {
       const data = (n as Comment).data;
-      if (data === 'w') depth++;
-      else if (data === '/w') {
+      if (data === 'w' || data === 'wc') depth++;
+      else if (data === '/w' || data === '/wc') {
         depth--;
         if (depth === 0) return n as ChildNode;
       }
     }
     n = n.nextSibling;
+  }
+  return null;
+}
+
+/** Locate the start of a re-homed children region inside an SSR'd component element. When a parent
+ * renders `<${Comp}>…children…</${Comp}>`, `Comp` re-homes those children into its own render
+ * output, wrapping the insertion point in `<!--wc-->`…`<!--/wc-->`. Returns the first `<!--wc-->`
+ * comment found anywhere within `compEl`'s light-DOM subtree (a `<template>`'s inert content is in
+ * `.content`, not `.childNodes`, so it is naturally skipped). */
+function findChildrenRegionStart(compEl: Element): ChildNode | null {
+  const stack: ChildNode[] = [];
+  for (let c = compEl.firstChild; c; c = c.nextSibling) stack.push(c);
+  let i = 0;
+  while (i < stack.length) {
+    const n = stack[i++];
+    if (n.nodeType === 8 && (n as unknown as Comment).data === 'wc') return n;
+    if (n.nodeType === 1) {
+      for (let c = (n as Element).firstChild; c; c = c.nextSibling) stack.push(c);
+    }
   }
   return null;
 }
@@ -455,6 +544,37 @@ const __computeLeafElementIndices = (templateContent: DocumentFragment): Set<num
   return leaves;
 };
 
+/** Count an element's walker-visible (element/comment) descendants. A `<template>`'s content lives
+ * in `.content`, not `.childNodes`, so it is naturally excluded — matching the live treeWalker. */
+const __countWalkerDescendants = (el: Element): number => {
+  let count = 0;
+  for (let c = el.firstChild; c; c = c.nextSibling) {
+    if (c.nodeType === 1) {
+      count += 1 + __countWalkerDescendants(c as Element);
+    } else if (c.nodeType === 8) {
+      count += 1;
+    }
+  }
+  return count;
+};
+
+/** Walk the (post-`__createDependencies`) template and map each dynamic-tag placeholder's node
+ * index to the node index immediately after its subtree. See `CachedTemplate.dynamicTagSubtrees`. */
+const __computeDynamicTagSubtrees = (templateContent: DocumentFragment): Map<number, number> => {
+  const subtrees = new Map<number, number>();
+  treeWalker.currentNode = templateContent;
+  let node: Node | null;
+  let idx = 0;
+  while ((node = treeWalker.nextNode())) {
+    if (node.nodeType === 1 && (node as Element).tagName === DYNAMIC_TAG_MARKER.toUpperCase()) {
+      subtrees.set(idx, idx + __countWalkerDescendants(node as Element) + 1);
+    }
+    idx++;
+  }
+  treeWalker.currentNode = document;
+  return subtrees;
+};
+
 /** Create a new CachedTemplate for a given RenderHtml. */
 export const __createTemplate = (html: RenderHtml) => {
   const [dom, attributes] = __createHtml(html.parts);
@@ -473,7 +593,8 @@ export const __createTemplate = (html: RenderHtml) => {
   }
   const dependencies = __createDependencies(template, html.parts, attributes);
   const leafElementIndices = __computeLeafElementIndices(template.content);
-  return new CachedTemplate(template, dependencies, leafElementIndices);
+  const dynamicTagSubtrees = __computeDynamicTagSubtrees(template.content);
+  return new CachedTemplate(template, dependencies, leafElementIndices, dynamicTagSubtrees);
 };
 
 /** True if two RenderHtml objects describe the same template. */

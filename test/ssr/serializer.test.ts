@@ -29,7 +29,7 @@ const compact = (s: string) => s.replace(/\n\s*/g, '').trim();
 // component element so the client's connectedCallback skips a destructive re-render. Tests that
 // assert on rendered content usually don't care about either; strip them for stable assertions.
 const stripMarkers = (s: string) =>
-  s.replace(/<!--\/?w-->/g, '').replace(/ data-wompo-ssr/g, '');
+  s.replace(/<!--\/?wc?-->/g, '').replace(/ data-wompo-ssr/g, '');
 
 /* ---------- Primitives & escape ---------- */
 
@@ -137,6 +137,28 @@ describe('serializer: nested components', () => {
     expect(stripMarkers(r.html)).toContain(
       '<nest-card><article><h1>title</h1><p>body</p></article></nest-card>',
     );
+  });
+
+  it('wraps re-homed dynamic-tag children in a distinct <!--wc--> marker', async () => {
+    // When a parent passes structured children INTO a component via a dynamic tag
+    // (`<${Comp}>…children…</${Comp}>`), the component re-homes them through `${children}`. A
+    // parent-owned NODE interp inside those children still needs its own `<!--w-->` marker, but the
+    // whole re-homed region is wrapped in `<!--wc-->`/`<!--/wc-->` so the parent's hydration adopt()
+    // can tell the dynamic-tag children apart from the component's own node interpolations.
+    function Link({ children, href }: any) {
+      return html`<a href=${href}>${children}</a>`;
+    }
+    defineWompo(Link, { name: 'wc-link' });
+    function Nav({ label }: any) {
+      return html`<${Link} href="/x"><span>${label}</span></${Link}>`;
+    }
+    defineWompo(Nav, { name: 'wc-nav' });
+    const r = await renderToString(Nav, { label: 'hello' });
+    // The component body wraps re-homed children in <!--wc-->, and the parent-owned ${label} interp
+    // keeps its own <!--w--> inside that region.
+    expect(r.html).toContain('<a href="/x"><!--wc-->');
+    expect(r.html).toContain('<span><!--w-->hello<!--/w--></span>');
+    expect(r.html).toContain('<!--/wc--></a>');
   });
 
   it('renders an array of templates', async () => {

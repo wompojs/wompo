@@ -16,7 +16,14 @@ export declare class CachedTemplate {
      * shape we *care about* matches. Recording leaf positions lets us treat such elements as the
      * leaves the template said they were and jump past their SSR'd subtree. */
     leafElementIndices: Set<number>;
-    constructor(template: HTMLTemplateElement, dependencies: Dependency[], leafElementIndices: Set<number>);
+    /** Maps the node index of each dynamic-tag placeholder (`wc-wc`) to the node index immediately
+     * after its template subtree. When a dynamic tag resolves to a component, that component re-homes
+     * the tag's children into its own SSR output (behind a `<template data-wompo-props>` and wrapper
+     * elements), so `adopt()` can't walk them in template order. This range lets adopt() splice into
+     * the component's `<!--wc-->` children region for the in-range deps, then resume at the
+     * component's next sibling — the node the template says comes after the dynamic tag. */
+    dynamicTagSubtrees: Map<number, number>;
+    constructor(template: HTMLTemplateElement, dependencies: Dependency[], leafElementIndices: Set<number>, dynamicTagSubtrees: Map<number, number>);
     /**
      * Hydration variant of `clone()`. Walks an existing DOM subtree (an SSR-rendered host element)
      * and constructs the same `Dynamics[]` it would have produced from a freshly cloned fragment —

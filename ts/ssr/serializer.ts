@@ -571,6 +571,11 @@ export class Serializer {
       if (k === 'children' || k === 'styles') continue;
       // skip ref hooks
       if (k === 'ref') continue;
+      // skip function-valued props (callbacks): they can't be serialized and devalue would emit
+      // `null`, which on hydration would clobber the live function a PARENT island assigns onto
+      // this element via updateProp(). Leaving the key out lets that parent-provided value survive
+      // the `_$initialProps` merge. Top-level islands never receive callbacks as props anyway.
+      if (typeof (props as any)[k] === 'function') continue;
       out[k] = (props as any)[k];
     }
     return out;
@@ -623,10 +628,15 @@ export class Serializer {
     switch (w.state) {
       case S.TEXT: {
         // Wrap the interp output in marker comments so the hydration runtime can locate the
-        // dynamic-node region in the SSR'd DOM and bind a DynamicNode to it.
-        this.currentBuf().push('<!--w-->');
+        // dynamic-node region in the SSR'd DOM and bind a DynamicNode to it. A `_$wompoChildren`
+        // value (a component rendering `${children}`) gets a *distinct* `<!--wc-->` marker: those
+        // children were re-homed from a parent's `<${Comp}>…</${Comp}>` dynamic tag, and the
+        // parent's adopt() needs to tell its dynamic-tag children region apart from the component's
+        // own node interpolations to bind deps that live across the re-homing boundary.
+        const isChildren = !!(value && (value as any)._$wompoChildren);
+        this.currentBuf().push(isChildren ? '<!--wc-->' : '<!--w-->');
         await this.emitNode(value);
-        this.currentBuf().push('<!--/w-->');
+        this.currentBuf().push(isChildren ? '<!--/wc-->' : '<!--/w-->');
         return;
       }
 
