@@ -131,7 +131,7 @@ export const addItem = defineAction(async (name) => {
 `defineAction` returns the function as-is on the server. When the wrapped reference is passed
 through an island's props payload, the client receives a `{__wompoAction: '<id>'}` marker and
 substitutes a fetch proxy hitting your framework's `/_action/:id` endpoint. The companion
-[`wompro`](https://github.com/lorenzolancero/wompro) framework wires this endpoint up for you.
+[`seawomp`](https://github.com/wompojs/seawomp) framework wires this endpoint up for you.
 
 ### Build / link
 
