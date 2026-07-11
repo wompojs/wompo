@@ -68,6 +68,10 @@ export const _$wompo = <Props extends WompoProps, E>(
     private __isInDOM: boolean = false;
     /** When true, the first render adopts the existing DOM instead of cloning the template. */
     public __isHydrating: boolean = false;
+    /** True for a non-island component whose DOM came from SSR and that is currently INERT
+     * (connectedCallback skipped `__initElement`). An enclosing hydrating component brings it
+     * to life via `_$hydrateStatic()` once its props have been applied. */
+    public _$ssrStatic: boolean = false;
 
     constructor() {
       super();
@@ -83,6 +87,20 @@ export const _$wompo = <Props extends WompoProps, E>(
       // when the upgrader is attached. If already connected (the SSR'd element was upgraded
       // before hydrate() was called), kick off __initElement now.
       if (this.isConnected && !this.__connected) this.__initElement();
+    }
+
+    /** Hydrate a non-island component that was SSR'd and left inert by connectedCallback.
+     * Called by an enclosing component after ITS hydration pass has applied this element's
+     * props (via updateProp on the bound attribute dependencies), so the adopt-in-place render
+     * sees the same values the server rendered with. No-op unless the element is `_$ssrStatic`
+     * (islands hydrate through `_$hydrate` with their serialized payload instead). */
+    public _$hydrateStatic(): void {
+      if (!this._$ssrStatic || !this.isConnected) return;
+      this._$ssrStatic = false;
+      this.removeAttribute('data-wompo-ssr');
+      this.__connected = false;
+      this.__isHydrating = true;
+      this.__initElement();
     }
 
     connectedCallback() {
@@ -129,10 +147,14 @@ export const _$wompo = <Props extends WompoProps, E>(
         //    as static-from-SSR and return.
         if (this.hasAttribute('data-wompo-island')) return;
         if (this.hasAttribute('data-wompo-ssr')) {
-          // Treat the element as already-initialized. Effects + event handlers don't fire
-          // (non-islands have no client behavior); the SSR'd DOM is the final DOM.
+          // Treat the element as already-initialized but remember the SSR'd state: if an
+          // enclosing island hydrates, it calls `_$hydrateStatic()` to bring this component
+          // to life (adopt-in-place). Outside any island the element simply stays static.
+          // The attribute is intentionally KEPT — the enclosing island's `adopt()` walk uses
+          // it (or `_$ssrStatic`) to recognise components that re-homed their dynamic-tag
+          // children; it is removed when/if the component hydrates.
+          this._$ssrStatic = true;
           this.__connected = true;
-          this.removeAttribute('data-wompo-ssr');
           return;
         }
         this.__initElement();
@@ -355,6 +377,18 @@ export const _$wompo = <Props extends WompoProps, E>(
           );
           this.__oldValues = elaboratedValues;
           this.__isHydrating = false;
+          // Bring SSR'd non-island child components (bound via dynamic tags) to life. Their
+          // props were just applied by the __setValues pass above, so the adopt-in-place render
+          // inside _$hydrateStatic sees the same values the server rendered with. Recursion is
+          // natural: each child runs this same hydration path for its own dynamic tags.
+          for (const dyn of this.__dynamics) {
+            if ((dyn as any)?.isTag) {
+              const el = (dyn as any).node as any;
+              if (el && el._$wompo && el._$ssrStatic && typeof el._$hydrateStatic === 'function') {
+                el._$hydrateStatic();
+              }
+            }
+          }
           return this.__postRender();
         } else if (this.__isInitializing) {
           const template = constructor._$getOrCreateTemplate(renderHtml);

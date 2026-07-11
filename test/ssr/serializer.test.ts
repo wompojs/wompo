@@ -327,3 +327,108 @@ describe('serializer: edge cases', () => {
     expect(stripMarkers(r.html)).toContain('<span data-on="y">on</span>');
   });
 });
+
+/* ---------- Quoted-attribute interpolations on native elements ---------- */
+
+describe('serializer: quoted attr interps on native elements', () => {
+  it('never serializes event handlers in quoted position (@load="${fn}")', async () => {
+    // Regression: the serialized arrow source contains `=>`, whose `>` closes the open tag
+    // early and leaks the remainder (`setLoaded(...) />`) as visible text.
+    function C() {
+      return html`<img src="/x.png" alt="x" @load="${() => (globalThis as any).__x?.(true)}" />`;
+    }
+    defineWompo(C, { name: 'qattr-event' });
+    const r = await renderToString(C, {});
+    expect(r.html).not.toContain('=&gt;');
+    expect(r.html).not.toContain('=>');
+    expect(r.html).not.toContain('__x');
+    expect(stripMarkers(r.html)).toContain('<img src="/x.png" alt="x"');
+  });
+
+  it('never serializes refs, quoted or unquoted', async () => {
+    function C() {
+      const r1 = useRef(null);
+      const r2 = useRef(null);
+      return html`<div><img ref="${r1}" src="/a.png" alt="a" /><img ref=${r2} src="/b.png" alt="b" /></div>`;
+    }
+    defineWompo(C, { name: 'qattr-ref' });
+    const r = await renderToString(C, {});
+    expect(r.html).not.toContain('ref=');
+    expect(r.html).not.toContain('[object Object]');
+    expect(r.html).toContain('src="/a.png"');
+    expect(r.html).toContain('src="/b.png"');
+  });
+
+  it('omits the attribute when a quoted single interp is nullish/false (client parity)', async () => {
+    function C() {
+      return html`<img src="/x.png" alt="x" fetchpriority="${undefined}" srcset="${null}" data-x="${false}" />`;
+    }
+    defineWompo(C, { name: 'qattr-nullish' });
+    const r = await renderToString(C, {});
+    expect(r.html).not.toContain('fetchpriority');
+    expect(r.html).not.toContain('srcset');
+    expect(r.html).not.toContain('data-x');
+    expect(r.html).toContain('src="/x.png"');
+  });
+
+  it('keeps empty-string and composed values', async () => {
+    function C({ v }: any) {
+      return html`<div data-empty="${''}" data-comp="a${v}b" data-num="${0}"></div>`;
+    }
+    defineWompo(C, { name: 'qattr-empty' });
+    const r = await renderToString(C, { v: 'X' });
+    expect(r.html).toContain('data-empty=""');
+    expect(r.html).toContain('data-comp="aXb"');
+    expect(r.html).toContain('data-num="0"');
+  });
+
+  it('serializes style objects in quoted position like the client', async () => {
+    function C() {
+      return html`<div style="${{ color: 'red', marginTop: 4 }}"></div>`;
+    }
+    defineWompo(C, { name: 'qattr-style' });
+    const r = await renderToString(C, {});
+    expect(r.html).toContain('style="color:red;margin-top:4px;"');
+  });
+
+  it('emits ?bool="${v}" on native elements iff truthy', async () => {
+    function C({ on }: any) {
+      return html`<button ?disabled="${on}">x</button>`;
+    }
+    defineWompo(C, { name: 'qattr-boolq' });
+    const rOn = await renderToString(C, { on: true });
+    expect(rOn.html).toContain('<button disabled>');
+    const rOff = await renderToString(C, { on: false });
+    expect(rOff.html).toContain('<button >');
+    expect(rOff.html).not.toContain('disabled');
+  });
+
+  it('drops non-style objects without leaving a dangling name=', async () => {
+    function C() {
+      return html`<div data-a=${{ x: 1 }} data-b="ok"></div>`;
+    }
+    defineWompo(C, { name: 'qattr-obj' });
+    const r = await renderToString(C, {});
+    expect(r.html).not.toContain('data-a');
+    expect(r.html).toContain('data-b="ok"');
+  });
+
+  it('warns on dynamic tags that are not components', async () => {
+    const errors: string[] = [];
+    const orig = console.error;
+    console.error = (...a: any[]) => errors.push(a.join(' '));
+    try {
+      function NotAComponent() {
+        return html`<p>plain</p>`;
+      }
+      function C() {
+        return html`<${NotAComponent}>x</${NotAComponent}>`;
+      }
+      defineWompo(C, { name: 'qattr-warn' });
+      await renderToString(C, {});
+    } finally {
+      console.error = orig;
+    }
+    expect(errors.join('\n')).toContain('did you forget defineWompo()');
+  });
+});

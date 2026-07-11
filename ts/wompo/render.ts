@@ -279,18 +279,27 @@ export const __setValues = (
         const attrStructure = currentDependency.attrStructure;
         if (attrStructure) {
           const parts = attrStructure.split(WC_MARKER);
-          let dynamicValue = currentValue;
-          for (let j = 0; j < parts.length - 1; j++) {
-            const value =
-              dynamicValue !== undefined && dynamicValue !== null && dynamicValue !== false
-                ? dynamicValue
-                : '';
-            parts[j] = `${parts[j]}${value}`;
-            i++;
-            dynamicValue = newValues[i];
+          if (parts.length === 2 && parts[0] === '' && parts[1] === '') {
+            // `attr="${v}"` — a single interpolation spanning the whole quoted value behaves
+            // like the unquoted `attr=${v}`: the raw value flows to updateValue (ref
+            // assignment, nullish/false removal, style objects) instead of being coerced
+            // through the composed-string path (which would set `ref="[object Object]"` or
+            // turn `disabled="${false}"` into a *truthy* empty attribute).
+            currentDependency.updateValue(currentValue);
+          } else {
+            let dynamicValue = currentValue;
+            for (let j = 0; j < parts.length - 1; j++) {
+              const value =
+                dynamicValue !== undefined && dynamicValue !== null && dynamicValue !== false
+                  ? dynamicValue
+                  : '';
+              parts[j] = `${parts[j]}${value}`;
+              i++;
+              dynamicValue = newValues[i];
+            }
+            i--;
+            currentDependency.updateValue(parts.join('').trim());
           }
-          i--;
-          currentDependency.updateValue(parts.join('').trim());
         } else {
           currentDependency.updateValue(currentValue);
         }

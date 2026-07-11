@@ -64,6 +64,12 @@ interface Walker {
   attrPrefix: '' | '@' | '.' | '?';
   attrAcc: string;
   attrHasInterp: boolean;
+  /** True once the current attribute value received emittable content (a static char or a
+   * serializable interp). When an interpolated attribute reaches its closing quote with NO
+   * content (every interp was null/undefined/false/ref/function/object), the whole attribute
+   * is dropped from the output — mirroring the client, where `attr="${null}"` removes the
+   * attribute instead of writing `attr=""`. */
+  attrHadContent: boolean;
   selfClosing: boolean;
   rawtextCloseMatch: number;
   rawtextCloseTarget: string;
@@ -77,23 +83,31 @@ function freshWalker(): Walker {
     attrPrefix: '',
     attrAcc: '',
     attrHasInterp: false,
+    attrHadContent: false,
     selfClosing: false,
     rawtextCloseMatch: 0,
     rawtextCloseTarget: '',
   };
 }
 
-/** Drop the trailing `name=` (one entry per char) and the preceding `=` from the buffer.
- * Called when an interp at the `name=${value}` position evaluates to null/undefined/false on
- * a native open tag — otherwise the dangling `=` would steal the next attribute as a value. */
-function backtrackAttrName(buf: string[], name: string): void {
-  const tail = name.length + 1; // chars + '='
+/** Drop the trailing `tail` single-char entries from the buffer. The walker emits attribute
+ * name/`=`/quote chars one entry per char, so popping N entries removes exactly those chars.
+ * Bails when an entry isn't a single char (a marker or interp output was pushed in between). */
+function backtrackChars(buf: string[], tail: number): void {
   if (buf.length < tail) return;
   for (let n = 0; n < tail; n++) {
     const last = buf[buf.length - 1];
     if (last.length !== 1) return; // safety: walker emits one char per push; bail if not
     buf.pop();
   }
+}
+
+/** Drop the trailing `name=` (one entry per char) and the preceding `=` from the buffer.
+ * Called when an interp at the `name=${value}` position evaluates to a value that must not
+ * serialize on a native open tag — otherwise the dangling `=` would steal the next attribute
+ * as a value. */
+function backtrackAttrName(buf: string[], name: string): void {
+  backtrackChars(buf, name.length + 1); // chars + '='
 }
 
 /* ============================== Component frame ============================== */
@@ -254,6 +268,7 @@ export class Serializer {
           w.attrPrefix = '';
           w.attrAcc = '';
           w.attrHasInterp = false;
+          w.attrHadContent = false;
           if (c === 64 /* @ */) {
             w.attrPrefix = '@';
             i++;
@@ -318,6 +333,7 @@ export class Serializer {
             w.state = S.ATTR_VALUE_DQ;
             w.attrAcc = '';
             w.attrHasInterp = false;
+            w.attrHadContent = false;
             emit('"');
             i++;
             break;
@@ -326,6 +342,7 @@ export class Serializer {
             w.state = S.ATTR_VALUE_SQ;
             w.attrAcc = '';
             w.attrHasInterp = false;
+            w.attrHadContent = false;
             emit("'");
             i++;
             break;
@@ -364,13 +381,14 @@ export class Serializer {
 
         case S.ATTR_VALUE_DQ: {
           if (c === 34 /* " */) {
-            this.flushAccumulatedAttr(w);
+            const omitted = this.flushAccumulatedAttr(w);
             w.state = S.TAG_ATTR_SPACE;
-            emit('"');
+            if (!omitted) emit('"');
             i++;
             break;
           }
           w.attrAcc += part[i];
+          w.attrHadContent = true;
           emit(part[i]);
           i++;
           break;
@@ -378,13 +396,14 @@ export class Serializer {
 
         case S.ATTR_VALUE_SQ: {
           if (c === 39 /* ' */) {
-            this.flushAccumulatedAttr(w);
+            const omitted = this.flushAccumulatedAttr(w);
             w.state = S.TAG_ATTR_SPACE;
-            emit("'");
+            if (!omitted) emit("'");
             i++;
             break;
           }
           w.attrAcc += part[i];
+          w.attrHadContent = true;
           emit(part[i]);
           i++;
           break;
@@ -590,12 +609,34 @@ export class Serializer {
     (frame.pendingProps as any)[key] = true;
   }
 
-  /** Flush a static (no-interp) attribute. For component frames, the attr name was suppressed
-   * during char emission; rebuild the full ` name="value"` (or boolean form) into parentBuf. */
-  private flushAccumulatedAttr(w: Walker): void {
+  /** Flush an attribute at its end (closing quote / whitespace / `>`). For component frames,
+   * the attr chars were suppressed during emission; rebuild the full ` name="value"` (or
+   * boolean form) into parentBuf. For native elements the chars streamed through already —
+   * here we only handle the two interp-driven cases: `?bool="${v}"` (name suppressed → emit
+   * the bare name iff truthy) and a fully-empty interpolated value (drop the attribute,
+   * mirroring the client's removeAttribute for nullish values). Returns true when the
+   * attribute was dropped and the caller must not emit the closing quote. */
+  private flushAccumulatedAttr(w: Walker): boolean {
     const frame = this.openTagFrame();
-    if (!frame) return; // native: chars already emitted
-    if (!w.attrName) return;
+    if (!frame) {
+      if (!w.attrName) return false;
+      if (w.attrPrefix === '?') {
+        // Chars were suppressed (skipNativePrefixed); emit the bare name iff the accumulated
+        // value is truthy. The whitespace BEFORE `?name` was already emitted (that's how the
+        // walker entered TAG_ATTR_SPACE), so push the name without a leading space. The
+        // closing quote is suppressed by the same skip.
+        if (w.attrAcc) this.currentBuf().push(toKebab(w.attrName));
+        return false;
+      }
+      if (w.attrPrefix === '' && w.attrHasInterp && !w.attrHadContent) {
+        // Every part of the value was nullish/ref/function/object: the client would remove
+        // the attribute, so drop the already-emitted ` name="` chars from the output.
+        backtrackChars(this.currentBuf(), w.attrName.length + 2); // name + '=' + quote
+        return true;
+      }
+      return false;
+    }
+    if (!w.attrName) return false;
     if (w.attrHasInterp) {
       // The composed value was handled by emitAttrValue (interp). The accumulator is the final
       // string; rebuild the full ` name="value"` in parentBuf.
@@ -608,7 +649,7 @@ export class Serializer {
         (frame.pendingProps as any)['?' + w.attrName] = w.attrAcc;
         frame.parentBuf.push(' ', toKebab(w.attrName));
       }
-      return;
+      return false;
     }
     // Plain static value.
     const key = w.attrPrefix + w.attrName;
@@ -620,6 +661,7 @@ export class Serializer {
     } else if (w.attrPrefix === '?' && w.attrAcc) {
       frame.parentBuf.push(' ', toKebab(w.attrName));
     }
+    return false;
   }
 
   /* ============================== Interpolation ============================== */
@@ -680,6 +722,15 @@ export class Serializer {
           }
           return;
         }
+        // Anything else silently produces a broken `< >` tag — surface the mistake (the most
+        // common one: a plain function that was never passed through defineWompo).
+        if (typeof value === 'function') {
+          console.error(
+            `[wompo ssr] dynamic tag value is a plain function (${(value as any).name || 'anonymous'}) — did you forget defineWompo()?`,
+          );
+        } else if (value !== null && value !== undefined) {
+          console.error(`[wompo ssr] dynamic tag value must be a component or a string, got ${typeof value}`);
+        }
         return;
       }
 
@@ -729,12 +780,38 @@ export class Serializer {
         // Composed attribute: contribute a stringified value to the accumulator. For native
         // elements we also emit the escaped value into the buffer (so the literal attr is
         // complete); component frames rebuild via pendingProps from attrAcc on flush.
-        const s = value === null || value === undefined || value === false ? '' : String(value);
-        w.attrAcc += s;
+        const isNullish = value === null || value === undefined || value === false;
+        const s = isNullish ? '' : String(value);
         w.attrHasInterp = true;
-        if (!this.openTagFrame()) {
-          this.currentBuf().push(escapeAttr(s));
+        if (this.openTagFrame()) {
+          w.attrAcc += s;
+          return;
         }
+        // Native element.
+        if (w.attrPrefix !== '') {
+          // `@load="${fn}"` / `.prop="${v}"` / `?bool="${v}"`: the name/`=`/quote chars were
+          // suppressed by skipNativePrefixed — emitting the value here would inject it BARE
+          // into the open tag (a serialized handler contains `=>`, whose `>` closes the tag
+          // early and leaks the rest as visible text). Only accumulate: `?` reads the
+          // accumulator at flush; `@`/`.` are dropped entirely.
+          w.attrAcc += s;
+          return;
+        }
+        if (isNullish) return; // contributes nothing; attr dropped at flush if still empty
+        if (w.attrName === 'ref' || typeof value === 'function') return; // never serialized
+        if (typeof value === 'object') {
+          // Style objects serialize like the client does; other objects contribute nothing.
+          if (w.attrName === 'style' && !Array.isArray(value)) {
+            const styleStr = styleObjectToString(value as Record<string, unknown>);
+            w.attrAcc += styleStr;
+            w.attrHadContent = true;
+            this.currentBuf().push(escapeAttr(styleStr));
+          }
+          return;
+        }
+        w.attrAcc += s;
+        w.attrHadContent = true;
+        this.currentBuf().push(escapeAttr(s));
         return;
       }
 
@@ -796,12 +873,20 @@ export class Serializer {
       if (inlineName) backtrackAttrName(buf, name);
       return;
     }
+    if (name === 'ref' || typeof value === 'function') {
+      // Refs are hook handles and functions can never serialize — drop the dangling `name=`.
+      if (inlineName) backtrackAttrName(buf, name);
+      return;
+    }
     if (typeof value === 'object') {
       if (name === 'style' && value && !Array.isArray(value)) {
         const styleStr = styleObjectToString(value as Record<string, unknown>);
         if (inlineName) buf.push('"', escapeAttr(styleStr), '"');
         else buf.push(' style="', escapeAttr(styleStr), '"');
+        return;
       }
+      // Other objects have no attribute representation; drop the dangling `name=`.
+      if (inlineName) backtrackAttrName(buf, name);
       return;
     }
     if (inlineName) {

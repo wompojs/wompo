@@ -56,8 +56,11 @@ export class DynamicAttribute {
   }
 
   public updateValue(newValue: any) {
-    if (this.name === 'ref' && newValue.__wcRef) {
-      newValue.current = this.node;
+    if (this.name === 'ref') {
+      // Refs are hook handles, never attributes. Also guards nullish values (the old
+      // `newValue.__wcRef` check threw on null) and prevents a stringified ref from being
+      // written as a junk `ref="[object Object]"` attribute.
+      if (newValue && newValue.__wcRef) newValue.current = this.node;
       return;
     }
     if (DEV_MODE && (this.name === 'wc-perf' || this.name == 'wcPerf'))

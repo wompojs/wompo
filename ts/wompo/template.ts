@@ -176,8 +176,17 @@ export class CachedTemplate {
           // frame so the loop splices into the component's `<!--wc-->` region for the children deps
           // and resumes at the component's next sibling afterward. Dynamic tags that resolved to a
           // native element keep their children in place, so no frame is needed there.
+          // NB: the attribute check alone is NOT enough — a nested component whose class is
+          // loaded client-side upgrades (and may hydrate) before this walk runs, so we also
+          // accept the `_$ssrStatic`/`_$wompo` upgraded markers.
           const subtreeEnd = dynamicTagSubtrees.get(nodeIndex);
-          if (subtreeEnd !== undefined && compEl.nodeType === 1 && compEl.hasAttribute('data-wompo-ssr')) {
+          if (
+            subtreeEnd !== undefined &&
+            compEl.nodeType === 1 &&
+            (compEl.hasAttribute('data-wompo-ssr') ||
+              (compEl as any)._$ssrStatic ||
+              (compEl as any)._$wompo)
+          ) {
             tagFrames.push({ compEl, tagIndex: nodeIndex, subtreeEnd, entered: false });
           }
         } else if (type === ATTRS) {

@@ -38,8 +38,13 @@ export declare class Serializer {
     /** Bare attribute (no `=`). For native open tags the chars are already in the buf via the
      * char walker, so this only updates the open component frame's pendingProps. */
     private flushBareAttrIfNeeded;
-    /** Flush a static (no-interp) attribute. For component frames, the attr name was suppressed
-     * during char emission; rebuild the full ` name="value"` (or boolean form) into parentBuf. */
+    /** Flush an attribute at its end (closing quote / whitespace / `>`). For component frames,
+     * the attr chars were suppressed during emission; rebuild the full ` name="value"` (or
+     * boolean form) into parentBuf. For native elements the chars streamed through already —
+     * here we only handle the two interp-driven cases: `?bool="${v}"` (name suppressed → emit
+     * the bare name iff truthy) and a fully-empty interpolated value (drop the attribute,
+     * mirroring the client's removeAttribute for nullish values). Returns true when the
+     * attribute was dropped and the caller must not emit the closing quote. */
     private flushAccumulatedAttr;
     private processInterp;
     /** Emit a single attribute value.

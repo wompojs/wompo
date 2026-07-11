@@ -28,6 +28,8 @@ import './fixtures/nested-island.mjs';
 import './fixtures/island-callback.mjs';
 // Side-effect import: registers `sh-host`/`sh-shell` for the island-with-children re-render test.
 import './fixtures/island-children.mjs';
+// Side-effect import: registers `hydr-host`/`hydr-chip` for the non-island dynamic-tag child test.
+import './fixtures/static-child.mjs';
 
 // Wait for a microtask tick so `requestRender` (batched) flushes.
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -36,6 +38,7 @@ const DIST_SSR = resolve(process.cwd(), 'dist/ssr/index.js');
 const NESTED_ISLAND_FIXTURE = resolve(process.cwd(), 'test/ssr/fixtures/nested-island.mjs');
 const CALLBACK_ISLAND_FIXTURE = resolve(process.cwd(), 'test/ssr/fixtures/island-callback.mjs');
 const CHILDREN_ISLAND_FIXTURE = resolve(process.cwd(), 'test/ssr/fixtures/island-children.mjs');
+const STATIC_CHILD_FIXTURE = resolve(process.cwd(), 'test/ssr/fixtures/static-child.mjs');
 
 /* Render the `rootExport` of a fixture module to a string in a *real* Node process (no `document`).
  *
@@ -279,6 +282,51 @@ describe('hydrate', () => {
       expect(btn.textContent?.trim()).toBe('open');
       expect(section.getAttribute('class')).toBe('is-open');
       expect(content()?.textContent?.trim()).toBe('kept');
+    } finally {
+      console.warn = origWarn;
+    }
+  });
+
+  it('brings a NON-island dynamic-tag child to life when the enclosing island hydrates', async () => {
+    // `<${Chip}>…</${Chip}>` directly in an island template, where Chip is a plain (non-island)
+    // component whose class IS loaded client-side. Two regressions guarded here:
+    //  1. The upgraded child used to drop `data-wompo-ssr` in connectedCallback BEFORE the island
+    //     adopted, so adopt() missed the dynamic-tag frame and threw "expected '<!--w-->' …, got
+    //     <span>" → destructive client re-render on every load.
+    //  2. The child used to stay INERT (no events, no state) unless wrapped in a redundant
+    //     `${html`…`}`; now the island's hydration pass calls `_$hydrateStatic()` on it.
+    const warnings: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (...args: any[]) => warnings.push(args.join(' '));
+    try {
+      const ssrHtml = ssrFromFixture(STATIC_CHILD_FIXTURE, 'Host', {});
+      expect(ssrHtml).toContain('<hydr-chip');
+      document.body.innerHTML = ssrHtml;
+
+      hydrate(document);
+      await tick();
+      expect(warnings.some((w) => w.includes('hydration mismatch'))).toBe(false);
+
+      const chip = document.querySelector('hydr-chip')!;
+      // Hydrated in place (marker consumed by _$hydrateStatic), not left inert.
+      expect(chip.hasAttribute('data-wompo-ssr')).toBe(false);
+
+      // The child's own state is live: its internal button increments.
+      const chipBtn = chip.querySelector('[data-chip-btn]')!;
+      expect(chipBtn.textContent?.trim()).toBe('0');
+      chipBtn.dispatchEvent(new Event('click'));
+      await tick();
+      expect(chipBtn.textContent?.trim()).toBe('1');
+
+      // A parent re-render updates both the re-homed children region and the child's prop.
+      const hostBtn = document.querySelector('[data-host-btn]')!;
+      hostBtn.dispatchEvent(new Event('click'));
+      await tick();
+      await tick();
+      expect(chip.querySelector('[data-body]')?.textContent).toContain('child-1');
+      expect(chip.querySelector('strong')?.textContent?.trim()).toBe('L1');
+      // The child's own state survives the parent's prop-driven re-render.
+      expect(chipBtn.textContent?.trim()).toBe('1');
     } finally {
       console.warn = origWarn;
     }
