@@ -601,12 +601,18 @@ export class Serializer {
   }
 
   /** Bare attribute (no `=`). For native open tags the chars are already in the buf via the
-   * char walker, so this only updates the open component frame's pendingProps. */
+   * char walker; for an open component frame the walker suppressed them, so record the
+   * boolean prop AND rebuild the bare attribute into parentBuf. The client upgrade reads
+   * host attributes back as props (`'' → true`), so dropping the attribute here would flip
+   * the prop to `undefined` after hydration. */
   private flushBareAttrIfNeeded(w: Walker): void {
     const frame = this.openTagFrame();
     if (!frame || !w.attrName) return;
     const key = w.attrPrefix + w.attrName;
     (frame.pendingProps as any)[key] = true;
+    if (w.attrPrefix === '' && w.attrName !== 'ref' && w.attrName !== 'title') {
+      frame.parentBuf.push(' ', toKebab(w.attrName));
+    }
   }
 
   /** Flush an attribute at its end (closing quote / whitespace / `>`). For component frames,

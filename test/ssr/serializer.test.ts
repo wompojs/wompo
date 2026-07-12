@@ -99,6 +99,24 @@ describe('serializer: attributes', () => {
     expect(stripMarkers(r.html)).toContain('<attr-child n="7"><span>7</span></attr-child>');
   });
 
+  it('bare boolean attribute on a component: prop is true AND the attribute survives on the host tag', async () => {
+    function Child({ text }: any) {
+      return html`<span class=${text ? 'is-text' : 'is-btn'}>x</span>`;
+    }
+    defineWompo(Child, { name: 'attr-bare-child' });
+    function Parent() {
+      return html`<${Child} text href="/projects" />`;
+    }
+    defineWompo(Parent, { name: 'attr-bare-parent' });
+    const r = await renderToString(Parent, {});
+    const out = stripMarkers(r.html);
+    // The component saw text=true during SSR…
+    expect(out).toContain('class="is-text"');
+    // …and the host tag keeps the bare attribute, so the client upgrade
+    // (getAttribute → '' → true) re-derives the same prop after hydration.
+    expect(out).toMatch(/<attr-bare-child text href="\/projects">/);
+  });
+
   it('attrs() spread on a native element', async () => {
     function A() {
       const bag = attrs({ 'data-a': '1', 'data-b': 'two', disabled: true });

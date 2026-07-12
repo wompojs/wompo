@@ -36,7 +36,10 @@ export declare class Serializer {
     /** Strip server-only / non-serializable keys from the props payload before islanding. */
     private sanitizePropsForIsland;
     /** Bare attribute (no `=`). For native open tags the chars are already in the buf via the
-     * char walker, so this only updates the open component frame's pendingProps. */
+     * char walker; for an open component frame the walker suppressed them, so record the
+     * boolean prop AND rebuild the bare attribute into parentBuf. The client upgrade reads
+     * host attributes back as props (`'' → true`), so dropping the attribute here would flip
+     * the prop to `undefined` after hydration. */
     private flushBareAttrIfNeeded;
     /** Flush an attribute at its end (closing quote / whitespace / `>`). For component frames,
      * the attr chars were suppressed during emission; rebuild the full ` name="value"` (or
