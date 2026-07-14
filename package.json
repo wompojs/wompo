@@ -41,7 +41,7 @@
 		}
 	},
 	"devDependencies": {
-		"esbuild": "0.25.0",
+		"esbuild": "0.28.1",
 		"happy-dom": "^20.9.0",
 		"tachometer": "^0.7.0",
 		"ts-loader": "^9.4.3",
