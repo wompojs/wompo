@@ -4,6 +4,13 @@ export declare class Serializer {
     private ctx;
     private rootBuf;
     private frames;
+    /** Monotonic per-document counter backing each component's `data-wompo-ssr="<id>"`. */
+    private ssrIdSeq;
+    /** ssrId of the component whose template is currently being walked. `${children}` interps
+     * emit `<!--wc:<ownerSsrId>-->` so a parent's adopt() can find the region of the component it
+     * bound (and not a region re-homed one level deeper, e.g. `<${A}>x</${A}>` where `A` renders
+     * `<${B}>${children}</${B}>` — both regions end up in `B`'s output). */
+    private ownerSsrId;
     constructor(ctx: SsrContext);
     /** Top-level entry: render a root component and return its HTML. */
     renderRoot(Component: WompoComponent, props: WompoProps): Promise<string>;
@@ -25,10 +32,11 @@ export declare class Serializer {
     /** Push ` data-wompo-island="N" data-wompo-mode="M"` to parentBuf BEFORE the open-tag '>'
      * is emitted. Stores the island in the SSR context registry. */
     private injectIslandMarkers;
-    /** Mark every wompo component emitted server-side with `data-wompo-ssr`. The client-side
+    /** Mark every wompo component emitted server-side with `data-wompo-ssr="<id>"`. The client-side
      * `connectedCallback` reads this marker and skips its destructive `__initElement` re-render —
      * the SSR'd DOM IS the rendered output for non-island components, and islands handle their
-     * own hydration via `_$hydrate()`. */
+     * own hydration via `_$hydrate()`. The id value pairs the element with its own re-homed
+     * `${children}` region marker (`<!--wc:<id>-->`). */
     private injectSsrMarker;
     /** After the open-tag '>' has been emitted, emit the JSON props payload as the first child
      * of the component (read by the hydration runtime). */
@@ -68,7 +76,9 @@ export declare class Serializer {
     /** Emit a component with its wrapping `<componentName attrs>` / `</componentName>` — used by
      * the root entry where no caller has emitted the open tag yet. */
     private emitComponent;
-    /** Render a component's own template into the given buffer, with optional shadow wrapping. */
+    /** Render a component's own template into the given buffer, with optional shadow wrapping.
+     * `ssrId` is the id emitted on the component's `data-wompo-ssr` attribute; it becomes the
+     * owner id of any `<!--wc:<id>-->` children-region marker produced by this render. */
     private emitComponentInto;
     /** Walk a template, routing all output into `targetBuf`. Saves/restores serializer state. */
     private walkTemplateInto;

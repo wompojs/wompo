@@ -24,12 +24,13 @@ import { renderToString } from '../../dist/ssr/index.js';
 
 // Helper: strip extra whitespace between tags for stable assertions.
 const compact = (s: string) => s.replace(/\n\s*/g, '').trim();
-// The serializer emits `<!--w-->...<!--/w-->` markers around node-position interpolations so the
-// hydration runtime can locate the dynamic-node regions, and ` data-wompo-ssr` on every wompo
-// component element so the client's connectedCallback skips a destructive re-render. Tests that
-// assert on rendered content usually don't care about either; strip them for stable assertions.
+// The serializer emits `<!--w-->...<!--/w-->` markers around node-position interpolations (and
+// `<!--wc:<id>-->` around re-homed children regions) so the hydration runtime can locate the
+// dynamic-node regions, and ` data-wompo-ssr="<id>"` on every wompo component element so the
+// client's connectedCallback skips a destructive re-render. Tests that assert on rendered content
+// usually don't care about either; strip them for stable assertions.
 const stripMarkers = (s: string) =>
-  s.replace(/<!--\/?wc?-->/g, '').replace(/ data-wompo-ssr/g, '');
+  s.replace(/<!--\/?wc?(?::\d+)?-->/g, '').replace(/ data-wompo-ssr(?:="\d+")?/g, '');
 
 /* ---------- Primitives & escape ---------- */
 
@@ -157,12 +158,14 @@ describe('serializer: nested components', () => {
     );
   });
 
-  it('wraps re-homed dynamic-tag children in a distinct <!--wc--> marker', async () => {
+  it('wraps re-homed dynamic-tag children in an owner-tagged <!--wc:id--> marker', async () => {
     // When a parent passes structured children INTO a component via a dynamic tag
     // (`<${Comp}>…children…</${Comp}>`), the component re-homes them through `${children}`. A
     // parent-owned NODE interp inside those children still needs its own `<!--w-->` marker, but the
-    // whole re-homed region is wrapped in `<!--wc-->`/`<!--/wc-->` so the parent's hydration adopt()
-    // can tell the dynamic-tag children apart from the component's own node interpolations.
+    // whole re-homed region is wrapped in `<!--wc:<id>-->`/`<!--/wc-->` — the id matching the
+    // component's `data-wompo-ssr` value — so the parent's hydration adopt() can tell the
+    // dynamic-tag children apart from the component's own node interpolations AND from regions
+    // re-homed further down the chain (children forwarded into another component).
     function Link({ children, href }: any) {
       return html`<a href=${href}>${children}</a>`;
     }
@@ -172,9 +175,11 @@ describe('serializer: nested components', () => {
     }
     defineWompo(Nav, { name: 'wc-nav' });
     const r = await renderToString(Nav, { label: 'hello' });
-    // The component body wraps re-homed children in <!--wc-->, and the parent-owned ${label} interp
-    // keeps its own <!--w--> inside that region.
-    expect(r.html).toContain('<a href="/x"><!--wc-->');
+    // The Link element carries an ssr id, and its re-homed children region is tagged with it;
+    // the parent-owned ${label} interp keeps its own <!--w--> inside that region.
+    const idMatch = r.html.match(/<wc-link[^>]* data-wompo-ssr="(\d+)"/);
+    expect(idMatch).not.toBeNull();
+    expect(r.html).toContain(`<a href="/x"><!--wc:${idMatch![1]}-->`);
     expect(r.html).toContain('<span><!--w-->hello<!--/w--></span>');
     expect(r.html).toContain('<!--/wc--></a>');
   });

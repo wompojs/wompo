@@ -282,22 +282,29 @@ export class HydrationMismatch extends Error {
   }
 }
 
-/** True if a node is a NODE-region start marker (`<!--w-->` for an interp, `<!--wc-->` for a
- * component's re-homed `${children}`). */
+/** True if a comment's data marks the start of a NODE region (`w` for an interp, `wc` /
+ * `wc:<ssr-id>` for a component's re-homed `${children}`). */
+function isRegionStartData(data: string): boolean {
+  return data === 'w' || data === 'wc' || data.startsWith('wc:');
+}
+
+/** True if a node is a NODE-region start marker (`<!--w-->` for an interp, `<!--wc-->` or
+ * `<!--wc:<ssr-id>-->` for a component's re-homed `${children}`). */
 function isNodeStartMarker(node: Node): boolean {
-  return node.nodeType === 8 && ((node as Comment).data === 'w' || (node as Comment).data === 'wc');
+  return node.nodeType === 8 && isRegionStartData((node as Comment).data);
 }
 
 /** Scan forward from a NODE start marker for its matching end. Both `<!--w-->`/`<!--/w-->` and
- * `<!--wc-->`/`<!--/wc-->` pairs are tracked with a single depth counter — they are well-nested by
- * the SSR emitter, so the first marker that brings the depth back to 0 is the matching close. */
+ * `<!--wc[:id]-->`/`<!--/wc-->` pairs are tracked with a single depth counter — they are
+ * well-nested by the SSR emitter, so the first marker that brings the depth back to 0 is the
+ * matching close. */
 function findEndMarker(start: ChildNode): ChildNode | null {
   let n: Node | null = start.nextSibling;
   let depth = 1;
   while (n) {
     if (n.nodeType === 8) {
       const data = (n as Comment).data;
-      if (data === 'w' || data === 'wc') depth++;
+      if (isRegionStartData(data)) depth++;
       else if (data === '/w' || data === '/wc') {
         depth--;
         if (depth === 0) return n as ChildNode;
@@ -310,21 +317,54 @@ function findEndMarker(start: ChildNode): ChildNode | null {
 
 /** Locate the start of a re-homed children region inside an SSR'd component element. When a parent
  * renders `<${Comp}>…children…</${Comp}>`, `Comp` re-homes those children into its own render
- * output, wrapping the insertion point in `<!--wc-->`…`<!--/wc-->`. Returns the first `<!--wc-->`
- * comment found anywhere within `compEl`'s light-DOM subtree (a `<template>`'s inert content is in
- * `.content`, not `.childNodes`, so it is naturally skipped). */
+ * output, wrapping the insertion point in `<!--wc:<ssr-id>-->`…`<!--/wc-->` where the id matches
+ * `Comp`'s `data-wompo-ssr` value. The id matters: when `Comp`'s template forwards `${children}`
+ * into ANOTHER component (`Comp` renders `<${Inner}>${children}</${Inner}>`), the subtree contains
+ * `Inner`'s region too — and `Inner`'s start marker comes first in document order, so "first
+ * `<!--wc-->` wins" would misalign every dep bound through the frame. Falls back to the first
+ * bare `<!--wc-->` when no id is available (legacy SSR output). */
 function findChildrenRegionStart(compEl: Element): ChildNode | null {
+  const ssrId = compEl.getAttribute && compEl.getAttribute('data-wompo-ssr');
+  return findChildrenMarker(compEl, ssrId ? 'wc:' + ssrId : null);
+}
+
+/** Scan `root`'s light-DOM subtree for a children-region start marker (a `<template>`'s inert
+ * content is in `.content`, not `.childNodes`, so it is naturally skipped). With `exact` set,
+ * only that marker matches; otherwise any `wc`-family marker does. */
+function findChildrenMarker(root: Element | ShadowRoot, exact: string | null): ChildNode | null {
   const stack: ChildNode[] = [];
-  for (let c = compEl.firstChild; c; c = c.nextSibling) stack.push(c);
+  for (let c = root.firstChild; c; c = c.nextSibling) stack.push(c);
   let i = 0;
   while (i < stack.length) {
     const n = stack[i++];
-    if (n.nodeType === 8 && (n as unknown as Comment).data === 'wc') return n;
+    if (n.nodeType === 8) {
+      const data = (n as unknown as Comment).data;
+      if (exact !== null ? data === exact : data === 'wc' || data.startsWith('wc:')) return n;
+    }
     if (n.nodeType === 1) {
       for (let c = (n as Element).firstChild; c; c = c.nextSibling) stack.push(c);
     }
   }
   return null;
+}
+
+/** Collect the live nodes of a hydrating component's own re-homed `${children}` region — the
+ * nodes strictly between its `<!--wc:<ssrId>-->` … `<!--/wc-->` markers. They become the
+ * component's `props.children`, so client re-renders keep the real SSR'd content: positions
+ * adopted in place see the nodes already where they belong (a no-op re-insert), and nested
+ * templates that fall back to cloning fresh DOM re-insert the very same nodes — instead of
+ * rendering an empty children slot and silently dropping the SSR'd subtree. Returns [] when the
+ * component has no children region (it never interpolated `${children}`). */
+export function collectSsrChildrenNodes(root: Element | ShadowRoot, ssrId: string | null): Node[] {
+  const start = findChildrenMarker(root, ssrId ? 'wc:' + ssrId : null);
+  if (!start) return [];
+  const end = findEndMarker(start);
+  if (!end) return [];
+  const nodes: Node[] = [];
+  for (let n: ChildNode | null = start.nextSibling; n && n !== end; n = n.nextSibling) {
+    nodes.push(n);
+  }
+  return nodes;
 }
 
 /** Return the next walker-visible node (element or comment) in document order that is *not* a

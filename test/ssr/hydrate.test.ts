@@ -30,6 +30,8 @@ import './fixtures/island-callback.mjs';
 import './fixtures/island-children.mjs';
 // Side-effect import: registers `hydr-host`/`hydr-chip` for the non-island dynamic-tag child test.
 import './fixtures/static-child.mjs';
+// Side-effect import: registers `fwd-page`/`fwd-btn`/`fwd-inner` for the forwarded-children test.
+import './fixtures/forwarded-children.mjs';
 
 // Wait for a microtask tick so `requestRender` (batched) flushes.
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -39,6 +41,10 @@ const NESTED_ISLAND_FIXTURE = resolve(process.cwd(), 'test/ssr/fixtures/nested-i
 const CALLBACK_ISLAND_FIXTURE = resolve(process.cwd(), 'test/ssr/fixtures/island-callback.mjs');
 const CHILDREN_ISLAND_FIXTURE = resolve(process.cwd(), 'test/ssr/fixtures/island-children.mjs');
 const STATIC_CHILD_FIXTURE = resolve(process.cwd(), 'test/ssr/fixtures/static-child.mjs');
+const FORWARDED_CHILDREN_FIXTURE = resolve(
+  process.cwd(),
+  'test/ssr/fixtures/forwarded-children.mjs',
+);
 
 /* Render the `rootExport` of a fixture module to a string in a *real* Node process (no `document`).
  *
@@ -327,6 +333,36 @@ describe('hydrate', () => {
       expect(chip.querySelector('strong')?.textContent?.trim()).toBe('L1');
       // The child's own state survives the parent's prop-driven re-render.
       expect(chipBtn.textContent?.trim()).toBe('1');
+    } finally {
+      console.warn = origWarn;
+    }
+  });
+
+  it('keeps children forwarded through a nested component across hydration', async () => {
+    // Regression: an island renders `<${Btn}>Index</${Btn}>` and `Btn` re-homes its ${children}
+    // INSIDE a nested template branch (`${href ? html`<${Inner}>…${children}…</${Inner}>` : …}`).
+    // Nested templates are not adopted — the hydrating render clones them fresh — so the SSR'd
+    // "Index" text used to vanish: children were seeded EMPTY during hydration, and the island's
+    // adopt() bound its "Index" dep to the wrong `<!--wc-->` region (Inner's own children region
+    // starts first in document order). Owner-tagged `<!--wc:<id>-->` markers + collecting the real
+    // SSR'd nodes as props.children keep the content alive.
+    const warnings: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (...args: any[]) => warnings.push(args.join(' '));
+    try {
+      const ssrHtml = ssrFromFixture(FORWARDED_CHILDREN_FIXTURE, 'Page', { label: 'Index' });
+      expect(ssrHtml).toContain('Index');
+      document.body.innerHTML = ssrHtml;
+
+      hydrate(document);
+      await tick();
+      expect(warnings.some((w) => w.includes('hydration mismatch'))).toBe(false);
+
+      const a = document.querySelector('fwd-page a')!;
+      expect(a.getAttribute('href')).toBe('/projects');
+      // Both the sibling rendered by Btn's own template AND the forwarded children survive.
+      expect(a.querySelector('[data-arrow]')?.textContent).toBe('→');
+      expect(a.textContent).toContain('Index');
     } finally {
       console.warn = origWarn;
     }

@@ -2,7 +2,12 @@
 import { DEV_MODE, adoptedStyles } from './constants.js';
 import { DynamicNode, WompoChildren } from './dynamics.js';
 import { observeRoot } from './mutation-observer.js';
-import { CachedTemplate, HydrationMismatch, __createTemplate } from './template.js';
+import {
+  CachedTemplate,
+  HydrationMismatch,
+  __createTemplate,
+  collectSsrChildrenNodes,
+} from './template.js';
 import { __setValues } from './render.js';
 import { findSuspense } from './suspense-utils.js';
 import {
@@ -68,6 +73,10 @@ export const _$wompo = <Props extends WompoProps, E>(
     private __isInDOM: boolean = false;
     /** When true, the first render adopts the existing DOM instead of cloning the template. */
     public __isHydrating: boolean = false;
+    /** The SSR id (the `data-wompo-ssr` attribute value) captured before hydration strips the
+     * attribute. Pairs the element with its own `<!--wc:<id>-->` children-region marker so the
+     * hydrating render can rebuild `props.children` from the live SSR'd nodes. */
+    private __ssrChildrenId: string | null = null;
     /** True for a non-island component whose DOM came from SSR and that is currently INERT
      * (connectedCallback skipped `__initElement`). An enclosing hydrating component brings it
      * to life via `_$hydrateStatic()` once its props have been applied. */
@@ -83,6 +92,7 @@ export const _$wompo = <Props extends WompoProps, E>(
     public _$hydrate(element: HTMLElement, initialProps: WompoProps): void {
       this._$initialProps = initialProps;
       this.__isHydrating = true;
+      this.__ssrChildrenId = this.getAttribute('data-wompo-ssr');
       // The element passed in IS this instance — we mark and rely on connectedCallback to run
       // when the upgrader is attached. If already connected (the SSR'd element was upgraded
       // before hydrate() was called), kick off __initElement now.
@@ -97,6 +107,7 @@ export const _$wompo = <Props extends WompoProps, E>(
     public _$hydrateStatic(): void {
       if (!this._$ssrStatic || !this.isConnected) return;
       this._$ssrStatic = false;
+      this.__ssrChildrenId = this.getAttribute('data-wompo-ssr');
       this.removeAttribute('data-wompo-ssr');
       this.__connected = false;
       this.__isHydrating = true;
@@ -255,10 +266,15 @@ export const _$wompo = <Props extends WompoProps, E>(
             this.__ROOT = this.shadowRoot;
           }
         }
-        // Children: SSR baked them into the rendered tree, so we pass an empty WompoChildren.
-        // The `${children}` interp position (if any) will be bound by the adopt() walk and the
-        // subsequent __setValues will see "no children to insert" — leaving the SSR'd subtree.
-        this.props.children = new WompoChildren([]);
+        // Children: SSR baked them into the rendered tree behind a `<!--wc:<id>-->` region
+        // marker. Reference the live nodes as props.children (they are NOT detached): the
+        // `${children}` position adopted by the walk sees them already in place (a no-op
+        // re-insert), while a nested template that falls back to cloning fresh DOM re-inserts
+        // these same nodes — keeping the SSR'd content AND any dep bindings an enclosing
+        // component holds on them, instead of rendering an empty children slot.
+        this.props.children = new WompoChildren(
+          collectSsrChildrenNodes(this.__ROOT as Element, this.__ssrChildrenId),
+        );
       } else {
         const childNodes = this.__ROOT.childNodes;
         const childrenArray: Node[] = [];

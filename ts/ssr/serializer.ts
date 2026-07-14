@@ -121,6 +121,9 @@ interface Frame {
   openClosed: boolean;
   shadow: boolean;
   providedContextName?: string;
+  /** Document-unique id emitted as `data-wompo-ssr="<id>"`; also tags the component's re-homed
+   * `${children}` region marker (`<!--wc:<id>-->`) so hydration can tell nested regions apart. */
+  ssrId?: string;
   /** True for `<wompo-suspense>` frames in streaming mode. */
   isSuspense?: boolean;
   /** Descendants that registered useAsync; resolved out-of-order after the shell flushes. */
@@ -133,6 +136,13 @@ export class Serializer {
   private ctx: SsrContext;
   private rootBuf: string[] = [];
   private frames: Frame[] = [];
+  /** Monotonic per-document counter backing each component's `data-wompo-ssr="<id>"`. */
+  private ssrIdSeq = 0;
+  /** ssrId of the component whose template is currently being walked. `${children}` interps
+   * emit `<!--wc:<ownerSsrId>-->` so a parent's adopt() can find the region of the component it
+   * bound (and not a region re-homed one level deeper, e.g. `<${A}>x</${A}>` where `A` renders
+   * `<${B}>${children}</${B}>` — both regions end up in `B`'s output). */
+  private ownerSsrId: string | null = null;
 
   constructor(ctx: SsrContext) {
     this.ctx = ctx;
@@ -556,12 +566,14 @@ export class Serializer {
     frame.parentBuf.push(' data-wompo-island="', String(index), '" data-wompo-mode="', mode, '"');
   }
 
-  /** Mark every wompo component emitted server-side with `data-wompo-ssr`. The client-side
+  /** Mark every wompo component emitted server-side with `data-wompo-ssr="<id>"`. The client-side
    * `connectedCallback` reads this marker and skips its destructive `__initElement` re-render —
    * the SSR'd DOM IS the rendered output for non-island components, and islands handle their
-   * own hydration via `_$hydrate()`. */
+   * own hydration via `_$hydrate()`. The id value pairs the element with its own re-homed
+   * `${children}` region marker (`<!--wc:<id>-->`). */
   private injectSsrMarker(frame: Frame): void {
-    frame.parentBuf.push(' data-wompo-ssr');
+    frame.ssrId = String(this.ssrIdSeq++);
+    frame.parentBuf.push(' data-wompo-ssr="', frame.ssrId, '"');
   }
 
   /** After the open-tag '>' has been emitted, emit the JSON props payload as the first child
@@ -677,12 +689,19 @@ export class Serializer {
       case S.TEXT: {
         // Wrap the interp output in marker comments so the hydration runtime can locate the
         // dynamic-node region in the SSR'd DOM and bind a DynamicNode to it. A `_$wompoChildren`
-        // value (a component rendering `${children}`) gets a *distinct* `<!--wc-->` marker: those
-        // children were re-homed from a parent's `<${Comp}>…</${Comp}>` dynamic tag, and the
+        // value (a component rendering `${children}`) gets a *distinct* `<!--wc:<id>-->` marker:
+        // those children were re-homed from a parent's `<${Comp}>…</${Comp}>` dynamic tag, and the
         // parent's adopt() needs to tell its dynamic-tag children region apart from the component's
-        // own node interpolations to bind deps that live across the re-homing boundary.
+        // own node interpolations AND from regions re-homed further down the chain — the owner id
+        // (matching the component's `data-wompo-ssr` value) disambiguates nested regions.
         const isChildren = !!(value && (value as any)._$wompoChildren);
-        this.currentBuf().push(isChildren ? '<!--wc-->' : '<!--w-->');
+        this.currentBuf().push(
+          isChildren
+            ? this.ownerSsrId !== null
+              ? `<!--wc:${this.ownerSsrId}-->`
+              : '<!--wc-->'
+            : '<!--w-->',
+        );
         await this.emitNode(value);
         this.currentBuf().push(isChildren ? '<!--/wc-->' : '<!--/w-->');
         return;
@@ -967,6 +986,7 @@ export class Serializer {
       frame.pendingProps,
       childrenHtml,
       frame.parentBuf,
+      frame.ssrId,
     );
     if (frame.providedContextName) popContextValue(frame.providedContextName);
   }
@@ -1001,7 +1021,8 @@ export class Serializer {
       this.ctx.islands.push({ name: tag, mode: islandMode, index: islandIndex });
       targetBuf.push(' data-wompo-island="', String(islandIndex), '" data-wompo-mode="', islandMode, '"');
     }
-    targetBuf.push(' data-wompo-ssr>');
+    const ssrId = String(this.ssrIdSeq++);
+    targetBuf.push(' data-wompo-ssr="', ssrId, '">');
     if (islandIndex >= 0) {
       const payload = this.sanitizePropsForIsland(props);
       const json = devalue.stringify(payload);
@@ -1011,15 +1032,18 @@ export class Serializer {
         '</template>',
       );
     }
-    await this.emitComponentInto(Component, props, childrenHtml, targetBuf);
+    await this.emitComponentInto(Component, props, childrenHtml, targetBuf, ssrId);
   }
 
-  /** Render a component's own template into the given buffer, with optional shadow wrapping. */
+  /** Render a component's own template into the given buffer, with optional shadow wrapping.
+   * `ssrId` is the id emitted on the component's `data-wompo-ssr` attribute; it becomes the
+   * owner id of any `<!--wc:<id>-->` children-region marker produced by this render. */
   private async emitComponentInto(
     Component: WompoComponent,
     props: WompoProps,
     childrenHtml: string,
     targetBuf: string[],
+    ssrId?: string,
   ): Promise<void> {
     const tag = Component.componentName!;
     const shadow = !!Component.options?.shadow;
@@ -1059,7 +1083,17 @@ export class Serializer {
             subBuf.push('<', childTag);
             this.emitAttrsFromProps(sc.props, subBuf);
             subBuf.push('>');
-            if (resolved) await this.walkTemplateInto(resolved, subBuf);
+            if (resolved) {
+              // Boundary chunks are swapped in by the client runtime, not adopted — no
+              // `data-wompo-ssr` id exists here, so children markers stay un-owned.
+              const savedOwner = this.ownerSsrId;
+              this.ownerSsrId = null;
+              try {
+                await this.walkTemplateInto(resolved, subBuf);
+              } finally {
+                this.ownerSsrId = savedOwner;
+              }
+            }
             subBuf.push('</', childTag, '>');
           }
           return subBuf.join('');
@@ -1097,7 +1131,13 @@ export class Serializer {
     if (shadow) targetBuf.push('<template shadowrootmode="open">');
 
     if (renderHtml) {
-      await this.walkTemplateInto(renderHtml, targetBuf);
+      const savedOwner = this.ownerSsrId;
+      this.ownerSsrId = ssrId ?? null;
+      try {
+        await this.walkTemplateInto(renderHtml, targetBuf);
+      } finally {
+        this.ownerSsrId = savedOwner;
+      }
     }
 
     if (shadow) targetBuf.push('</template>');

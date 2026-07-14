@@ -52,6 +52,14 @@ export declare class HydrationMismatch extends Error {
     _$wompoHydrationMismatch: boolean;
     constructor(message: string);
 }
+/** Collect the live nodes of a hydrating component's own re-homed `${children}` region — the
+ * nodes strictly between its `<!--wc:<ssrId>-->` … `<!--/wc-->` markers. They become the
+ * component's `props.children`, so client re-renders keep the real SSR'd content: positions
+ * adopted in place see the nodes already where they belong (a no-op re-insert), and nested
+ * templates that fall back to cloning fresh DOM re-insert the very same nodes — instead of
+ * rendering an empty children slot and silently dropping the SSR'd subtree. Returns [] when the
+ * component has no children region (it never interpolated `${children}`). */
+export declare function collectSsrChildrenNodes(root: Element | ShadowRoot, ssrId: string | null): Node[];
 /**
  * Stores the processed value of a nested `html` / `svg` interpolation. Lets the renderer keep
  * track of the same kind of caching used by every component.
